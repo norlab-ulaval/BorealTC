@@ -2,6 +2,33 @@ function RES = SupportVectorMachine(Train,Test,SVMpar,SVM_TrainOpt)
 
 % FUNCTION OVERVIEW
 %{
+This function performs training and testing of a Support Vector Machine
+model.
+This model takes as input the partitioned data contained in the structs
+"Train" and "Test".
+The function returns a struct "RES" containing as many fields as the k-fold
+cross validation used to partition the data in "Train" and "Test",
+plus one extrafield with the resulting confusion matrix of the entire
+k-fold cross validation process.
+Each field of "RES" corresponding to cross validation folders contains 4
+fields:
+    - TrainingTime, with the time in milliseconds required to train the
+    model corresponding to the folder
+    - TestingTime, with the time in milliseconds required to test the
+    model corresponding to the folder
+    - Model, with the Convolutional Neural Network resulting from the
+    training process performed on the corresponding folder
+    - ConfusionMat, containing the confusion matrix resulting from the
+    testing of the model on the correspoding folder
+
+Statistical moments of the time signals contained in the input structs
+"Train" and "Test" are computed and fed to the SVM. The input struct
+"SVMpar" sets the number of statistical moments to be computed up to the
+fourth statistical moment.
+
+The coding of SVM and its template are set by the input cell
+"SVM_TrainOpt". The matlab function "templateSVM" is used to define SVM
+structure and "fitcecoc" is used to train the model.
 
 %}
 

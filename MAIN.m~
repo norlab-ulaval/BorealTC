@@ -365,15 +365,12 @@ The user can change any of the following training options:
     of kernel
     - Polynomial order, "polynomial_order", the polynomial order of the
     kernel
-    - Kernel scale, "kernel_scale", a scaling parameter for the input data
-    default: 'auto' 
-    - Box constraint, "box_constraint", controls the maximum penalty
+    - Kernel scale, "kernel_scale", default: 'auto'
+    - Box constraint, "box_constraint", that controls the maximum penalty
     imposed on margin-violating observations, and aids in preventing
     overfitting. Increasing this parameter causes the SVM to assign fewer
     support vectors but can lead to longer training times.
-    - Standardize, "standardize", flag indicating whether the software
-    should standardize the predictors before training the classifier
-    default: 1 (True)  
+    - Standardize, "standardize", default: 1 (True)
     - Coding, "coding", the coding type ('onevsone' or 'onevsall')
 
 The function used to train and test the SVM model is
