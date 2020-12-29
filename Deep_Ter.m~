@@ -304,7 +304,8 @@ Short-Term Memory Recurrent Neural Network model by changing the struct
 "CLSTMpar". 
 The struct "CLSTMpar" has 2 fields:
     - nHiddenUnits, containing the number of hidden units of the lstm layer
-    - numFilters, 
+    - numFilters, containing the number of filters to optimize during
+    training
 
 The function "DownSample_Data" returns 2 structs "TrainDS" and "TestDS"
 containig the downsampled data according to the lowest sampling frequency
@@ -313,8 +314,8 @@ The function "DownSample_Data" used here can be found in the directory
 "./functions/data functions" with a function overview that the user can
 read to better understand it.
 
-The user can access training options for LSTM training through the cell
-"LSTM_TrainOpt".
+The user can access training options for CLSTM training through the cell
+"CLSTM_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
     set used for validation between 0 (0%) and 1 (100%)
@@ -332,8 +333,9 @@ The user can change any of the following training options:
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
 
-The function used to train and test the LSTM model is "LSTM_RecurrentNet".
-The function "LSTM_RecurrentNet" can be found in the directory
+The function used to train and test the CLSTM model is
+"CLSTM_RecurrentNet". 
+The function "CLSTM_RecurrentNet" can be found in the directory
 "./functions/model functions" with a function overview that the user can
 read to better understand the process
 %}
@@ -349,6 +351,21 @@ CLSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
                   'minibatch_size'   , 10   ;...
                   'valid_patience'   , 8    ;...
                   'valid_frequency'  , 100};
+
+% SVM SETTINGS
+%{
+
+%}
+
+SVMpar.nStatMom = 4;
+
+SVM_TrainOpt = {'kernel_function'  , 'polynomial';...
+                'polynomial_order' , 1;...
+                'kernel_scale'     , 'auto';...
+                'box_constraint'   , 100;...
+                'standardize'      , 1;
+                'coding'           , 'onevsone'};
+
 
 for i = 1:1%numel(SAMP_WINDOWS)
     
@@ -371,6 +388,7 @@ for i = 1:1%numel(SAMP_WINDOWS)
                 RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
                     CLSTM_RecurrentNet(TrainDS,TestDS,CLSTMpar,CLSTM_TrainOpt,RNG);
             case 'SVM'
+                
         end
     end
 end
