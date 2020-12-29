@@ -304,8 +304,7 @@ Short-Term Memory Recurrent Neural Network model by changing the struct
 "CLSTMpar". 
 The struct "CLSTMpar" has 2 fields:
     - nHiddenUnits, containing the number of hidden units of the lstm layer
-    - numFilters, containing the number of filters to optimize during
-    training
+    - numFilters, 
 
 The function "DownSample_Data" returns 2 structs "TrainDS" and "TestDS"
 containig the downsampled data according to the lowest sampling frequency
@@ -314,8 +313,8 @@ The function "DownSample_Data" used here can be found in the directory
 "./functions/data functions" with a function overview that the user can
 read to better understand it.
 
-The user can access training options for CLSTM training through the cell
-"CLSTM_TrainOpt".
+The user can access training options for LSTM training through the cell
+"LSTM_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
     set used for validation between 0 (0%) and 1 (100%)
@@ -333,9 +332,8 @@ The user can change any of the following training options:
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
 
-The function used to train and test the CLSTM model is
-"CLSTM_RecurrentNet". 
-The function "CLSTM_RecurrentNet" can be found in the directory
+The function used to train and test the LSTM model is "LSTM_RecurrentNet".
+The function "LSTM_RecurrentNet" can be found in the directory
 "./functions/model functions" with a function overview that the user can
 read to better understand the process
 %}
