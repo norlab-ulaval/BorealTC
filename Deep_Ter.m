@@ -352,12 +352,27 @@ CLSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
                   'valid_patience'   , 8    ;...
                   'valid_frequency'  , 100};
 
+% SVM SETTINGS
+%{
+
+%}
+
+SVMpar.nStatMom = 4;
+
+SVM_TrainOpt = {'kernel_function'  , 'polynomial';...
+                'polynomial_order' , 1;...
+                'kernel_scale'     , 'auto';...
+                'box_constraint'   , 100;...
+                'standardize'      , 1;
+                'coding'           , 'onevsone'};
+
+
 for i = 1:1%numel(SAMP_WINDOWS)
     
     w = SAMP_WINDOWS(i);
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 3%1:numel(MODELS)
+    for j = 4%1:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
@@ -373,6 +388,7 @@ for i = 1:1%numel(SAMP_WINDOWS)
                 RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
                     CLSTM_RecurrentNet(TrainDS,TestDS,CLSTMpar,CLSTM_TrainOpt,RNG);
             case 'SVM'
+                RES = SupportVectorMachine(AugTrain,AugTest,SVMpar,SVM_TrainOpt);
         end
     end
 end
