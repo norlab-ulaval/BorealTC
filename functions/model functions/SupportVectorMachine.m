@@ -61,7 +61,12 @@ for i = 1:Kfold
                     end
                 end
             case 4
-                
+                for j = 1:size(Train.(FN{i}).data,1)
+                    XTrain(j,3*sum(sz)+1:3*sum(sz)+sz(1)) = kurtosis(Train.(FN{i}).data{j,1});
+                    for c = 2:numel(sz)
+                        XTrain(j,3*sum(sz)+sum(sz(1:c-1))+1:3*sum(sz)+sum(sz(1:c-1))+sz(c)) = kurtosis(Train.(FN{i}).data{j,c});
+                    end
+                end
         end
     end
     assignin('base','XTrain',XTrain)
