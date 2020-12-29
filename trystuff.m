@@ -39,13 +39,13 @@ TimeCell = AugTrain.folder_1.time(1,:);
 
 %%
 
-cc = confusionchart(RES.SampWindow_1500ms.ConfusionMat);
+cc = confusionchart(RES.LSTM.SampWindow_1500ms.ConfusionMat);
 cc.RowSummary = 'row-normalized';
 cc.ColumnSummary = 'column-normalized';
 
 acc = 0;
-for i = 1:size(RES.SampWindow_1500ms.ConfusionMat,1)
-    acc = acc + RES.SampWindow_1500ms.ConfusionMat(i,i);
+for i = 1:size(RES.LSTM.SampWindow_1500ms.ConfusionMat,1)
+    acc = acc + RES.LSTM.SampWindow_1500ms.ConfusionMat(i,i);
 end
 
-acc = 100*(acc/sum(sum(RES.SampWindow_1500ms.ConfusionMat)));
+acc = 100*(acc/sum(sum(RES.LSTM.SampWindow_1500ms.ConfusionMat)));

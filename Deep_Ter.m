@@ -22,8 +22,8 @@ folder = fileparts(which(mfilename));
 addpath(genpath(folder));
 
 % indicate yor working directory
-workdir = '/Users/fabiovulpi/Documents/GitHub/ATLAS_JT'; 
-DataDir = strcat(workdir,'/DEEP TERRAIN CLASSIFICATION/datasets');
+workdir = '/Users/fabiovulpi/Documents/GitHub/ATLAS CODES'; 
+DataDir = strcat(workdir,'/T_Deep/datasets');
 
 % PRELIMINARY SETTINGS AND DATA ORGANIZATION
 %{
@@ -267,7 +267,7 @@ for i = 1:1%numel(SAMP_WINDOWS)
     w = SAMP_WINDOWS(i);
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 1:numel(MODELS)
+    for j = 2%1:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
@@ -275,6 +275,9 @@ for i = 1:1%numel(SAMP_WINDOWS)
                 RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
                     Conv_NeuralNet(TrainMCS,TestMCS,CNNpar,CNN_TrainOpt,RNG);
             case 'LSTM'
+                [TrainDS,TestDS]= DownSample_Data(AugTrain,AugTest,Channels);
+                RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
+                    LSTM_RecurrentNet(TrainDS,TestDS,LSTMpar,LSTM_TrainOpt,RNG);
             case 'CLSTM'
             case 'SVM'
         end

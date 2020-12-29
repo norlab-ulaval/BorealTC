@@ -2,7 +2,15 @@ function [TrainDS,TestDS]= DownSample_Data(Train,Test,Channels)
 
 % FUNCTION OVERVIEW
 %{
-
+This function downsamples the data sampled at higher frequency according to
+the lowest sampling frequency. The sampling frequency information is
+contained in the input struct "Channels".
+This procedure is necessary to pass the time sequences to a Long Short-Term
+Memory Recurrent Neural Network.
+The function takes as input the partitioned dataset in the structs "Train"
+and "Test" and returns two structs "TrainDS" and "TestDS" with the
+downsampled data that still keep the original order of sensor channels
+expressed in "Channels" and kept in "Train" and "Test".
 %}
 
 % find the channel with the lower sampling frequency
