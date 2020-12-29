@@ -1,5 +1,7 @@
 %%
 
+datadir = dir(DataDir);
+%%
 FN = fieldnames(AugTrain);
 TotLabl = [AugTrain.(FN{1}).labl;AugTest.(FN{1}).labl];
 NumTer = max(double(TotLabl));
