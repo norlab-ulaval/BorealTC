@@ -1,4 +1,4 @@
-% AUTHOR INFORMATION AND SCRIPT OVERVIEW
+% AUTHOR INFORMATION AND SCRIPT OVERVIEW, V1.0, 12/2020
 %{
 Author:________________________________________Fabio Vulpi (Github: Ph0bi0) 
 
@@ -22,8 +22,9 @@ folder = fileparts(which(mfilename));
 addpath(genpath(folder));
 
 % indicate yor working directory
-workdir = '/Users/fabiovulpi/Documents/GitHub/ATLAS CODES'; 
-DataDir = strcat(workdir,'/T_Deep/datasets');
+%workdir = '/Users/fabiovulpi/Documents/GitHub/ATLAS CODES'; 
+%DataDir = strcat(workdir,'/T_Deep/datasets'); % SEt path to your dataset directory
+DataDir = './datasets';
 
 % PRELIMINARY SETTINGS AND DATA ORGANIZATION
 %{
@@ -88,7 +89,7 @@ Channels.pro.on = {'Lvel', 1;...
                    'Rcur', 1};
 
 REC = Get_Recordings(DataDir,Channels);
-
+return
 % DATA PARTITION AND SAMPLE EXTRACTION
 %{
 The user can select the number of folders used to perform the K-fold Cross
