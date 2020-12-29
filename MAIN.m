@@ -1,4 +1,4 @@
-% AUTHOR INFORMATION AND SCRIPT OVERVIEW
+% AUTHOR INFORMATION AND SCRIPT OVERVIEW, V1.0, 12/2020
 %{
 Author:________________________________________Fabio Vulpi (Github: Ph0bi0) 
 
@@ -21,9 +21,8 @@ folder = fileparts(which(mfilename));
 % Add that folder plus all subfolders to the path.
 addpath(genpath(folder));
 
-% indicate yor working directory
-workdir = '/Users/fabiovulpi/Documents/GitHub/ATLAS CODES'; 
-DataDir = strcat(workdir,'/T_Deep/datasets');
+% automatically attaches to your working directory
+DataDir = strcat(folder,'/datasets');
 
 % PRELIMINARY SETTINGS AND DATA ORGANIZATION
 %{
@@ -286,7 +285,6 @@ The function "LSTM_RecurrentNet" can be found in the directory
 read to better understand the process
 %}
 
-
 LSTMpar.nHiddenUnits = 15;
 
 LSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
@@ -372,7 +370,7 @@ for i = 1:1%numel(SAMP_WINDOWS)
     w = SAMP_WINDOWS(i);
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 3%1:numel(MODELS)
+    for j = 4%1:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
@@ -388,14 +386,11 @@ for i = 1:1%numel(SAMP_WINDOWS)
                 RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
                     CLSTM_RecurrentNet(TrainDS,TestDS,CLSTMpar,CLSTM_TrainOpt,RNG);
             case 'SVM'
-                
+                RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
+                    SupportVectorMachine(AugTrain,AugTest,SVMpar,SVM_TrainOpt);
         end
     end
 end
-
-
-
-
 
 
 
