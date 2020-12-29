@@ -249,8 +249,43 @@ CNN_TrainOpt = {'valid_perc'       , 0.1  ;...
                 'valid_frequency'  , 100};
 % LSTM SETTINGS
 %{
+The user can access 1 parameter related to the Long Short-Term Memory
+Recurrent Neural Network model by changing the struct "LSTMpar".
+The struct "LSTMpar" has 1 fields:
+    - nHiddenUnits, containing the number of hidden units of the lstm layer
 
+The function "DownSample_Data" returns 2 structs "TrainDS" and "TestDS"
+containig the downsampled data according to the lowest sampling frequency
+specified in the struct "Channels".
+The function "DownSample_Data" used here can be found in the directory
+"./functions/data functions" with a function overview that the user can
+read to better understand it.
+
+The user can access training options for LSTM training through the cell
+"LSTM_TrainOpt".
+The user can change any of the following training options:
+    - validation percentage, "valid_perc", the percentage of the training
+    set used for validation between 0 (0%) and 1 (100%)
+    - initial learning rate, "init_learn_rate", the initial learning rate
+    of the training process
+    - learnining drop factor, "learn_drop_factor"
+    - maximum number of epochs, "max_epochs", the maximum number of times
+    the learning process passes through the entire training set, after
+    which training will stop
+    - mini batch size, "minibatch_size", the number of samples that
+    constitute the minibatch, the training process passes through the
+    minibatch every iteration to update the computed weights and biases
+    - validation patience, "valid_patience", the number of correct
+    classified samples in the validation set required to stop training
+    - validation frequency, "valid_frequency", the number of iteration
+    after which the training process will check the validation set
+
+The function used to train and test the LSTM model is "LSTM_RecurrentNet".
+The function "LSTM_RecurrentNet" can be found in the directory
+"./functions/model functions" with a function overview that the user can
+read to better understand the process
 %}
+
 
 LSTMpar.nHiddenUnits = 15;
 
@@ -261,6 +296,56 @@ LSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
                  'minibatch_size'   , 10   ;...
                  'valid_patience'   , 8    ;...
                  'valid_frequency'  , 100};
+
+% CLSTM SETTINGS
+%{
+The user can access 1 parameter related to the Long Short-Term Memory
+Recurrent Neural Network model by changing the struct "LSTMpar".
+The struct "LSTMpar" has 1 fields:
+    - nHiddenUnits, containing the number of hidden units of the lstm layer
+
+The function "DownSample_Data" returns 2 structs "TrainDS" and "TestDS"
+containig the downsampled data according to the lowest sampling frequency
+specified in the struct "Channels".
+The function "DownSample_Data" used here can be found in the directory
+"./functions/data functions" with a function overview that the user can
+read to better understand it.
+
+The user can access training options for LSTM training through the cell
+"LSTM_TrainOpt".
+The user can change any of the following training options:
+    - validation percentage, "valid_perc", the percentage of the training
+    set used for validation between 0 (0%) and 1 (100%)
+    - initial learning rate, "init_learn_rate", the initial learning rate
+    of the training process
+    - learnining drop factor, "learn_drop_factor"
+    - maximum number of epochs, "max_epochs", the maximum number of times
+    the learning process passes through the entire training set, after
+    which training will stop
+    - mini batch size, "minibatch_size", the number of samples that
+    constitute the minibatch, the training process passes through the
+    minibatch every iteration to update the computed weights and biases
+    - validation patience, "valid_patience", the number of correct
+    classified samples in the validation set required to stop training
+    - validation frequency, "valid_frequency", the number of iteration
+    after which the training process will check the validation set
+
+The function used to train and test the LSTM model is "LSTM_RecurrentNet".
+The function "LSTM_RecurrentNet" can be found in the directory
+"./functions/model functions" with a function overview that the user can
+read to better understand the process
+%}
+
+
+CLSTMpar.nHiddenUnits = 15;
+
+CLSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
+                  'init_learn_rate'  , 0.005;...
+                  'learn_drop_factor', 0.1  ;...
+                  'max_epochs'       , 150  ;...
+                  'minibatch_size'   , 10   ;...
+                  'valid_patience'   , 8    ;...
+                  'valid_frequency'  , 100};
 
 for i = 1:1%numel(SAMP_WINDOWS)
     
@@ -279,6 +364,7 @@ for i = 1:1%numel(SAMP_WINDOWS)
                 RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
                     LSTM_RecurrentNet(TrainDS,TestDS,LSTMpar,LSTM_TrainOpt,RNG);
             case 'CLSTM'
+                
             case 'SVM'
         end
     end
