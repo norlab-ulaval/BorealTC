@@ -2,8 +2,8 @@ function RES = CLSTM_RecurrentNet(TrainDS,TestDS,CLSTMpar,CLSTM_TrainOpt,RNG)
 
 % FUNCTION OVERVIEW
 %{
-This functions performs training and testing of a Long Short-Term Memory
-Recurrent Neural Network model.
+This functions performs training and testing of a Convolution Long
+Short-Term Memory Recurrent Neural Network model.
 This model takes as input the downsampled data sequences contained in the
 structs "TrainDS" and "TestDS".
 The function returns a struct "RES" containing as many fields as the k-fold
@@ -22,12 +22,14 @@ fields:
     - ConfusionMat, containing the confusion matrix resulting from the
     testing of the model on the correspoding folder
 
-The architecture of the net is defined by the array "layer" and the
-lstmLayer is construced according to the parameter contained in the input
-struct "LSTMpar". 
+The architecture of the net is defined by the graph "lgraph".
+The lstmLayer is construced according to the parameter contained in the input
+struct "CLSTMpar". 
+The convolution2dLayer is construced according to the parameter contained
+in the input struct "CLSTMpar".
 
 The training options are defined in the object "opt" accordingly to the
-input cell "LSTM_TrainOpt".
+input cell "CLSTM_TrainOpt".
 
 The validation set is constructed using the matlab function "cvpartition"
 and the random process is governed by the input struct "RNG".
@@ -63,17 +65,30 @@ end
 FN = fieldnames(TrainDS);
 Kfold = numel(FN);
 
-% define the architecture of LSTM
+% define the architecture of CLSTM
 InSize = size(TrainDS.(FN{1}).data{1},2);
 TotLabl = [TrainDS.(FN{1}).labl;TestDS.(FN{1}).labl];
 NumTer = max(double(TotLabl));
 
 layers = [ ...
-    sequenceInputLayer(InSize,"Name","sequenceinput")
-    lstmLayer(CLSTMpar.nHiddenUnits,'OutputMode','last',"Name","lstm")
-    fullyConnectedLayer(NumTer,"Name","fullyConn")
-    softmaxLayer("Name","softmax")
-    classificationLayer("Name","classLayer")];
+    sequenceInputLayer([InSize,1,1],'Name','input')
+    
+    sequenceFoldingLayer('Name','fold')
+    convolution2dLayer([InSize,1],CLSTMpar.numFilters,'Name','conv')
+    batchNormalizationLayer('Name','bn')
+    reluLayer('Name','relu')
+    
+    sequenceUnfoldingLayer('Name','unfold')
+    flattenLayer('Name','flatten')
+    
+    lstmLayer(CLSTMpar.nHiddenUnits,'OutputMode','last','Name','lstm')
+    
+    fullyConnectedLayer(NumTer, 'Name','fc')
+    softmaxLayer('Name','softmax')
+    classificationLayer('Name','classification')];
+
+lgraph = layerGraph(layers);
+lgraph = connectLayers(lgraph,'fold/miniBatchSize','unfold/miniBatchSize');
 
 % find validation indexes
 iValid = cell(Kfold,1);
@@ -85,15 +100,19 @@ end
 
 % arrange the data how the training function requires them, train and test
 % the model
+superPermutation = @(x) permute(x, [1,3,4,2]);
 
 for i = 1:Kfold
     XTrain = cellfun(@transpose,TrainDS.(FN{i}).data(~iValid{i}),'un',0);
+    XTrain = cellfun(superPermutation, XTrain, 'UniformOutput', false);
     YTrain = TrainDS.(FN{i}).labl(~iValid{i});
     
     XValid = cellfun(@transpose,TrainDS.(FN{i}).data(iValid{i}),'un',0);
+    XValid = cellfun(superPermutation, XValid, 'UniformOutput', false);
     YValid = TrainDS.(FN{i}).labl(iValid{i});
     
     XTest = cellfun(@transpose,TestDS.(FN{i}).data,'un',0);
+    XTest  = cellfun(superPermutation, XTest, 'UniformOutput', false);
     YTest = TestDS.(FN{i}).labl;
     
     % define training options
@@ -114,18 +133,18 @@ for i = 1:Kfold
             'Plots','none');
     
     % Train LSTM
-    disp(strcat('LSTM Training Partition = ',num2str(i)))
+    disp(strcat('CLSTM Training Partition = ',num2str(i)))
     
     tic
-    LSTM = trainNetwork(XTrain,YTrain,layers,opt);
+    CLSTM = trainNetwork(XTrain,YTrain,lgraph,opt);
     % store results
     RES.(FN{i}).TrainingTime = toc;
-    RES.(FN{i}).Model = LSTM;
+    RES.(FN{i}).Model = CLSTM;
     
     % Test LSTM
     
     tic
-    YPred = classify(LSTM,XTest);
+    YPred = classify(CLSTM,XTest);
     % store results
     RES.(FN{i}).TestingTime = toc;
     RES.(FN{i}).ConfusionMat = confusionmat(YTest,YPred);
