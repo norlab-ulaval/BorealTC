@@ -56,6 +56,8 @@ for i = 1:size(CNN_TrainOpt,1)
             valid_patience = CNN_TrainOpt{i,2};
         case 'valid_frequency'
             valid_frequency = CNN_TrainOpt{i,2};
+        case 'gradient_treshold'
+            gradient_treshold = CNN_TrainOpt{i,2};
     end
 end
 
@@ -110,7 +112,7 @@ for i = 1:Kfold
 
     opt = trainingOptions('adam', ...
             'ExecutionEnvironment','cpu', ...
-            'GradientThreshold',1, ...
+            'GradientThreshold',gradient_treshold, ...
             'InitialLearnRate',init_learn_rate, ...
             'LearnRateSchedule','piecewise', ...
             'Verbose',0,...
@@ -122,19 +124,35 @@ for i = 1:Kfold
             'ValidationFrequency',valid_frequency, ...   
             'SequenceLength','longest', ...
             'Shuffle','every-epoch', ...
-            'Plots','none');
+            'Plots','training-progress');
     
     % Train CNN
     disp(strcat('CNN Training Partition = ',num2str(i)))
     
     tic
-    CNN = trainNetwork(XTrain,YTrain,layers,opt);
+    [CNN,info] = trainNetwork(XTrain,YTrain,layers,opt);
     % store results
     RES.(FN{i}).TrainingTime = toc;
     RES.(FN{i}).Model = CNN;
+
+    MaxIter = floor(size(XTrain,4)/minibatch_size)*max_epochs;
+    VldLoss = info.ValidationLoss(~isnan(info.ValidationLoss));
+    [~,minVldLossInd] = min(VldLoss);
+    if numel(VldLoss(minVldLossInd+1:end)) >= valid_patience
+        disp('Model training complete: met validation criterion')
+        disp('Final training accuracy:')
+        disp(strcat(num2str(info.TrainingAccuracy(end)),'%'))
+        disp('Final validation accuracy:')
+        disp(strcat(num2str(info.FinalValidationAccuracy),'%'))
+    elseif numel(info.TrainingLoss) >= MaxIter
+        disp('Model training complete: reached final iteration')
+        disp('Final training accuracy:')
+        disp(strcat(num2str(info.TrainingAccuracy(end)),'%'))
+        disp('Final validation accuracy:')
+        disp(strcat(num2str(info.FinalValidationAccuracy),'%'))
+    end
     
     % Test CNN
-    
     tic
     YPred = classify(CNN,XTest);
     % store results
@@ -145,6 +163,7 @@ for i = 1:Kfold
     clear XTrain0 XTrain XValid XTest
     clear YTrain0 YTrain YValid YTest
     clear YPred
+    delete(findall(0));
 end
 
 % compute the confusion matrix of the k-fold cross validation process

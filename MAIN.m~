@@ -213,18 +213,21 @@ The user can access training options for CNN training through the cell
 "CNN_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
-    set used for validation between 0 (0%) and 1 (100%)
+    set used for validation, between 0 (0%) and 1 (100%)
     - initial learning rate, "init_learn_rate", the initial learning rate
     of the training process
-    - learnining drop factor, "learn_drop_factor"
+    - learnining drop factor, "learn_drop_factor", a scalar from 0 to 1, a
+    multiplicative factor to apply to the learning rate every time a
+    10 epochs passes (10 is default epoch period)
     - maximum number of epochs, "max_epochs", the maximum number of times
     the learning process passes through the entire training set, after
     which training will stop
     - mini batch size, "minibatch_size", the number of samples that
     constitute the minibatch, the training process passes through the
     minibatch every iteration to update the computed weights and biases
-    - validation patience, "valid_patience", the number of correct
-    classified samples in the validation set required to stop training
+    - validation patience, "valid_patience", the number of times that the
+    loss on the validation set can be larger than or equal to the
+    previously smallest loss before network training stops
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
 
@@ -245,7 +248,8 @@ CNN_TrainOpt = {'valid_perc'       , 0.1  ;...
                 'max_epochs'       , 150  ;...
                 'minibatch_size'   , 10   ;...
                 'valid_patience'   , 8    ;...
-                'valid_frequency'  , 100};
+                'valid_frequency'  , 100  ;...
+                'gradient_treshold', };
 % LSTM SETTINGS
 %{
 The user can access 1 parameter related to the Long Short-Term Memory
@@ -264,18 +268,21 @@ The user can access training options for LSTM training through the cell
 "LSTM_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
-    set used for validation between 0 (0%) and 1 (100%)
+    set used for validation, between 0 (0%) and 1 (100%)
     - initial learning rate, "init_learn_rate", the initial learning rate
     of the training process
-    - learnining drop factor, "learn_drop_factor"
+    - learnining drop factor, "learn_drop_factor", a scalar from 0 to 1, a
+    multiplicative factor to apply to the learning rate every time a
+    10 epochs passes (10 is default epoch period)
     - maximum number of epochs, "max_epochs", the maximum number of times
     the learning process passes through the entire training set, after
     which training will stop
     - mini batch size, "minibatch_size", the number of samples that
     constitute the minibatch, the training process passes through the
     minibatch every iteration to update the computed weights and biases
-    - validation patience, "valid_patience", the number of correct
-    classified samples in the validation set required to stop training
+    - validation patience, "valid_patience", the number of times that the
+    loss on the validation set can be larger than or equal to the
+    previously smallest loss before network training stops  
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
 
@@ -316,18 +323,21 @@ The user can access training options for CLSTM training through the cell
 "CLSTM_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
-    set used for validation between 0 (0%) and 1 (100%)
+    set used for validation, between 0 (0%) and 1 (100%)
     - initial learning rate, "init_learn_rate", the initial learning rate
     of the training process
-    - learnining drop factor, "learn_drop_factor"
+    - learnining drop factor, "learn_drop_factor", a scalar from 0 to 1, a
+    multiplicative factor to apply to the learning rate every time a
+    10 epochs passes (10 is default epoch period)
     - maximum number of epochs, "max_epochs", the maximum number of times
     the learning process passes through the entire training set, after
     which training will stop
     - mini batch size, "minibatch_size", the number of samples that
     constitute the minibatch, the training process passes through the
     minibatch every iteration to update the computed weights and biases
-    - validation patience, "valid_patience", the number of correct
-    classified samples in the validation set required to stop training
+    - validation patience, "valid_patience", the number of times that the
+    loss on the validation set can be larger than or equal to the
+    previously smallest loss before network training stops
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
 
@@ -365,12 +375,15 @@ The user can change any of the following training options:
     of kernel
     - Polynomial order, "polynomial_order", the polynomial order of the
     kernel
-    - Kernel scale, "kernel_scale", default: 'auto'
-    - Box constraint, "box_constraint", that controls the maximum penalty
+    - Kernel scale, "kernel_scale", a scaling parameter for the input data
+    default: 'auto' 
+    - Box constraint, "box_constraint", controls the maximum penalty
     imposed on margin-violating observations, and aids in preventing
     overfitting. Increasing this parameter causes the SVM to assign fewer
     support vectors but can lead to longer training times.
-    - Standardize, "standardize", default: 1 (True)
+    - Standardize, "standardize", flag indicating whether the software
+    should standardize the predictors before training the classifier
+    default: 1 (True)  
     - Coding, "coding", the coding type ('onevsone' or 'onevsall')
 
 The function used to train and test the SVM model is
@@ -389,13 +402,22 @@ SVM_TrainOpt = {'kernel_function'  , 'polynomial';...
                 'standardize'      , 1;...
                 'coding'           , 'onevsone'};
 
+% SAVE RESULTS 
+%{
+The user can set a custom name in "SaveName".
+The code will automatically save the results of training and testing of all
+models in the directory "./results" with the choosen name for future
+analysis of the results.
+%}
 
-for i = 1:1%numel(SAMP_WINDOWS)
+SaveName = 'TrainingResults_1';
+
+for i = 1%:numel(SAMP_WINDOWS)
     
     w = SAMP_WINDOWS(i);
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 4%1:numel(MODELS)
+    for j = 1%1:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
@@ -417,5 +439,5 @@ for i = 1:1%numel(SAMP_WINDOWS)
     end
 end
 
-
+save(strcat(folder,'/results/',SaveName,'.mat'),'RES')
 

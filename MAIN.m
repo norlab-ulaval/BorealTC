@@ -213,20 +213,27 @@ The user can access training options for CNN training through the cell
 "CNN_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
-    set used for validation between 0 (0%) and 1 (100%)
+    set used for validation, between 0 (0%) and 1 (100%)
     - initial learning rate, "init_learn_rate", the initial learning rate
     of the training process
-    - learnining drop factor, "learn_drop_factor"
+    - learnining drop factor, "learn_drop_factor", a scalar from 0 to 1, a
+    multiplicative factor to apply to the learning rate every time a
+    10 epochs passes (10 is default epoch period)
     - maximum number of epochs, "max_epochs", the maximum number of times
     the learning process passes through the entire training set, after
     which training will stop
     - mini batch size, "minibatch_size", the number of samples that
     constitute the minibatch, the training process passes through the
     minibatch every iteration to update the computed weights and biases
-    - validation patience, "valid_patience", the number of correct
-    classified samples in the validation set required to stop training
+    - validation patience, "valid_patience", the number of times that the
+    loss on the validation set can be larger than or equal to the
+    previously smallest loss before network training stops
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
+    - gradient treshold, "gradient_treshold", Inf or a positive scalar, if
+    the gradient exceeds the value of gradient_treshold, then the gradient
+    is clipped according to L2 Norm method (default gradient treshold
+    method in matlab) 
 
 The function used to train and test the CNN model is "Conv_NeuralNet".
 The function "Conv_NeuralNet" can be found in the directory
@@ -245,7 +252,8 @@ CNN_TrainOpt = {'valid_perc'       , 0.1  ;...
                 'max_epochs'       , 150  ;...
                 'minibatch_size'   , 10   ;...
                 'valid_patience'   , 8    ;...
-                'valid_frequency'  , 100};
+                'valid_frequency'  , 100  ;...
+                'gradient_treshold', 6};
 % LSTM SETTINGS
 %{
 The user can access 1 parameter related to the Long Short-Term Memory
@@ -264,20 +272,27 @@ The user can access training options for LSTM training through the cell
 "LSTM_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
-    set used for validation between 0 (0%) and 1 (100%)
+    set used for validation, between 0 (0%) and 1 (100%)
     - initial learning rate, "init_learn_rate", the initial learning rate
     of the training process
-    - learnining drop factor, "learn_drop_factor"
+    - learnining drop factor, "learn_drop_factor", a scalar from 0 to 1, a
+    multiplicative factor to apply to the learning rate every time a
+    10 epochs passes (10 is default epoch period)
     - maximum number of epochs, "max_epochs", the maximum number of times
     the learning process passes through the entire training set, after
     which training will stop
     - mini batch size, "minibatch_size", the number of samples that
     constitute the minibatch, the training process passes through the
     minibatch every iteration to update the computed weights and biases
-    - validation patience, "valid_patience", the number of correct
-    classified samples in the validation set required to stop training
+    - validation patience, "valid_patience", the number of times that the
+    loss on the validation set can be larger than or equal to the
+    previously smallest loss before network training stops  
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
+    - gradient treshold, "gradient_treshold", Inf or a positive scalar, if
+    the gradient exceeds the value of gradient_treshold, then the gradient
+    is clipped according to L2 Norm method (default gradient treshold
+    method in matlab)
 
 The function used to train and test the LSTM model is "LSTM_RecurrentNet".
 The function "LSTM_RecurrentNet" can be found in the directory
@@ -293,7 +308,8 @@ LSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
                  'max_epochs'       , 150  ;...
                  'minibatch_size'   , 10   ;...
                  'valid_patience'   , 8    ;...
-                 'valid_frequency'  , 100};
+                 'valid_frequency'  , 100  ;...
+                 'gradient_treshold', 6};
 
 % CLSTM SETTINGS
 %{
@@ -316,20 +332,27 @@ The user can access training options for CLSTM training through the cell
 "CLSTM_TrainOpt".
 The user can change any of the following training options:
     - validation percentage, "valid_perc", the percentage of the training
-    set used for validation between 0 (0%) and 1 (100%)
+    set used for validation, between 0 (0%) and 1 (100%)
     - initial learning rate, "init_learn_rate", the initial learning rate
     of the training process
-    - learnining drop factor, "learn_drop_factor"
+    - learnining drop factor, "learn_drop_factor", a scalar from 0 to 1, a
+    multiplicative factor to apply to the learning rate every time a
+    10 epochs passes (10 is default epoch period)
     - maximum number of epochs, "max_epochs", the maximum number of times
     the learning process passes through the entire training set, after
     which training will stop
     - mini batch size, "minibatch_size", the number of samples that
     constitute the minibatch, the training process passes through the
     minibatch every iteration to update the computed weights and biases
-    - validation patience, "valid_patience", the number of correct
-    classified samples in the validation set required to stop training
+    - validation patience, "valid_patience", the number of times that the
+    loss on the validation set can be larger than or equal to the
+    previously smallest loss before network training stops
     - validation frequency, "valid_frequency", the number of iteration
     after which the training process will check the validation set
+    - gradient treshold, "gradient_treshold", Inf or a positive scalar, if
+    the gradient exceeds the value of gradient_treshold, then the gradient
+    is clipped according to L2 Norm method (default gradient treshold
+    method in matlab)
 
 The function used to train and test the CLSTM model is
 "CLSTM_RecurrentNet". 
@@ -348,7 +371,8 @@ CLSTM_TrainOpt = {'valid_perc'       , 0.1  ;...
                   'max_epochs'       , 150  ;...
                   'minibatch_size'   , 10   ;...
                   'valid_patience'   , 8    ;...
-                  'valid_frequency'  , 100};
+                  'valid_frequency'  , 100  ;...
+                  'gradient_treshold', 6   };
 
 % SVM SETTINGS
 %{
@@ -385,20 +409,29 @@ read to better understand the process.
 
 SVMpar.nStatMom = 4;
 
-SVM_TrainOpt = {'kernel_function'  , 'polynomial';...
-                'polynomial_order' , 4;...
-                'kernel_scale'     , 'auto';...
-                'box_constraint'   , 100;...
-                'standardize'      , 1;...
-                'coding'           , 'onevsone'};
+SVM_TrainOpt = {'kernel_function'  , 'polynomial' ;...
+                'polynomial_order' , 4            ;...
+                'kernel_scale'     , 'auto'       ;...
+                'box_constraint'   , 100          ;...
+                'standardize'      , 1            ;...
+                'coding'           , 'onevsone'  };
 
+% SAVE RESULTS 
+%{
+The user can set a custom name in "SaveName".
+The code will automatically save the results of training and testing of all
+models in the directory "./results" with the choosen name for future
+analysis of the results.
+%}
 
-for i = 1:1%numel(SAMP_WINDOWS)
+SaveName = 'TrainingResults_1';
+
+for i = 1%:numel(SAMP_WINDOWS)
     
     w = SAMP_WINDOWS(i);
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 4%1:numel(MODELS)
+    for j = 1:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
@@ -420,5 +453,5 @@ for i = 1:1%numel(SAMP_WINDOWS)
     end
 end
 
-
+save(strcat(folder,'/results/',SaveName,'.mat'),'RES')
 

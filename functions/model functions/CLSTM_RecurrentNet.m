@@ -59,6 +59,8 @@ for i = 1:size(CLSTM_TrainOpt,1)
             valid_patience = CLSTM_TrainOpt{i,2};
         case 'valid_frequency'
             valid_frequency = CLSTM_TrainOpt{i,2};
+        case 'gradient_treshold'
+            gradient_treshold = CLSTM_TrainOpt{i,2};
     end
 end
 
@@ -118,7 +120,7 @@ for i = 1:Kfold
     % define training options
     opt = trainingOptions('adam', ...
             'ExecutionEnvironment','cpu', ...
-            'GradientThreshold',1, ...
+            'GradientThreshold',gradient_treshold, ...
             'InitialLearnRate',init_learn_rate, ...
             'LearnRateSchedule','piecewise', ...
             'Verbose',0,...
@@ -130,19 +132,35 @@ for i = 1:Kfold
             'ValidationFrequency',valid_frequency, ...   
             'SequenceLength','longest', ...
             'Shuffle','every-epoch', ...
-            'Plots','none');
-    
+            'Plots','training-progress');
+
     % Train LSTM
     disp(strcat('CLSTM Training Partition = ',num2str(i)))
     
     tic
-    CLSTM = trainNetwork(XTrain,YTrain,lgraph,opt);
+    [CLSTM,info] = trainNetwork(XTrain,YTrain,lgraph,opt);
     % store results
     RES.(FN{i}).TrainingTime = toc;
     RES.(FN{i}).Model = CLSTM;
     
-    % Test LSTM
+    MaxIter = floor(size(XTrain,1)/minibatch_size)*max_epochs;
+    VldLoss = info.ValidationLoss(~isnan(info.ValidationLoss));
+    [~,minVldLossInd] = min(VldLoss);
+    if numel(VldLoss(minVldLossInd+1:end)) >= valid_patience
+        disp('Model training complete: met validation criterion')
+        disp('Final training accuracy:')
+        disp(strcat(num2str(info.TrainingAccuracy(end)),'%'))
+        disp('Final validation accuracy:')
+        disp(strcat(num2str(info.FinalValidationAccuracy),'%'))
+    elseif numel(info.TrainingLoss) >= MaxIter
+        disp('Model training complete: reached final iteration')
+        disp('Final training accuracy:')
+        disp(strcat(num2str(info.TrainingAccuracy(end)),'%'))
+        disp('Final validation accuracy:')
+        disp(strcat(num2str(info.FinalValidationAccuracy),'%'))
+    end
     
+    % Test LSTM
     tic
     YPred = classify(CLSTM,XTest);
     % store results
@@ -153,6 +171,7 @@ for i = 1:Kfold
     clear XTrain XValid XTest
     clear YTrain YValid YTest
     clear YPred
+    delete(findall(0));
     
 end
 
