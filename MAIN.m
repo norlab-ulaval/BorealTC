@@ -124,7 +124,7 @@ Set the generator and seed by changind the values in the fields of "RNG"
 
 KFOLD = 5;
 PART_WINDOW = 5; %[s] time window used for partition data
-SAMP_WINDOWS = [1.5,1.6,1.7]; %[s] time windows of samples
+SAMP_WINDOWS = [1.5,1.6,1.7,1.8]; %[s] time windows of samples
 
 RNG.seed = 10;
 RNG.generator = 'twister';
@@ -426,13 +426,13 @@ analysis of the results.
 
 SaveName = 'TrainingResults_1';
 
-for i = 1:2%:numel(SAMP_WINDOWS)
+for i = 1:numel(SAMP_WINDOWS)
     
     w = SAMP_WINDOWS(i);
-    disp('Training models for sampling window of'," ",num2str(w)," ",'seconds')
+    disp(strcat('Training models for sampling window of'," ",num2str(w)," ",'seconds'))
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 1:3:4%:numel(MODELS)
+    for j = 1:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
