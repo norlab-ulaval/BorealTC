@@ -139,12 +139,12 @@ for i = 1:Kfold
             'Standardize', standardize);
     
     % Training SVM
-    disp(strcat('SVM Training ',' Partition = ',num2str(i)))
+    disp(strcat('SVM Training Partition'," ",num2str(i)))
     tic
     SVM = fitcecoc(XTrain,YTrain,'Learners',learner,'Coding',coding);
     RES.(FN{i}).TrainingTime = toc;
     RES.(FN{i}).Model = SVM;
-    
+    disp('--------------------------------------------------')
     % Test SVM
     tic
     YPred = predict(SVM,XTest);
@@ -155,7 +155,7 @@ for i = 1:Kfold
     clear YTrain YValid YTest
     clear YPred
 end
-
+disp('--------------------------------------------------')
 % compute the confusion matrix of the k-fold cross validation process
 CM = RES.(FN{1}).ConfusionMat;
 for i = 2:Kfold

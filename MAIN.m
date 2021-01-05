@@ -426,12 +426,13 @@ analysis of the results.
 
 SaveName = 'TrainingResults_1';
 
-for i = 1%:numel(SAMP_WINDOWS)
+for i = 1:2%:numel(SAMP_WINDOWS)
     
     w = SAMP_WINDOWS(i);
+    disp('Training models for sampling window of'," ",num2str(w)," ",'seconds')
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
-    for j = 1:numel(MODELS)
+    for j = 1:3:4%:numel(MODELS)
         model = MODELS{j};
         switch model
             case 'CNN'
@@ -450,6 +451,20 @@ for i = 1%:numel(SAMP_WINDOWS)
                 RES.(model).(strcat('SampWindow_',num2str(w*1000),'ms')) = ...
                     SupportVectorMachine(AugTrain,AugTest,SVMpar,SVM_TrainOpt);
         end
+    end
+end
+
+% store channels settings
+RES.Channels = Channels;
+% store terrain lables
+DIR = dir(DataDir);
+j = 1;
+for i = 1:numel(DIR)
+    switch DIR(i).name
+        case {'.','..','.DS_Store'}
+        otherwise
+            RES.TerLabls{1,j} = strrep(DIR(i).name,'_',' ');
+            j = j+1;
     end
 end
 

@@ -25,8 +25,8 @@ for i = 1:numel(datadir)
                 switch TerDir(j).name
                     case {'.','..','.DS_Store'}
                     otherwise
-                        us = find(TerDir(j).name=='_');
-                        dt = find(TerDir(j).name=='.');
+                        us = find(TerDir(j).name=='_'); % undescore
+                        dt = find(TerDir(j).name=='.'); % dot
                         for k = 1:numel(CN)
                             switch TerDir(j).name(1:us-1)
                                 case CN{k}

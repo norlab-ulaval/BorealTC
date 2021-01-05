@@ -127,7 +127,7 @@ for i = 1:Kfold
             'Plots','training-progress');
     
     % Train CNN
-    disp(strcat('CNN Training Partition = ',num2str(i)))
+    disp(strcat('CNN Training Partition'," ",num2str(i)))
     
     tic
     [CNN,info] = trainNetwork(XTrain,YTrain,layers,opt);
@@ -151,6 +151,7 @@ for i = 1:Kfold
         disp('Final validation accuracy:')
         disp(strcat(num2str(info.FinalValidationAccuracy),'%'))
     end
+    disp('--------------------------------------------------')
     
     % Test CNN
     tic
@@ -165,7 +166,7 @@ for i = 1:Kfold
     clear YPred
     delete(findall(0));
 end
-
+disp('--------------------------------------------------')
 % compute the confusion matrix of the k-fold cross validation process
 CM = RES.(FN{1}).ConfusionMat;
 for i = 2:Kfold

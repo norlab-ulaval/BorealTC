@@ -135,7 +135,7 @@ for i = 1:Kfold
             'Plots','training-progress');
 
     % Train LSTM
-    disp(strcat('CLSTM Training Partition = ',num2str(i)))
+    disp(strcat('CLSTM Training Partition'," ",num2str(i)))
     
     tic
     [CLSTM,info] = trainNetwork(XTrain,YTrain,lgraph,opt);
@@ -159,7 +159,7 @@ for i = 1:Kfold
         disp('Final validation accuracy:')
         disp(strcat(num2str(info.FinalValidationAccuracy),'%'))
     end
-    
+    disp('--------------------------------------------------')
     % Test LSTM
     tic
     YPred = classify(CLSTM,XTest);
@@ -174,7 +174,7 @@ for i = 1:Kfold
     delete(findall(0));
     
 end
-
+disp('--------------------------------------------------')
 % compute the confusion matrix of the k-fold cross validation process
 CM = RES.(FN{1}).ConfusionMat;
 for i = 2:Kfold
