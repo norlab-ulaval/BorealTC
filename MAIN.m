@@ -126,7 +126,7 @@ KFOLD = 5;
 PART_WINDOW = 5; %[s] time window used for partition data
 SAMP_WINDOWS = [1.5,1.6,1.7,1.8]; %[s] time windows of samples
 
-RNG.seed = 10;
+RNG.seed = 21;
 RNG.generator = 'twister';
 
 [Train,Test] = Partition_Data(REC,Channels,KFOLD,PART_WINDOW,RNG);
@@ -429,9 +429,10 @@ SaveName = 'TrainingResults_1';
 for i = 1:numel(SAMP_WINDOWS)
     
     w = SAMP_WINDOWS(i);
-    disp(strcat('Training models for sampling window of'," ",num2str(w)," ",'seconds'))
     [AugTrain,AugTest] = Augment_Data(Train,Test,Channels,w,AUG);
     
+    disp(strcat('Training models for sampling window of'," ",num2str(w)," ",'seconds'))
+    disp('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     for j = 1:numel(MODELS)
         model = MODELS{j};
         switch model
