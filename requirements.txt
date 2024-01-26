@@ -11,6 +11,7 @@ scipy
 scikit-learn
 torch
 torchvision
+lightning
 
 # Dev
 black
