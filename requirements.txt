@@ -9,6 +9,8 @@ jupyterlab
 matplotlib>=3.7.0
 scipy
 scikit-learn
+torch
+torchvision
 
 # Dev
 black
