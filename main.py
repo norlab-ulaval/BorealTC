@@ -31,11 +31,11 @@ results_dir = cwd / "results"
 channels = {
     "imu": {
         "sampling_freq": 50,
-        "cols": {"gyrX": 1, "gyrY": 1, "gyrZ": 1, "accX": 1, "accY": 1, "accZ": 1},
+        "cols": {"gyrX": True, "gyrY": True, "gyrZ": True, "accX": True, "accY": True, "accZ": True},
     },
     "pro": {
         "sampling_freq": 15,
-        "cols": {"Lvel": 1, "Rvel": 1, "Lcur": 1, "Rcur": 1},
+        "cols": {"Lvel": True, "Rvel": True, "Lcur": True, "Rcur": True},
     },
 }
 summary = pd.DataFrame.from_dict(channels, orient="index")
