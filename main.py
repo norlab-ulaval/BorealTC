@@ -43,20 +43,21 @@ summary = pd.DataFrame.from_dict(channels, orient="index")
 # Get recordings
 terr_dfs = preprocessing.get_recordings_df(data_dir, channels)
 
-exit(0)
-
 # Set data partition parameters
 k_fold = 5
 part_window = 5  # seconds
 samp_windows = [1.5, 1.6, 1.7, 1.8]  # seconds
 
 # Data partition and sample extraction
-rng_seed = 21
-rng_generator = "twister"
-
-train, test = Partition_Data(
-    rec, channels, k_fold, part_window, {"seed": rng_seed, "generator": rng_generator}
+train, test = preprocessing.partition_data(
+    terr_dfs,
+    summary,
+    k_fold,
+    part_window,
+    random_state=21,
 )
+
+exit(0)
 
 # Data augmentation parameters
 aug_sliding_window = 0.1  # seconds

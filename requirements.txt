@@ -4,6 +4,7 @@ wheel
 # Science
 numpy
 pandas
+pyarrow
 ipython
 jupyterlab
 matplotlib>=3.7.0
