@@ -51,6 +51,8 @@ def get_recordings_df(data_dir: Path, channels):
         terr_dfs.setdefault("imu", []).append(terr_imu_df)
         terr_dfs.setdefault("pro", []).append(terr_pro_df)
 
+    # filtered_channels = [k for k,v in channels.items() if v]
+
     # Filter columns ?
     return terr_dfs
 
