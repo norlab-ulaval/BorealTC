@@ -8,8 +8,34 @@ import scipy.io as scio
 from sklearn.model_selection import StratifiedKFold
 
 
-def get_recordings(data_dir: Path, channels: dict[str, dict]):
-    pass
+def get_recordings(
+    data_dir: Path,
+    channels: dict[str, dict],
+) -> dict[str, dict[str, list[pd.DataFrame]]]:
+    # All terrains names
+    terrains = [f.stem for f in data_dir.iterdir() if f.is_dir()]
+
+    # CSV filepaths
+    csv_paths = [*data_dir.rglob("*.csv")]
+
+    dfs = {terr: {"imu": [], "pro": []} for terr in terrains}
+    # For all csv paths
+    for csvpath in csv_paths:
+        terrain = csvpath.parent.stem
+        csv_type, run_idx = csvpath.stem.split("_")
+        df = pd.read_csv(csvpath)
+
+        # Filter channels based on 'channels'
+        filt_cols = [k for k, v in channels[csv_type]["cols"].items() if v]
+        terr_df = df[["time", *filt_cols]].copy()
+
+        # Add info as DataFrame columns
+        terr_df["terrain"] = terrain
+        terr_df["run_idx"] = int(run_idx)
+
+        dfs[terrain][csv_type].append(terr_df)
+
+    return dfs
 
 
 def get_recordings_df(data_dir: Path, channels):

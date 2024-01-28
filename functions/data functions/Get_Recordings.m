@@ -13,26 +13,30 @@ recordings and as many colums as different sampling frequencies (here imu
 50Hz and pro data 15Hz)
 %}
 
-CN = fieldnames(Channels);
+sensors = fieldnames(Channels);
 
 datadir = dir(DataDir);
 for i = 1:numel(datadir)
-    switch datadir(i).name
+    terrainName = datadir(i).name;
+    switch terrainName
         case {'.','..','.DS_Store'}
         otherwise
-            TerDir = dir(strcat(DataDir,'/',datadir(i).name));
+            TerDir = dir(strcat(DataDir,'/',terrainName));
             for j = 1:numel(TerDir)
-                switch TerDir(j).name
+                matFName = TerDir(j).name;
+                switch matFName
+                    % For every file in terrain
                     case {'.','..','.DS_Store'}
                     otherwise
-                        us = find(TerDir(j).name=='_'); % undescore
-                        dt = find(TerDir(j).name=='.'); % dot
-                        for k = 1:numel(CN)
-                            switch TerDir(j).name(1:us-1)
-                                case CN{k}
-                                    d = load(strcat(DataDir,'/',datadir(i).name,'/',TerDir(j).name));
+                        us = find(matFName=='_'); % undescore
+                        dt = find(matFName=='.'); % dot
+                        for k = 1:numel(sensors)
+                            switch matFName(1:us-1)
+                                case sensors{k}
+                                    d = load(strcat(DataDir,'/',terrainName,'/',matFName));
                                     f = fieldnames(d);
-                                    Data.(datadir(i).name){str2double(TerDir(j).name(us+1:dt-1)),k} = d.(f{1});
+                                    file_idx = str2double(matFName(us+1:dt-1));
+                                    Data.(terrainName){file_idx,k} = d.(f{1});
                             end
                         end
                 end
@@ -40,15 +44,17 @@ for i = 1:numel(datadir)
     end
 end
 
-FN = fieldnames(Data);
+terrain_names = fieldnames(Data);
 
 
-for i = 1:numel(FN)
-    for j = 1:size(Data.(FN{i}),1)
-        for c = 1:numel(CN)
-            on = find(cell2mat(Channels.(CN{c}).on(:,2))==1);
-            REC.time.(FN{i}){j,c} = Data.(FN{i}){j,c}(:,1);
-            REC.data.(FN{i}){j,c} = Data.(FN{i}){j,c}(:,on+1);
+for i = 1:numel(terrain_names)
+    terrain = terrain_names{i};
+    for j = 1:size(Data.(terrain),1)
+        for c = 1:numel(sensors)
+            sensor = sensors{c};
+            on = find(cell2mat(Channels.(sensor).on(:,2))==1);
+            REC.time.(terrain){j,c} = Data.(terrain){j,c}(:,1);
+            REC.data.(terrain){j,c} = Data.(terrain){j,c}(:,on+1);
         end
     end
 end

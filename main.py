@@ -54,7 +54,7 @@ channels = {
 summary = pd.DataFrame.from_dict(channels, orient="index")
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings_df(mat_dir, channels)
+terr_dfs = preprocessing.get_recordings(csv_dir, channels)
 
 # Set data partition parameters
 k_fold = 5
