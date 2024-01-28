@@ -24,24 +24,37 @@ import pandas as pd
 from utils import preprocessing
 
 cwd = Path.cwd()
-data_dir = cwd / "datasets"
+mat_dir = cwd / "datasets"
+csv_dir = cwd / "data"
 results_dir = cwd / "results"
 
 # Define channels
 channels = {
     "imu": {
         "sampling_freq": 50,
-        "cols": {"gyrX": True, "gyrY": True, "gyrZ": True, "accX": True, "accY": True, "accZ": True},
+        "cols": {
+            "gyrX": True,
+            "gyrY": True,
+            "gyrZ": True,
+            "accX": True,
+            "accY": True,
+            "accZ": True,
+        },
     },
     "pro": {
         "sampling_freq": 15,
-        "cols": {"Lvel": True, "Rvel": True, "Lcur": True, "Rcur": True},
+        "cols": {
+            "Lvel": True,
+            "Rvel": True,
+            "Lcur": True,
+            "Rcur": True,
+        },
     },
 }
 summary = pd.DataFrame.from_dict(channels, orient="index")
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings_df(data_dir, channels)
+terr_dfs = preprocessing.get_recordings_df(mat_dir, channels)
 
 # Set data partition parameters
 k_fold = 5

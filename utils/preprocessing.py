@@ -8,6 +8,10 @@ import scipy.io as scio
 from sklearn.model_selection import StratifiedKFold
 
 
+def get_recordings(data_dir: Path, channels: dict[str, dict]):
+    pass
+
+
 def get_recordings_df(data_dir: Path, channels):
     """
     Extracts data from the specified data directory and returns a struct REC
