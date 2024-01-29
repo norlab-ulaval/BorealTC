@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-import scipy.io as scio
 from sklearn.model_selection import StratifiedKFold
 
+if TYPE_CHECKING:
+    ExperimentData = dict[str, pd.DataFrame]
 
-def get_csv_recordings(
+
+def get_recordings_csv(
     data_dir: Path,
-    channels: dict[str, dict],
-) -> dict[str, dict[str, list[pd.DataFrame]]]:
+    summary: pd.DataFrame,
+) -> ExperimentData:
     """Extract data from CSVs in data_dir and filter out the columns with `channels`
 
     ```
@@ -34,11 +37,12 @@ def get_csv_recordings(
 
     Args:
         data_dir (Path): Path to the dataset. The direct childs of data_dir are terrain classes folders
-        channels (dict[str, dict]): Description of the different channels
+        summary (pd.DataFrame): Summary dataframe
 
     Returns:
-        dict[str, dict[str, list[pd.DataFrame]]]: Dictionary of dataframes
-            `{"CLASS1":{"imu":[imu1, imu2, ...], "pro":[pro1, pro2, ...]}, "CLASS2": {"imu":[imu1, imu2, ...], "pro":[pro1, pro2, ...]}}`
+        ExperimentData: Dictionary of dataframes
+            `{"imu": imu_dataframe, "pro": pro_dataframe}`
+            Each dataframe has `terrain` and `exp_idx` columns.
     """
     # All terrains names
     terrains = [f.stem for f in data_dir.iterdir() if f.is_dir()]
@@ -46,7 +50,9 @@ def get_csv_recordings(
     # CSV filepaths
     csv_paths = [*data_dir.rglob("*.csv")]
 
-    dfs = {terr: {"imu": [], "pro": []} for terr in terrains}
+    sampling_freq = {}
+
+    dfs = {}
     # For all csv paths
     for csvpath in csv_paths:
         terrain = csvpath.parent.stem
@@ -54,88 +60,54 @@ def get_csv_recordings(
         df = pd.read_csv(csvpath)
 
         # Filter channels based on 'channels'
-        filt_cols = [k for k, v in channels[csv_type]["cols"].items() if v]
+        filt_cols = [k for k, v in summary["columns"][csv_type].items() if v]
         terr_df = df[["time", *filt_cols]].copy()
 
         # Add info as DataFrame columns
         terr_df["terrain"] = terrain
         terr_df["run_idx"] = int(run_idx)
 
-        dfs[terrain][csv_type].append(terr_df)
+        freq = int(1 / terr_df.time.diff().min())
+        sampling_freq.setdefault(csv_type, freq)
 
-    return dfs
+        dfs.setdefault(csv_type, []).append(terr_df)
 
+    sensor_dfs = {
+        sens: pd.concat(sensor_df, ignore_index=True) for sens, sensor_df in dfs.items()
+    }
 
-def get_recordings_df(data_dir: Path, channels):
-    """
-    Extracts data from the specified data directory and returns a struct REC
-    with two fields: data and time.
+    summary["sampling_freq"] = pd.Series(sampling_freq)
 
-    Parameters:
-    - data_dir: Path to the data directory.
-    - channels: Struct containing channel information.
-
-    Returns:
-    - REC: Struct containing the numerical data and timestamps of the recordings.
-    """
-    terrains = [f.stem for f in data_dir.iterdir() if f.is_dir()]
-
-    imu_cols = ["time", *channels["imu"]["cols"].keys()]
-    pro_cols = ["time", *channels["pro"]["cols"].keys()]
-
-    terr_dfs = {"imu": [], "pro": []}
-    for terr in terrains:
-        terr_dir = data_dir / terr
-
-        imu_fnames = sorted([*terr_dir.glob("imu_*.mat")])
-        pro_fnames = sorted([*terr_dir.glob("pro_*.mat")])
-
-        imu_dfs = {}
-        for i, fname in enumerate(imu_fnames):
-            mat = scio.loadmat(fname)["imu"]
-            df = pd.DataFrame(mat, columns=imu_cols)
-            df["exp_idx"] = i
-            imu_dfs[i] = df
-
-        pro_dfs = {}
-        for i, fname in enumerate(pro_fnames):
-            mat = scio.loadmat(fname)["pro"]
-            df = pd.DataFrame(mat, columns=pro_cols)
-            df["exp_idx"] = i
-            pro_dfs[i] = df
-
-        terr_imu_df = pd.concat(imu_dfs.values(), ignore_index=True)
-        terr_pro_df = pd.concat(pro_dfs.values(), ignore_index=True)
-        terr_imu_df["terrain"] = terr
-        terr_pro_df["terrain"] = terr
-
-        terr_dfs.setdefault("imu", []).append(terr_imu_df)
-        terr_dfs.setdefault("pro", []).append(terr_pro_df)
-
-    # filtered_channels = [k for k,v in channels.items() if v]
-
-    # Filter columns ?
-    return terr_dfs
+    return sensor_dfs
 
 
-def partition_data(
-    REC,
+def partition_data_csv(
+    data: ExperimentData,
     summary: pd.DataFrame,
-    KFOLD,
-    part_window: float,
+    partition_duration: float,
+    n_splits: int = 5,
     random_state: int | None = None,
 ):
-    # Find the channel providing data at highest sampling frequency
-    max_freq_channel = summary["sampling_freq"].idxmax()
-    sf = summary["sampling_freq"].max()
+    # Highest sampling frequency
+    hf_sensor = summary["sampling_freq"].idxmax()
+    hf = summary["sampling_freq"].max()
+    # Time (s) / window * Sampling freq = samples / window
+    wind_length = int(partition_duration * hf)
 
-    # Window the data in a new struct "PRT" using "PARTITION_WINDOW" and the channel "c" as reference
-    PRT = {"data": {}, "time": {}}
+    # Create partition windows
+    partitions = {}
+
+    # Data from the high frequency sensor
+    hf_data = data[hf_sensor]
+    terrains = hf_data.terrain.unique().tolist()
+
+    for sens, sensor_data in data.items():
+        # Primary sensor data (max sampling freq)
+        pass
+
+    skf = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
 
     return (0, 0)
-
-    TN = list(REC["data"].keys())
-    NumTer = len(TN)
 
     for i in range(NumTer):
         k = 1
