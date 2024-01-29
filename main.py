@@ -29,44 +29,39 @@ csv_dir = cwd / "data"
 results_dir = cwd / "results"
 
 # Define channels
-channels = {
+columns = {
     "imu": {
-        "sampling_freq": 50,
-        "cols": {
-            "gyrX": True,
-            "gyrY": True,
-            "gyrZ": True,
-            "accX": True,
-            "accY": True,
-            "accZ": True,
-        },
+        "gyrX": True,
+        "gyrY": True,
+        "gyrZ": True,
+        "accX": True,
+        "accY": True,
+        "accZ": True,
     },
     "pro": {
-        "sampling_freq": 15,
-        "cols": {
-            "Lvel": True,
-            "Rvel": True,
-            "Lcur": True,
-            "Rcur": True,
-        },
+        "Lvel": True,
+        "Rvel": True,
+        "Lcur": True,
+        "Rcur": True,
     },
 }
-summary = pd.DataFrame.from_dict(channels, orient="index")
+summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-terr_dfs = preprocessing.get_csv_recordings(csv_dir, channels)
+terr_dfs = preprocessing.get_recordings_csv(csv_dir, summary)
+
 
 # Set data partition parameters
-k_fold = 5
+n_folds = 5
 part_window = 5  # seconds
 samp_windows = [1.5, 1.6, 1.7, 1.8]  # seconds
 
 # Data partition and sample extraction
-train, test = preprocessing.partition_data(
+train, test = preprocessing.partition_data_csv(
     terr_dfs,
     summary,
-    k_fold,
     part_window,
+    n_folds,
     random_state=21,
 )
 
