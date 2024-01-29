@@ -91,6 +91,8 @@ def partition_data_csv(
     # Highest sampling frequency
     hf_sensor = summary["sampling_freq"].idxmax()
     hf = summary["sampling_freq"].max()
+    lf_sensors = tuple(sens for sens in data.keys() if sens != hf_sensor)
+
     # Time (s) / window * Sampling freq = samples / window
     wind_length = int(partition_duration * hf)
 
@@ -100,6 +102,21 @@ def partition_data_csv(
     # Data from the high frequency sensor
     hf_data = data[hf_sensor]
     terrains = hf_data.terrain.unique().tolist()
+
+    for terr in terrains:
+        hf_terr = hf_data[hf_data.terrain == terr]
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            hf_exp = hf_terr[hf_terr.run_idx == exp_idx].copy().reset_index(drop=True)
+
+            starts = np.arange(0, hf_exp.shape[0], wind_length)
+            limits = np.vstack([starts, starts + wind_length]).T
+
+            windows = [hf_exp.iloc[slice(*lim)] for lim in limits]
+
+            pass
+
+    #
 
     for sens, sensor_data in data.items():
         # Primary sensor data (max sampling freq)
