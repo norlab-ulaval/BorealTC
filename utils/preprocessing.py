@@ -142,11 +142,13 @@ def partition_data_csv(
                 partitions[sens].setdefault(terr, []).extend(lf_win)
 
     columns = partitions[hf_sensor][terrains[0]][0].columns.values
+    terr_col = np.where(columns == "terrain")
     unified = {
         sens: np.vstack([sens_data[terr] for terr in terrains])
         for sens, sens_data in partitions.items()
     }
     n_windows = unified[hf_sensor].shape[0]
+    labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0].tolist()
 
     # Split with K folds
     skf = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
@@ -154,7 +156,7 @@ def partition_data_csv(
     train_data, test_data = [], []
 
     for fold_idx, (fold_train_idx, fold_test_idx) in enumerate(
-        skf.split(np.arange(n_windows), np.arange(n_windows))
+        skf.split(np.zeros(len(labels)), labels)
     ):
         train_data.append(
             {
@@ -168,6 +170,8 @@ def partition_data_csv(
                 for sens, sens_data in unified.items()
             }
         )
+
+    print(labels)
 
     return train_data, test_data
 
