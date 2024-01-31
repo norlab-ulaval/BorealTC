@@ -141,14 +141,16 @@ def partition_data_csv(
                 ]
                 partitions[sens].setdefault(terr, []).extend(lf_win)
 
-    columns = partitions[hf_sensor][terrains[0]][0].columns.values
-    terr_col = np.where(columns == "terrain")
+    hf_columns = partitions[hf_sensor][terrains[0]][0].columns.values
+    terr_col = np.where(hf_columns == "terrain")
     unified = {
         sens: np.vstack([sens_data[terr] for terr in terrains])
         for sens, sens_data in partitions.items()
     }
     n_windows = unified[hf_sensor].shape[0]
-    labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0].tolist()
+    labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0]
+    # for sens, sens_data in unified.items():
+    #     print(sens, (sens_data[:, 0, :][:, -3] == labels).all())
 
     # Split with K folds
     skf = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
@@ -171,30 +173,40 @@ def partition_data_csv(
             }
         )
 
-    print(labels)
-
     return train_data, test_data
 
 
-def augment_data(train_dat, test_dat, summary, w, AUG):
+def augment_data(
+    train_dat,
+    test_dat,
+    summary,
+    samp_window: float,
+    sliding_window: float,
+    homogeneous: bool,
+):
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
-    channel_names = summary.index.values
-    print(channel_names)
 
-    return
+    # Highest sampling frequency
+    hf_sensor = summary["sampling_freq"].idxmax()
+    hf = summary["sampling_freq"].max()
+    # Other sensors are low frequency
+    lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
 
-    c = 0
-    sf = channels[channel_names[c]]["sf"]
-    for i in range(1, len(channel_names)):
-        if channels[channel_names[i]]["sf"] > sf:
-            sf = channels[channel_names[i]]["sf"]
-            c = i
+    # Number of folds
+    num_folds = len(train_dat)
+    all_labels = [
+        train_dat[0][hf_sensor][:, 0, :][:, -3],
+        test_dat[0][hf_sensor][:, 0, :][:, -3],
+    ]
+    num_terrains = np.unique(np.hstack(all_labels)).shape[0]
 
-    # Find the minimum sampling frequency channel
-    FN = list(train_dat.keys())
-    TotLabl = np.concatenate([train_dat[FN[0]]["labl"], test_dat[FN[0]]["labl"]])
-    NumTer = int(np.max(TotLabl))
+    if homogeneous:
+        # Get number of windows per terrain
+        pass
+
+    return (0, 0)
+
     SizTer = np.zeros(NumTer)
 
     for i in range(1, NumTer + 1):
