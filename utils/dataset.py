@@ -21,6 +21,7 @@ class VulpiData:
 class VulpiDataset(Dataset):
     def __init__(self, root_dir: Path, transform: Optional[Callable] = None):
         self._root_dir = root_dir
+        self._transform = transform
         self._class_paths = sorted([x for x in root_dir.iterdir() if x.is_dir()])
         self._class_names = [x.name for x in self._class_paths]
         self._class_name_to_id = {x: i for i, x in enumerate(self._class_names)}
@@ -43,8 +44,12 @@ class VulpiDataset(Dataset):
         label_id = self._class_name_to_id[label]
         run_id = int(imu_path.name.split('_')[1].split('.')[0])
 
-        return VulpiData(imu=imu['imu'], pro=pro['pro'], label=label, label_id=label_id, run_id=run_id,
+        data = VulpiData(imu=imu['imu'], pro=pro['pro'], label=label, label_id=label_id, run_id=run_id,
                          imu_path=imu_path, pro_path=pro_path)
+        if self._transform is not None:
+            data = self._transform(data)
+
+        return data
 
     @property
     def class_to_id(self):

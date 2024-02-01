@@ -13,6 +13,8 @@ scikit-learn
 torch
 torchvision
 lightning
+tensorboard
+torch-metrics
 
 # Dev
 black

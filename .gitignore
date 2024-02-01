@@ -151,4 +151,7 @@ static
 # Branch specific environments
 *-venv/
 
+# Pytorch Lightning
+checkpoints/
+tb_logs/
 
