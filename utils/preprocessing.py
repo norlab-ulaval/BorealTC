@@ -10,6 +10,9 @@ from sklearn.model_selection import StratifiedKFold
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame]
 
+ch_cols = dict(zip(("terrain", "terr_idx", "run_idx", "win_idx", "time"), range(5)))
+first_last = np.array([0, -1])
+
 
 def get_recordings_csv(
     data_dir: Path,
@@ -95,14 +98,14 @@ def partition_data_csv(
     lf_sensors = tuple(sens for sens in data.keys() if sens != hf_sensor)
 
     # Time (s) / window * Sampling freq = samples / window
-    wind_length = int(partition_duration * hf)
+    wind_len = int(partition_duration * hf)
 
     # Create partition windows
     partitions = {hf_sensor: {}, **{s: {} for s in lf_sensors}}
 
     # Data from the high frequency sensor
     hf_data = data[hf_sensor]
-    terrains = hf_data.terrain.unique().tolist()
+    terrains = sorted(hf_data.terrain.unique().tolist())
 
     for terr_idx, terr in enumerate(terrains):
         hf_terr = hf_data[hf_data.terrain == terr].assign(terr_idx=terr_idx)
@@ -111,9 +114,9 @@ def partition_data_csv(
             hf_exp = hf_terr[hf_terr.run_idx == exp_idx].copy().reset_index(drop=True)
 
             # Get limits, avoid selecting incomplete partitions
-            starts = np.arange(0, hf_exp.shape[0], wind_length)
-            starts = starts[(starts + wind_length) < hf_exp.shape[0]]
-            limits = np.vstack([starts, starts + wind_length]).T
+            starts = np.arange(0, hf_exp.shape[0], wind_len)
+            starts = starts[(starts + wind_len) <= hf_exp.shape[0]]
+            limits = np.vstack([starts, starts + wind_len]).T
 
             # Get multiple windows
             windows = [
@@ -151,7 +154,6 @@ def partition_data_csv(
     terr_col = np.where(hf_columns == "terrain")
     # Number partitions x time x channels
     # terrain, terr_idx, run_idx, win_idx, time, <sensor_channels>
-    # df.insert(loc, column, value)
     unified = {
         sens: np.vstack([sens_data[terr] for terr in terrains])
         for sens, sens_data in partitions.items()
@@ -201,9 +203,9 @@ def augment_data(
     lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
 
     # Time (s) / window * Sampling freq = samples / window
-    MW_length = int(moving_window * hf)
-    ST_length = int(stride * hf)
-    PW_length = train_dat[0][hf_sensor][0, :, :].shape[0]
+    MW_len = int(moving_window * hf)
+    ST_len = int(stride * hf)
+    PW_len = train_dat[0][hf_sensor].shape[1]
 
     # Number of folds
     num_folds = len(train_dat)
@@ -222,33 +224,88 @@ def augment_data(
         min_count = terr_counts.min()
 
         # How many samples are generated for one partition window
-        n_strides = (PW_length - MW_length) // ST_length
-        # How many augmented windows / strides for the smallest class
-        strides_min = n_strides * min_count
-        # Hoe many augmented window for each terrain
-        # Number of augmented windows are the same for all terrains
-        n_aug_terr = (strides_min / terr_counts).astype(int)
+        n_strides_part = (PW_len - MW_len) // ST_len
+        # Maximum amount of samples / slides for the class with less partitions
+        # strides_min = n_strides/part * n_partitions(small class)
+        strides_min = n_strides_part * min_count
 
-        # Stride for each terrain
-        aug_stride = ((PW_length - MW_length) // n_aug_terr).to_numpy()
+        # Number of slides for each terrain so that all terrains have strides_min slides
+        n_slides_terr = (strides_min / terr_counts).astype(int)
+
+        # Length of slide for each terrain to respect the number of slides/terr
+        aug_strides_all = (PW_len - MW_len) // (n_slides_terr)
+        aug_windows = aug_strides_all.to_numpy()
 
     else:
         # Use ST for all terrains
-        aug_stride = np.full_like(num_terrains, int(stride * hf))
-
-    print(aug_stride, aug_stride, terr_counts)
+        aug_windows = np.full_like(terrains, int(stride * hf))
 
     aug_train, aug_test = [], []
 
+    # Augment the data using the appropriate sliding window for different
+    # terrains or the same for every terrain depending on homogeneous
+
+    # For every fold
     for K_train, K_test in zip(train_dat, test_dat):
+        # For every terrain
+        # Ktrain_copy = {sens: sensKtrain.copy() for sens, sensKtrain in K_train.items()}
+        # Ktest_copy = {sens: sensKtest.copy() for sens, sensKtest in K_test.items()}
+        # aug_train.append(Ktrain_copy)
+        # aug_test.append(Ktest_copy)
+
+        K_sli_train = {}
+        K_sli_test = {}
+
+        hf_train = K_train[hf_sensor]
+        hf_test = K_test[hf_sensor]
+
+        for terr_idx, terr in enumerate(terrains):
+            train_terr_mask = hf_train[:, 0, ch_cols["terrain"]] == terr
+            test_terr_mask = hf_test[:, 0, ch_cols["terrain"]] == terr
+            hf_terr_train = hf_train[train_terr_mask]
+            hf_terr_test = hf_test[test_terr_mask]
+
+            # Sliding window for the terrain class
+            sli_len = aug_windows[terr_idx]
+            n_slides = n_slides_terr[terr]
+
+            # Slice the array based on the slide length
+            starts = np.arange(0, PW_len, sli_len)
+            starts = starts[(starts + MW_len) <= PW_len]
+            limits = np.vstack([starts, starts + MW_len]).T
+            print(strides_min, n_slides, limits.shape[0])
+
+            # Get slices for each limit
+            hf_sli_train = [hf_terr_train[:, slice(*lim), :] for lim in limits]
+            hf_sli_test = [hf_terr_test[:, slice(*lim), :] for lim in limits]
+            hf_sli_train = np.vstack(hf_sli_train)
+            hf_sli_test = np.vstack(hf_sli_test)
+
+            K_sli_train.setdefault(hf_sensor, []).append(hf_sli_train)
+            K_sli_test.setdefault(hf_sensor, []).append(hf_sli_test)
+
+            # Get time values
+            t_limits_train = hf_sli_train[:, (0, -1), ch_cols["time"]]
+            t_limits_test = hf_sli_test[:, (0, -1), ch_cols["time"]]
+
+            for lf_sens in lf_sensors:
+                lf_train = K_train[lf_sens]
+                lf_test = K_test[lf_sens]
+
+                train_terr_mask = lf_train[:, 0, ch_cols["terrain"]] == terr
+                test_terr_mask = lf_test[:, 0, ch_cols["terrain"]] == terr
+                lf_terr_train = lf_train[train_terr_mask]
+                lf_terr_test = lf_test[test_terr_mask]
+
+                # Time length
+                win_len = lf_train.shape[1]
+
+        aug_train.append(K_sli_train)
+        aug_test.append(K_sli_test)
+
         pass
 
     return aug_train, aug_test
-
-    # Augment the data using the appropriate sliding window for different
-    # terrains or the same for every terrain depending on AUG.same
-    AugTrain = {}
-    AugTest = {}
 
     for i in range(Kfold):
         k = 0
