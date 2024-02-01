@@ -180,8 +180,8 @@ def augment_data(
     train_dat,
     test_dat,
     summary,
-    samp_window: float,
-    sliding_window: float,
+    moving_window: float,
+    stride: float,
     homogeneous: bool,
 ):
     # Find the channel "c" providing data at higher frequency "sf" to be used
@@ -193,36 +193,44 @@ def augment_data(
     # Other sensors are low frequency
     lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
 
+    # Time (s) / window * Sampling freq = samples / window
+    MW_length = int(moving_window * hf)
+    ST_length = int(stride * hf)
+    PW_length = train_dat[0][hf_sensor][0, :, :].shape[0]
+
     # Number of folds
     num_folds = len(train_dat)
-    all_labels = [
-        train_dat[0][hf_sensor][:, 0, :][:, -3],
-        test_dat[0][hf_sensor][:, 0, :][:, -3],
-    ]
-    num_terrains = np.unique(np.hstack(all_labels)).shape[0]
+    all_labels = np.hstack(
+        [
+            train_dat[0][hf_sensor][:, 0, :][:, -3],
+            test_dat[0][hf_sensor][:, 0, :][:, -3],
+        ]
+    )
+    num_terrains = np.unique(all_labels).shape[0]
 
     if homogeneous:
         # Get number of windows per terrain
-        pass
+        terr_counts = pd.Series(all_labels).value_counts(sort=False).sort_index()
+        min_count = terr_counts.min()
+
+        # How many samples are generated for one partition window
+        n_strides = (PW_length - MW_length) // ST_length
+        # How many augmented windows / strides for the smallest class
+        strides_min = n_strides * min_count
+        # Hoe many augmented window for each terrain
+        # Number of augmented windows are the same for all terrains
+        n_aug_terr = (strides_min / terr_counts).astype(int)
+
+        # Stride for each terrain
+        aug_stride = ((PW_length - MW_length) // n_aug_terr).to_numpy()
+
+    else:
+        # Use ST for all terrains
+        aug_stride = np.full_like(num_terrains, int(stride * hf))
+
+    print(aug_stride, aug_stride, terr_counts)
 
     return (0, 0)
-
-    SizTer = np.zeros(NumTer)
-
-    for i in range(1, NumTer + 1):
-        SizTer[i - 1] = np.sum(TotLabl == i)
-
-    MinNum = int(np.min(SizTer))
-
-    # Decide whether to augment the data homogeneously or not
-    if AUG["same"] == 1:
-        TotSmp = len(GenSmp) * MinNum
-        TerSmp = np.floor(TotSmp / SizTer)
-        TerSli = (1 / channels[channel_names[c]]["sf"]) * (
-            (Samp.shape[0] - int(w * channels[channel_names[c]]["sf"])) / TerSmp
-        )
-    else:
-        TerSli = np.full(NumTer, AUG["sliding_window"])
 
     # Augment the data using the appropriate sliding window for different
     # terrains or the same for every terrain depending on AUG.same
