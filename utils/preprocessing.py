@@ -246,7 +246,7 @@ def augment_data(
     # terrains or the same for every terrain depending on homogeneous
 
     # For every fold
-    for K_train, K_test in zip(train_dat, test_dat):
+    for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
         # For every terrain
         # Ktrain_copy = {sens: sensKtrain.copy() for sens, sensKtrain in K_train.items()}
         # Ktest_copy = {sens: sensKtest.copy() for sens, sensKtest in K_test.items()}
@@ -271,10 +271,11 @@ def augment_data(
             n_slides = n_slides_terr[terr]
 
             # Slice the array based on the slide length
-            # TODO: Look at using MW_len in the limit
-            starts = np.arange(0, PW_len - MW_len + 1, sli_len)
-            starts = starts[(starts + MW_len) < PW_len]
+            starts = sli_len * np.arange(n_slides)
+            # starts = starts[(starts + MW_len) < PW_len]
             limits = np.vstack([starts, starts + MW_len]).T
+            if K_idx == 4:
+                print(K_idx, terr_idx, MW_len, hf_terr_train.shape[0] * limits.shape[0])
             print(strides_min, n_slides, limits.shape[0])
 
             # Get slices for each limit
@@ -305,14 +306,14 @@ def augment_data(
                 lf_time_train = lf_terr_train[:, :, ch_cols["time"]]
                 lf_time_test = lf_terr_test[:, :, ch_cols["time"]]
 
-                print(
-                    lf_terr_train.shape,
-                    hf_terr_train.shape,
-                    lf_time_train.shape,
-                    limits.shape,
-                    hf_sli_train.shape,
-                    limits.shape[0] * lf_terr_train.shape[0],
-                )
+                # print(
+                #     lf_terr_train.shape,
+                #     hf_terr_train.shape,
+                #     lf_time_train.shape,
+                #     limits.shape,
+                #     hf_sli_train.shape,
+                #     limits.shape[0] * lf_terr_train.shape[0],
+                # )
 
                 # Time length
                 win_len = lf_train.shape[1]
@@ -322,7 +323,7 @@ def augment_data(
 
         pass
 
-    # return aug_train, aug_test
+    return aug_train, aug_test
 
     k = 0
     for j in range(len(train_dat[fold]["data"])):
