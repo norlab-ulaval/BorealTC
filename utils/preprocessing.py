@@ -253,8 +253,8 @@ def augment_data(
         # aug_train.append(Ktrain_copy)
         # aug_test.append(Ktest_copy)
 
-        K_sli_train = {}
-        K_sli_test = {}
+        Kterr_train = {}
+        Kterr_test = {}
 
         hf_train = K_train[hf_sensor]
         hf_test = K_test[hf_sensor]
@@ -275,27 +275,31 @@ def augment_data(
             # starts = starts[(starts + MW_len) < PW_len]
             limits = np.vstack([starts, starts + MW_len]).T
             if K_idx == 4:
-                print(K_idx, terr_idx, MW_len, hf_terr_train.shape[0] * limits.shape[0])
-            print(strides_min, n_slides, limits.shape[0])
+                print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
+            # print(strides_min, n_slides, limits.shape[0])
 
             # Get slices for each limit
             hf_sli_train = [hf_terr_train[:, slice(*lim), :] for lim in limits]
             hf_sli_test = [hf_terr_test[:, slice(*lim), :] for lim in limits]
 
             # Get time values
-            tlim_train = [hf_terr_train[:, lim, ch_cols["time"]] for lim in limits]
-            tlim_test = [hf_terr_test[:, lim, ch_cols["time"]] for lim in limits]
+            hf_tlim_train = hf_terr_train[0, limits, ch_cols["time"]]
+            hf_tlim_test = hf_terr_test[0, limits, ch_cols["time"]]
 
             # Stack all slices together
             hf_sli_train = np.vstack(hf_sli_train)
             hf_sli_test = np.vstack(hf_sli_test)
 
-            K_sli_train.setdefault(hf_sensor, []).append(hf_sli_train)
-            K_sli_test.setdefault(hf_sensor, []).append(hf_sli_test)
+            Kterr_train.setdefault(hf_sensor, []).append(hf_sli_train)
+            Kterr_test.setdefault(hf_sensor, []).append(hf_sli_test)
 
             for lf_sens in lf_sensors:
                 lf_train = K_train[lf_sens]
                 lf_test = K_test[lf_sens]
+
+                # Sampling frequency
+                sf = summary.sampling_freq.loc[lf_sens]
+                lf_win = int(moving_window * sf)
 
                 # Select partitions based on terrain
                 train_terr_mask = lf_train[:, 0, ch_cols["terrain"]] == terr
@@ -303,25 +307,37 @@ def augment_data(
                 lf_terr_train = lf_train[train_terr_mask]
                 lf_terr_test = lf_test[test_terr_mask]
 
-                lf_time_train = lf_terr_train[:, :, ch_cols["time"]]
-                lf_time_test = lf_terr_test[:, :, ch_cols["time"]]
+                lf_time_train = lf_terr_train[0, :, ch_cols["time"]]
+                lf_time_test = lf_terr_test[0, :, ch_cols["time"]]
+                indices_train = np.abs(lf_time_train - hf_tlim_train[:, [0]]).argmin(
+                    axis=1
+                )
+                indices_test = np.abs(lf_time_test - hf_tlim_test[:, [0]]).argmin(
+                    axis=1
+                )
+                lf_sli_train = [
+                    lf_terr_train[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+                    for lf_sli_idx in indices_train
+                ]
+                lf_sli_test = [
+                    lf_terr_test[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+                    for lf_sli_idx in indices_test
+                ]
+                lf_sli_train = np.vstack(lf_sli_train)
+                lf_sli_test = np.vstack(lf_sli_test)
 
-                # print(
-                #     lf_terr_train.shape,
-                #     hf_terr_train.shape,
-                #     lf_time_train.shape,
-                #     limits.shape,
-                #     hf_sli_train.shape,
-                #     limits.shape[0] * lf_terr_train.shape[0],
-                # )
+                Kterr_train.setdefault(lf_sens, []).append(lf_sli_train)
+                Kterr_test.setdefault(lf_sens, []).append(lf_sli_test)
 
-                # Time length
-                win_len = lf_train.shape[1]
+        K_sli_train = {
+            sens: np.vstack(sens_data) for sens, sens_data in Kterr_train.items()
+        }
+        K_sli_test = {
+            sens: np.vstack(sens_data) for sens, sens_data in Kterr_test.items()
+        }
 
         aug_train.append(K_sli_train)
         aug_test.append(K_sli_test)
-
-        pass
 
     return aug_train, aug_test
 
