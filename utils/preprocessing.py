@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import frequency
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
@@ -163,6 +164,8 @@ def partition_data_csv(
     # for sens, sens_data in unified.items():
     #     print(sens, sens_data.shape, (sens_data[:, 0, :][:, 0] == labels).all())
 
+    # TODO: split elsewhere ?
+
     # Split with K folds
     skf = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
 
@@ -248,11 +251,6 @@ def augment_data(
     # For every fold
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
         # For every terrain
-        # Ktrain_copy = {sens: sensKtrain.copy() for sens, sensKtrain in K_train.items()}
-        # Ktest_copy = {sens: sensKtest.copy() for sens, sensKtest in K_test.items()}
-        # aug_train.append(Ktrain_copy)
-        # aug_test.append(Ktest_copy)
-
         Kterr_train = {}
         Kterr_test = {}
 
@@ -274,6 +272,7 @@ def augment_data(
             starts = sli_len * np.arange(n_slides)
             # starts = starts[(starts + MW_len) < PW_len]
             limits = np.vstack([starts, starts + MW_len]).T
+            # TODO: Check number of strides per
             if K_idx == 4:
                 print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
             # print(strides_min, n_slides, limits.shape[0])
@@ -341,76 +340,19 @@ def augment_data(
 
     return aug_train, aug_test
 
-    k = 0
-    for j in range(len(train_dat[fold]["data"])):
-        sli = TerSli[int(train_dat[fold]["labl"][j] - 1)]
-        strt = 0
-        stop = strt + int(w * hf) - 1
-        while stop < train_dat[fold]["data"][j][c].shape[0]:
-            AugTrain[fold]["data"][k][c] = train_dat[fold]["data"][j][c][strt:stop, :]
-            AugTrain[fold]["time"][k][c] = train_dat[fold]["time"][j][c][strt:stop]
-            AugTrain[fold]["labl"][k] = train_dat[fold]["labl"][j]
 
-            t0 = train_dat[fold]["time"][j][c][strt]
-            t1 = train_dat[fold]["time"][j][c][stop]
-            for s in range(len(channel_names)):
-                if s != c:
-                    e0 = np.argmin(
-                        np.abs(t0 - train_dat[fold]["time"][j][channel_names[s]])
-                    )
-                    e1 = np.argmin(
-                        np.abs(t1 - train_dat[fold]["time"][j][channel_names[s]])
-                    )
-                    AugTrain[fold]["data"][k][s] = train_dat[fold]["data"][j][s][
-                        e0:e1, :
-                    ]
-                    AugTrain[fold]["time"][k][s] = train_dat[fold]["time"][j][s][e0:e1]
-                    # Make the dimensions homogeneous
-                    if AugTrain[fold]["data"][k][s].shape[0] > int(
-                        round(w * channels[channel_names[s]]["sf"])
-                    ):
-                        AugTrain[fold]["data"][k][s] = np.delete(
-                            AugTrain[fold]["data"][k][s], -1, axis=0
-                        )
-                        AugTrain[fold]["time"][k][s] = np.delete(
-                            AugTrain[fold]["time"][k][s], -1
-                        )
-            strt = int(strt + sli * hf)
-            stop = int(strt + w * hf) - 1
-            k += 1
+def apply_multichannel_spectogram(
+    train_dat: list[ExperimentData],
+    test_dat: list[ExperimentData],
+    summary: pd.DataFrame,
+    time_window: float,
+    time_overlap: float,
+):
+    tw = time_window
+    to = time_overlap
 
-    k = 0
-    for j in range(len(test_dat[fold]["data"])):
-        sli = TerSli[int(test_dat[fold]["labl"][j] - 1)]
-        strt = 0
-        stop = int(strt + w * hf) - 1
-        while stop < test_dat[fold]["data"][j][c].shape[0]:
-            AugTest[fold]["data"][k][c] = test_dat[fold]["data"][j][c][strt:stop, :]
-            AugTest[fold]["time"][k][c] = test_dat[fold]["time"][j][c][strt:stop]
-            AugTest[fold]["labl"][k] = test_dat[fold]["labl"][j]
-
-            t0 = test_dat[fold]["time"][j][c][strt]
-            t1 = test_dat[fold]["time"][j][c][stop]
-            for s in range(len(channel_names)):
-                if s != c:
-                    e0 = np.argmin(
-                        np.abs(t0 - test_dat[fold]["time"][j][channel_names[s]])
-                    )
-                    e1 = np.argmin(
-                        np.abs(t1 - test_dat[fold]["time"][j][channel_names[s]])
-                    )
-                    AugTest[fold]["data"][k][s] = test_dat[fold]["data"][j][s][e0:e1, :]
-                    AugTest[fold]["time"][k][s] = test_dat[fold]["time"][j][s][e0:e1]
-                    # Make the dimensions homogeneous
-                    if AugTest[fold]["data"][k][s].shape[0] > int(
-                        round(w * channels[channel_names[s]]["sf"])
-                    ):
-                        AugTest[fold]["data"][k][s] = np.delete(
-                            AugTest[fold]["data"][k][s], -1, axis=0
-                        )
-                        AugTest[fold]["time"][k][s] = np.delete(
-                            AugTest[fold]["time"][k][s], -1
-                        )
-            strt = int(strt + sli * hf)
-            stop = int(strt + w * hf) - 1
-            k += 1
+    for K_idx, (K_train, K_test) in zip(train_dat, test_dat):
+        train_channels, train_time, train_freq = frequency.multichannel_spectrogram(
+            K_train, summary, tw, to
+        )
+        print("Hello", K_idx)

@@ -76,7 +76,12 @@ HOMOGENEOUS_AUGMENTATION = True
 models = ["CNN", "LSTM", "CLSTM", "SVM"]
 
 # CNN parameters
-cnn_par = {"TimeWindow": 0.4, "TimeOvrlap": 0.2, "FilterSize": [3, 3], "numFilters": 3}
+cnn_par = {
+    "time_window": 0.4,
+    "time_ovrlap": 0.2,
+    "filter_size": [3, 3],
+    "num_filters": 3,
+}
 
 cnn_train_opt = {
     "valid_perc": 0.1,
@@ -143,18 +148,24 @@ for MW in MOVING_WINDOWS:
         homogeneous=HOMOGENEOUS_AUGMENTATION,
     )
 
-    # print(f"Training models for a sampling window of {samp_window} seconds")
-    # print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print(f"Training models for a sampling window of {MW} seconds")
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    # results = {}
-    # for model in models:
-    #     if model == "CNN":
-    #         train_mcs, test_mcs = MCS_Data(aug_train, aug_test, channels, cnn_par)
-    #         results[model] = {
-    #             f"SampWindow_{samp_window * 1000}ms": Conv_NeuralNet(
-    #                 train_mcs, test_mcs, cnn_par, cnn_train_opt
-    #             )
-    #         }
+    results = {}
+    for model in models:
+        if model == "CNN":
+            train_mcs, test_mcs = preprocessing.apply_multichannel_spectogram(
+                aug_train,
+                aug_test,
+                summary,
+                cnn_par["time_window"],
+                cnn_par["time_overlap"],
+            )
+            # results[model] = {
+            #     f"SampWindow_{samp_window * 1000}ms": Conv_NeuralNet(
+            #         train_mcs, test_mcs, cnn_par, cnn_train_opt
+            #     )
+            # }
     #     elif model == "LSTM":
     #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
     #         results[model] = {
