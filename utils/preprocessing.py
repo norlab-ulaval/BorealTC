@@ -260,6 +260,7 @@ def augment_data(
         hf_test = K_test[hf_sensor]
 
         for terr_idx, terr in enumerate(terrains):
+            # Get partitions for label terrain
             train_terr_mask = hf_train[:, 0, ch_cols["terrain"]] == terr
             test_terr_mask = hf_test[:, 0, ch_cols["terrain"]] == terr
             hf_terr_train = hf_train[train_terr_mask]
@@ -270,32 +271,48 @@ def augment_data(
             n_slides = n_slides_terr[terr]
 
             # Slice the array based on the slide length
-            starts = np.arange(0, PW_len, sli_len)
-            starts = starts[(starts + MW_len) <= PW_len]
+            # TODO: Look at using MW_len in the limit
+            starts = np.arange(0, PW_len - MW_len + 1, sli_len)
+            starts = starts[(starts + MW_len) < PW_len]
             limits = np.vstack([starts, starts + MW_len]).T
             print(strides_min, n_slides, limits.shape[0])
 
             # Get slices for each limit
             hf_sli_train = [hf_terr_train[:, slice(*lim), :] for lim in limits]
             hf_sli_test = [hf_terr_test[:, slice(*lim), :] for lim in limits]
+
+            # Get time values
+            tlim_train = [hf_terr_train[:, lim, ch_cols["time"]] for lim in limits]
+            tlim_test = [hf_terr_test[:, lim, ch_cols["time"]] for lim in limits]
+
+            # Stack all slices together
             hf_sli_train = np.vstack(hf_sli_train)
             hf_sli_test = np.vstack(hf_sli_test)
 
             K_sli_train.setdefault(hf_sensor, []).append(hf_sli_train)
             K_sli_test.setdefault(hf_sensor, []).append(hf_sli_test)
 
-            # Get time values
-            t_limits_train = hf_sli_train[:, (0, -1), ch_cols["time"]]
-            t_limits_test = hf_sli_test[:, (0, -1), ch_cols["time"]]
-
             for lf_sens in lf_sensors:
                 lf_train = K_train[lf_sens]
                 lf_test = K_test[lf_sens]
 
+                # Select partitions based on terrain
                 train_terr_mask = lf_train[:, 0, ch_cols["terrain"]] == terr
                 test_terr_mask = lf_test[:, 0, ch_cols["terrain"]] == terr
                 lf_terr_train = lf_train[train_terr_mask]
                 lf_terr_test = lf_test[test_terr_mask]
+
+                lf_time_train = lf_terr_train[:, :, ch_cols["time"]]
+                lf_time_test = lf_terr_test[:, :, ch_cols["time"]]
+
+                print(
+                    lf_terr_train.shape,
+                    hf_terr_train.shape,
+                    lf_time_train.shape,
+                    limits.shape,
+                    hf_sli_train.shape,
+                    limits.shape[0] * lf_terr_train.shape[0],
+                )
 
                 # Time length
                 win_len = lf_train.shape[1]
@@ -305,91 +322,78 @@ def augment_data(
 
         pass
 
-    return aug_train, aug_test
+    # return aug_train, aug_test
 
-    for i in range(Kfold):
-        k = 0
-        for j in range(len(train_dat[FN[i]]["data"])):
-            sli = TerSli[int(train_dat[FN[i]]["labl"][j] - 1)]
-            strt = 0
-            stop = int(strt + w * channels[channel_names[c]]["sf"]) - 1
-            while stop < train_dat[FN[i]]["data"][j][c].shape[0]:
-                AugTrain[FN[i]]["data"][k][c] = train_dat[FN[i]]["data"][j][c][
-                    strt:stop, :
-                ]
-                AugTrain[FN[i]]["time"][k][c] = train_dat[FN[i]]["time"][j][c][
-                    strt:stop
-                ]
-                AugTrain[FN[i]]["labl"][k] = train_dat[FN[i]]["labl"][j]
+    k = 0
+    for j in range(len(train_dat[fold]["data"])):
+        sli = TerSli[int(train_dat[fold]["labl"][j] - 1)]
+        strt = 0
+        stop = strt + int(w * hf) - 1
+        while stop < train_dat[fold]["data"][j][c].shape[0]:
+            AugTrain[fold]["data"][k][c] = train_dat[fold]["data"][j][c][strt:stop, :]
+            AugTrain[fold]["time"][k][c] = train_dat[fold]["time"][j][c][strt:stop]
+            AugTrain[fold]["labl"][k] = train_dat[fold]["labl"][j]
 
-                t0 = train_dat[FN[i]]["time"][j][c][strt]
-                t1 = train_dat[FN[i]]["time"][j][c][stop]
-                for s in range(len(channel_names)):
-                    if s != c:
-                        e0 = np.argmin(
-                            np.abs(t0 - train_dat[FN[i]]["time"][j][channel_names[s]])
+            t0 = train_dat[fold]["time"][j][c][strt]
+            t1 = train_dat[fold]["time"][j][c][stop]
+            for s in range(len(channel_names)):
+                if s != c:
+                    e0 = np.argmin(
+                        np.abs(t0 - train_dat[fold]["time"][j][channel_names[s]])
+                    )
+                    e1 = np.argmin(
+                        np.abs(t1 - train_dat[fold]["time"][j][channel_names[s]])
+                    )
+                    AugTrain[fold]["data"][k][s] = train_dat[fold]["data"][j][s][
+                        e0:e1, :
+                    ]
+                    AugTrain[fold]["time"][k][s] = train_dat[fold]["time"][j][s][e0:e1]
+                    # Make the dimensions homogeneous
+                    if AugTrain[fold]["data"][k][s].shape[0] > int(
+                        round(w * channels[channel_names[s]]["sf"])
+                    ):
+                        AugTrain[fold]["data"][k][s] = np.delete(
+                            AugTrain[fold]["data"][k][s], -1, axis=0
                         )
-                        e1 = np.argmin(
-                            np.abs(t1 - train_dat[FN[i]]["time"][j][channel_names[s]])
+                        AugTrain[fold]["time"][k][s] = np.delete(
+                            AugTrain[fold]["time"][k][s], -1
                         )
-                        AugTrain[FN[i]]["data"][k][s] = train_dat[FN[i]]["data"][j][s][
-                            e0:e1, :
-                        ]
-                        AugTrain[FN[i]]["time"][k][s] = train_dat[FN[i]]["time"][j][s][
-                            e0:e1
-                        ]
-                        # Make the dimensions homogeneous
-                        if AugTrain[FN[i]]["data"][k][s].shape[0] > int(
-                            round(w * channels[channel_names[s]]["sf"])
-                        ):
-                            AugTrain[FN[i]]["data"][k][s] = np.delete(
-                                AugTrain[FN[i]]["data"][k][s], -1, axis=0
-                            )
-                            AugTrain[FN[i]]["time"][k][s] = np.delete(
-                                AugTrain[FN[i]]["time"][k][s], -1
-                            )
-                strt = int(strt + sli * channels[channel_names[c]]["sf"])
-                stop = int(strt + w * channels[channel_names[c]]["sf"]) - 1
-                k += 1
+            strt = int(strt + sli * hf)
+            stop = int(strt + w * hf) - 1
+            k += 1
 
-        k = 0
-        for j in range(len(test_dat[FN[i]]["data"])):
-            sli = TerSli[int(test_dat[FN[i]]["labl"][j] - 1)]
-            strt = 0
-            stop = int(strt + w * channels[channel_names[c]]["sf"]) - 1
-            while stop < test_dat[FN[i]]["data"][j][c].shape[0]:
-                AugTest[FN[i]]["data"][k][c] = test_dat[FN[i]]["data"][j][c][
-                    strt:stop, :
-                ]
-                AugTest[FN[i]]["time"][k][c] = test_dat[FN[i]]["time"][j][c][strt:stop]
-                AugTest[FN[i]]["labl"][k] = test_dat[FN[i]]["labl"][j]
+    k = 0
+    for j in range(len(test_dat[fold]["data"])):
+        sli = TerSli[int(test_dat[fold]["labl"][j] - 1)]
+        strt = 0
+        stop = int(strt + w * hf) - 1
+        while stop < test_dat[fold]["data"][j][c].shape[0]:
+            AugTest[fold]["data"][k][c] = test_dat[fold]["data"][j][c][strt:stop, :]
+            AugTest[fold]["time"][k][c] = test_dat[fold]["time"][j][c][strt:stop]
+            AugTest[fold]["labl"][k] = test_dat[fold]["labl"][j]
 
-                t0 = test_dat[FN[i]]["time"][j][c][strt]
-                t1 = test_dat[FN[i]]["time"][j][c][stop]
-                for s in range(len(channel_names)):
-                    if s != c:
-                        e0 = np.argmin(
-                            np.abs(t0 - test_dat[FN[i]]["time"][j][channel_names[s]])
+            t0 = test_dat[fold]["time"][j][c][strt]
+            t1 = test_dat[fold]["time"][j][c][stop]
+            for s in range(len(channel_names)):
+                if s != c:
+                    e0 = np.argmin(
+                        np.abs(t0 - test_dat[fold]["time"][j][channel_names[s]])
+                    )
+                    e1 = np.argmin(
+                        np.abs(t1 - test_dat[fold]["time"][j][channel_names[s]])
+                    )
+                    AugTest[fold]["data"][k][s] = test_dat[fold]["data"][j][s][e0:e1, :]
+                    AugTest[fold]["time"][k][s] = test_dat[fold]["time"][j][s][e0:e1]
+                    # Make the dimensions homogeneous
+                    if AugTest[fold]["data"][k][s].shape[0] > int(
+                        round(w * channels[channel_names[s]]["sf"])
+                    ):
+                        AugTest[fold]["data"][k][s] = np.delete(
+                            AugTest[fold]["data"][k][s], -1, axis=0
                         )
-                        e1 = np.argmin(
-                            np.abs(t1 - test_dat[FN[i]]["time"][j][channel_names[s]])
+                        AugTest[fold]["time"][k][s] = np.delete(
+                            AugTest[fold]["time"][k][s], -1
                         )
-                        AugTest[FN[i]]["data"][k][s] = test_dat[FN[i]]["data"][j][s][
-                            e0:e1, :
-                        ]
-                        AugTest[FN[i]]["time"][k][s] = test_dat[FN[i]]["time"][j][s][
-                            e0:e1
-                        ]
-                        # Make the dimensions homogeneous
-                        if AugTest[FN[i]]["data"][k][s].shape[0] > int(
-                            round(w * channels[channel_names[s]]["sf"])
-                        ):
-                            AugTest[FN[i]]["data"][k][s] = np.delete(
-                                AugTest[FN[i]]["data"][k][s], -1, axis=0
-                            )
-                            AugTest[FN[i]]["time"][k][s] = np.delete(
-                                AugTest[FN[i]]["time"][k][s], -1
-                            )
-                strt = int(strt + sli * channels[channel_names[c]]["sf"])
-                stop = int(strt + w * channels[channel_names[c]]["sf"]) - 1
-                k += 1
+            strt = int(strt + sli * hf)
+            stop = int(strt + w * hf) - 1
+            k += 1
