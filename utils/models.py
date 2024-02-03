@@ -10,7 +10,6 @@ import scipy.stats as scst
 import torch
 import torch.nn as nn
 import torchmetrics
-from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -197,7 +196,7 @@ def support_vector_machine(
 
         return X, y
 
-    Kconfmats = []
+    classification = {"pred": [], "true": [], "ftime": [], "ptime": []}
 
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
         Xtrain_k, ytrain_k = convert_to_moments(K_train)
@@ -221,22 +220,15 @@ def support_vector_machine(
         ypred_k = clf.predict(xtest_k)
         predict_time = time.perf_counter() - start
 
-        Kconfmat = confusion_matrix(ypred_k, ytest_k, labels=terrains)
-        Kconfmats.append(Kconfmat)
+        classification["pred"].append(ypred_k)
+        classification["true"].append(ytest_k)
 
         print(f"Fold {K_idx} : Train {fit_time:.2f} / Test {predict_time:.2f}")
 
         # acc = clf.score(xtest_k, ytest_k)
         # print(f"Fold {K_idx} : SVM {acc=:.2%}")
 
-    confmat = np.sum(Kconfmats, axis=0)
+    classification["pred"] = np.hstack(classification["pred"])
+    classification["true"] = np.hstack(classification["true"])
 
-    print(confmat)
-
-    return {
-        "confusion_matrix": confmat,
-        "fit_time": fit_time,
-        "predict_time": predict_time,
-    }
-
-    return confmat
+    return classification

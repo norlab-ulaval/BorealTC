@@ -152,6 +152,7 @@ for MW in MOVING_WINDOWS:
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     for model in BASE_MODELS:
+        results.setdefault(model, {})
         if model == "CNN":
             train_mcs, test_mcs = preprocessing.apply_multichannel_spectogram(
                 aug_train,
@@ -180,16 +181,15 @@ for MW in MOVING_WINDOWS:
         #             )
         #         }
         elif model == "SVM":
-            results[model] = {
-                f"{MW * 1000}ms": models.support_vector_machine(
-                    aug_train,
-                    aug_test,
-                    summary,
-                    svm_par["n_stat_mom"],
-                    svm_train_opt,
-                    random_state=21,
-                )
-            }
+            results[model][int(MW * 1000)] = models.support_vector_machine(
+                aug_train,
+                aug_test,
+                summary,
+                svm_par["n_stat_mom"],
+                svm_train_opt,
+                random_state=21,
+            )
+
 
 # Store channels settings
 results["channels"] = columns
