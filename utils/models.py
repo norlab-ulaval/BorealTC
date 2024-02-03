@@ -9,7 +9,9 @@ import scipy.stats as scst
 import torch
 import torch.nn as nn
 import torchmetrics
-from sklearn.svm import LinearSVC
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 from utils.constants import ch_cols
 
@@ -118,9 +120,10 @@ def support_vector_machine(
     summary: pd.DataFrame,
     n_stat_mom: int,
     svm_train_opt: dict,
+    random_state: int | None = None,
 ):
     kernel_func = svm_train_opt["kernel_function"]
-    polynomial_order = svm_train_opt["polynomial_order"]
+    poly_degree = svm_train_opt["poly_degree"]
     kernel_scale = svm_train_opt["kernel_scale"]
     box_constraint = svm_train_opt["box_constraint"]
     standardize = svm_train_opt["standardize"]
@@ -167,7 +170,7 @@ def support_vector_machine(
         n_channels = stat_moms.shape[1]
 
         X = stat_moms.reshape(-1, n_stat_mom * n_channels, order="F")
-        y = data[hf_sensor][:, 0, ch_cols["terr_idx"]]
+        y = data[hf_sensor][:, 0, ch_cols["terrain"]]
 
         for i in range(n_stat_mom):
             idx = i * n_channels
@@ -181,16 +184,17 @@ def support_vector_machine(
         K_XTrain, K_YTrain = convert_to_moments(K_train)
         K_XTest, K_YTest = convert_to_moments(K_test)
 
-        svm = LinearSVC()
-
-        # assert()
-
-        print(
-            K_XTrain.shape,
-            K_XTest.shape,
-            K_YTrain.shape,
-            K_YTest.shape,
+        svm = SVC(
+            kernel=kernel_func,
+            degree=poly_degree,
+            gamma=kernel_scale,
+            C=box_constraint,
+            decision_function_shape="ovo",
+            random_state=random_state,
         )
+        clf = make_pipeline(StandardScaler(), svm)
 
-        # n_channels =
-        # assert()
+        clf.fit(K_XTrain, K_YTrain)
+
+        acc = clf.score(K_XTest, K_YTest)
+        print(f"Fold {K_idx} : SVM {acc=:.2%}")

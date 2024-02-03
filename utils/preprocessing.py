@@ -272,8 +272,8 @@ def augment_data(
             # starts = starts[(starts + MW_len) < PW_len]
             limits = np.vstack([starts, starts + MW_len]).T
             # TODO: Check number of strides per
-            if K_idx == 4:
-                print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
+            # if K_idx == 4:
+            #     print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
             # print(strides_min, n_slides, limits.shape[0])
 
             # Get slices for each limit

@@ -124,8 +124,8 @@ clstm_train_opt = {
 svm_par = {"n_stat_mom": 4}
 
 svm_train_opt = {
-    "kernel_function": "polynomial",
-    "polynomial_order": 4,
+    "kernel_function": "poly",
+    "poly_degree": 4,
     "kernel_scale": "auto",
     "box_constraint": 100,
     "standardize": True,
@@ -184,7 +184,12 @@ for MW in MOVING_WINDOWS:
         elif model == "SVM":
             results[model] = {
                 f"SampWindow_{MW * 1000}ms": models.support_vector_machine(
-                    aug_train, aug_test, summary, svm_par["n_stat_mom"], svm_train_opt
+                    aug_train,
+                    aug_test,
+                    summary,
+                    svm_par["n_stat_mom"],
+                    svm_train_opt,
+                    random_state=21,
                 )
             }
 
