@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import frequency
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
@@ -11,8 +10,8 @@ from sklearn.model_selection import StratifiedKFold
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame]
 
-ch_cols = dict(zip(("terrain", "terr_idx", "run_idx", "win_idx", "time"), range(5)))
-first_last = np.array([0, -1])
+# Number partitions x time x channels
+from utils.constants import ch_cols
 
 
 def get_recordings_csv(
@@ -159,7 +158,7 @@ def partition_data_csv(
         sens: np.vstack([sens_data[terr] for terr in terrains])
         for sens, sens_data in partitions.items()
     }
-    n_windows = unified[hf_sensor].shape[0]
+    # n_windows = unified[hf_sensor].shape[0]
     labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0]
     # for sens, sens_data in unified.items():
     #     print(sens, sens_data.shape, (sens_data[:, 0, :][:, 0] == labels).all())
@@ -352,7 +351,7 @@ def apply_multichannel_spectogram(
     to = time_overlap
 
     for K_idx, (K_train, K_test) in zip(train_dat, test_dat):
-        train_channels, train_time, train_freq = frequency.multichannel_spectrogram(
-            K_train, summary, tw, to
-        )
+        # train_channels, train_time, train_freq = frequency.multichannel_spectrogram(
+        #     K_train, summary, tw, to
+        # )
         print("Hello", K_idx)

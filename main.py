@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from utils import preprocessing
+from utils import models, preprocessing
 
 cwd = Path.cwd()
 mat_dir = cwd / "datasets"
@@ -72,9 +72,6 @@ STRIDE = 0.1  # seconds
 # If False, imbalance the classes while augmenting
 HOMOGENEOUS_AUGMENTATION = True
 
-# Model settings
-models = ["CNN", "LSTM", "CLSTM", "SVM"]
-
 # CNN parameters
 cnn_par = {
     "time_window": 0.4,
@@ -124,19 +121,23 @@ clstm_train_opt = {
 }
 
 # SVM parameters
-svm_par = {"nStatMom": 4}
+svm_par = {"n_stat_mom": 4}
 
 svm_train_opt = {
     "kernel_function": "polynomial",
     "polynomial_order": 4,
     "kernel_scale": "auto",
     "box_constraint": 100,
-    "standardize": 1,
+    "standardize": True,
     "coding": "onevsone",
 }
 
 # Save results name
 save_name = "TrainingResults_1"
+
+# Model settings
+# models = ["CNN", "LSTM", "CLSTM", "SVM"]
+base_models = ["SVM"]
 
 for MW in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
@@ -152,7 +153,7 @@ for MW in MOVING_WINDOWS:
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     results = {}
-    for model in models:
+    for model in base_models:
         if model == "CNN":
             train_mcs, test_mcs = preprocessing.apply_multichannel_spectogram(
                 aug_train,
@@ -166,26 +167,26 @@ for MW in MOVING_WINDOWS:
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt
             #     )
             # }
-    #     elif model == "LSTM":
-    #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
-    #         results[model] = {
-    #             f"SampWindow_{samp_window * 1000}ms": LSTM_RecurrentNet(
-    #                 train_ds, test_ds, lstm_par, lstm_train_opt
-    #             )
-    #         }
-    #     elif model == "CLSTM":
-    #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
-    #         results[model] = {
-    #             f"SampWindow_{samp_window * 1000}ms": CLSTM_RecurrentNet(
-    #                 train_ds, test_ds, clstm_par, clstm_train_opt
-    #             )
-    #         }
-    #     elif model == "SVM":
-    #         results[model] = {
-    #             f"SampWindow_{samp_window * 1000}ms": SupportVectorMachine(
-    #                 aug_train, aug_test, svm_par, svm_train_opt
-    #             )
-    #         }
+        #     elif model == "LSTM":
+        #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
+        #         results[model] = {
+        #             f"SampWindow_{samp_window * 1000}ms": LSTM_RecurrentNet(
+        #                 train_ds, test_ds, lstm_par, lstm_train_opt
+        #             )
+        #         }
+        #     elif model == "CLSTM":
+        #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
+        #         results[model] = {
+        #             f"SampWindow_{samp_window * 1000}ms": CLSTM_RecurrentNet(
+        #                 train_ds, test_ds, clstm_par, clstm_train_opt
+        #             )
+        #         }
+        elif model == "SVM":
+            results[model] = {
+                f"SampWindow_{MW * 1000}ms": models.support_vector_machine(
+                    aug_train, aug_test, summary, svm_par["n_stat_mom"], svm_train_opt
+                )
+            }
 
     # Store channels settings
     # results["Channels"] = channels
