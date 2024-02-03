@@ -18,6 +18,7 @@ benchmark
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
@@ -132,12 +133,10 @@ svm_train_opt = {
     "coding": "onevsone",
 }
 
-# Save results name
-save_name = "TrainingResults_1"
-
 # Model settings
 # models = ["CNN", "LSTM", "CLSTM", "SVM"]
-base_models = ["SVM"]
+BASE_MODELS = ["SVM"]
+results = {}
 
 for MW in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
@@ -152,8 +151,7 @@ for MW in MOVING_WINDOWS:
     print(f"Training models for a sampling window of {MW} seconds")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    results = {}
-    for model in base_models:
+    for model in BASE_MODELS:
         if model == "CNN":
             train_mcs, test_mcs = preprocessing.apply_multichannel_spectogram(
                 aug_train,
@@ -163,27 +161,27 @@ for MW in MOVING_WINDOWS:
                 cnn_par["time_overlap"],
             )
             # results[model] = {
-            #     f"SampWindow_{samp_window * 1000}ms": Conv_NeuralNet(
+            #     f"{samp_window * 1000}ms": Conv_NeuralNet(
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt
             #     )
             # }
         #     elif model == "LSTM":
         #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
         #         results[model] = {
-        #             f"SampWindow_{samp_window * 1000}ms": LSTM_RecurrentNet(
+        #             f"{samp_window * 1000}ms": LSTM_RecurrentNet(
         #                 train_ds, test_ds, lstm_par, lstm_train_opt
         #             )
         #         }
         #     elif model == "CLSTM":
         #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
         #         results[model] = {
-        #             f"SampWindow_{samp_window * 1000}ms": CLSTM_RecurrentNet(
+        #             f"{samp_window * 1000}ms": CLSTM_RecurrentNet(
         #                 train_ds, test_ds, clstm_par, clstm_train_opt
         #             )
         #         }
         elif model == "SVM":
             results[model] = {
-                f"SampWindow_{MW * 1000}ms": models.support_vector_machine(
+                f"{MW * 1000}ms": models.support_vector_machine(
                     aug_train,
                     aug_test,
                     summary,
@@ -193,14 +191,11 @@ for MW in MOVING_WINDOWS:
                 )
             }
 
-    # Store channels settings
-    # results["Channels"] = channels
+# Store channels settings
+results["channels"] = columns
 
-    # # Store terrain labels
-    # terrains = [f.stem for f in data_dir.iterdir() if f.is_dir()]
-    # results["TerLabls"] = terrains
+# Store terrain labels
+terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
+results["terrains"] = terrains
 
-    # np.save(
-    #     results / f"{save_name}_{int(samp_window * 1000)}ms.npy",
-    #     results,
-    # )
+np.save(results_dir / "res.npy", results)

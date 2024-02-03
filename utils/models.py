@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import lightning as L
@@ -9,6 +10,7 @@ import scipy.stats as scst
 import torch
 import torch.nn as nn
 import torchmetrics
+from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -121,7 +123,20 @@ def support_vector_machine(
     n_stat_mom: int,
     svm_train_opt: dict,
     random_state: int | None = None,
-):
+) -> dict:
+    """Support vector
+
+    Args:
+        train_dat (list[ExperimentData]): Train data
+        test_dat (list[ExperimentData]): Test data
+        summary (pd.DataFrame): Channels summary dataframe
+        n_stat_mom (int): Number of statistical moments to consider
+        svm_train_opt (dict): SVM training options
+        random_state (int | None, optional): Random state for SVM. Defaults to None.
+
+    Returns:
+        dict: Metadata and confusion matrix across all folds
+    """
     kernel_func = svm_train_opt["kernel_function"]
     poly_degree = svm_train_opt["poly_degree"]
     kernel_scale = svm_train_opt["kernel_scale"]
@@ -133,6 +148,8 @@ def support_vector_machine(
     hf_sensor = summary["sampling_freq"].idxmax()
     # Other sensors are low frequency
     lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
+
+    terrains = sorted(np.unique(train_dat[0][hf_sensor][:, :, 0]).tolist())
 
     def stat_moments(data: np.array) -> np.array:
         """Apply statistical moments to data
@@ -162,7 +179,7 @@ def support_vector_machine(
             data (ExperimentData): _description_
 
         Returns:
-            _type_: _description_
+            Tuple[np.array]: X and y values for data
         """
         lf_moments = np.hstack([stat_moments(data[sens]) for sens in lf_sensors])
         moments = np.hstack([stat_moments(data[hf_sensor]), lf_moments])
@@ -180,9 +197,11 @@ def support_vector_machine(
 
         return X, y
 
+    Kconfmats = []
+
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
-        K_XTrain, K_YTrain = convert_to_moments(K_train)
-        K_XTest, K_YTest = convert_to_moments(K_test)
+        Xtrain_k, ytrain_k = convert_to_moments(K_train)
+        xtest_k, ytest_k = convert_to_moments(K_test)
 
         svm = SVC(
             kernel=kernel_func,
@@ -194,7 +213,30 @@ def support_vector_machine(
         )
         clf = make_pipeline(StandardScaler(), svm)
 
-        clf.fit(K_XTrain, K_YTrain)
+        start = time.perf_counter()
+        clf.fit(Xtrain_k, ytrain_k)
+        fit_time = time.perf_counter() - start
 
-        acc = clf.score(K_XTest, K_YTest)
-        print(f"Fold {K_idx} : SVM {acc=:.2%}")
+        start = time.perf_counter()
+        ypred_k = clf.predict(xtest_k)
+        predict_time = time.perf_counter() - start
+
+        Kconfmat = confusion_matrix(ypred_k, ytest_k, labels=terrains)
+        Kconfmats.append(Kconfmat)
+
+        print(f"Fold {K_idx} : Train {fit_time:.2f} / Test {predict_time:.2f}")
+
+        # acc = clf.score(xtest_k, ytest_k)
+        # print(f"Fold {K_idx} : SVM {acc=:.2%}")
+
+    confmat = np.sum(Kconfmats, axis=0)
+
+    print(confmat)
+
+    return {
+        "confusion_matrix": confmat,
+        "fit_time": fit_time,
+        "predict_time": predict_time,
+    }
+
+    return confmat
