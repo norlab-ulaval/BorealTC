@@ -278,6 +278,7 @@ def augment_data(
 
             # Slice the array based on the slide length
             starts = sli_len * np.arange(n_slides)
+            # starts = np.arange(0, PW_len - MW_len, sli_len)
             # starts = starts[(starts + MW_len) < PW_len]
             limits = np.vstack([starts, starts + MW_len]).T
             # TODO: Check number of strides per partition
