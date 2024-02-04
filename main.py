@@ -76,7 +76,7 @@ HOMOGENEOUS_AUGMENTATION = True
 # CNN parameters
 cnn_par = {
     "time_window": 0.4,
-    "time_ovrlap": 0.2,
+    "time_overlap": 0.2,
     "filter_size": [3, 3],
     "num_filters": 3,
 }
@@ -134,8 +134,8 @@ svm_train_opt = {
 }
 
 # Model settings
-# models = ["CNN", "LSTM", "CLSTM", "SVM"]
-BASE_MODELS = ["SVM"]
+# BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
+BASE_MODELS = ["CNN", "SVM"]
 results = {}
 
 for MW in MOVING_WINDOWS:

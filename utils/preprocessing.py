@@ -8,9 +8,11 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
 if TYPE_CHECKING:
+    from typing import Tuple
+
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
-# Number partitions x time x channels
+from utils import frequency
 from utils.constants import ch_cols
 
 
@@ -90,7 +92,19 @@ def partition_data_csv(
     partition_duration: float,
     n_splits: int = 5,
     random_state: int | None = None,
-):
+) -> Tuple[list[ExperimentData]]:
+    """_summary_
+
+    Args:
+        data (ExperimentData): Dictionary of pandas DataFrames
+        summary (pd.DataFrame): Summary DataFrame
+        partition_duration (float): Duration of a partition window (in seconds).
+        n_splits (int, optional): Number of folds. Defaults to 5.
+        random_state (int | None, optional): Random state. Defaults to None.
+
+    Returns:
+        list[ExperimentData]: List of dicts with numpy arrays of dimensions (Number partitions x time x channels)
+    """
     # Highest sampling frequency
     hf_sensor = summary["sampling_freq"].idxmax()
     hf = summary["sampling_freq"].max()
@@ -165,7 +179,7 @@ def partition_data_csv(
 
     # TODO: split elsewhere ?
 
-    # Split with K folds
+    # Split data with K folds
     skf = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
 
     train_data, test_data = [], []
@@ -325,8 +339,10 @@ def apply_multichannel_spectogram(
     tw = time_window
     to = time_overlap
 
-    for K_idx, (K_train, K_test) in zip(train_dat, test_dat):
-        # train_channels, train_time, train_freq = frequency.multichannel_spectrogram(
-        #     K_train, summary, tw, to
-        # )
+    for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
+        train_channels, train_time, train_freq = frequency.multichannel_spectrogram(
+            K_train, summary, tw, to
+        )
         print("Hello", K_idx)
+
+    return 0, 0
