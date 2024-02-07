@@ -31,18 +31,18 @@ results_dir = cwd / "results"
 # Define channels
 columns = {
     "imu": {
-        "gyrX": True,
-        "gyrY": True,
-        "gyrZ": True,
-        "accX": True,
-        "accY": True,
-        "accZ": True,
+        "wx": True,
+        "wy": True,
+        "wz": True,
+        "ax": True,
+        "ay": True,
+        "az": True,
     },
     "pro": {
-        "Lvel": True,
-        "Rvel": True,
-        "Lcur": True,
-        "Rcur": True,
+        "velL": True,
+        "velR": True,
+        "curL": True,
+        "curR": True,
     },
 }
 summary = pd.DataFrame({"columns": pd.Series(columns)})
@@ -135,8 +135,8 @@ svm_train_opt = {
 
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
-# BASE_MODELS = ["CNN", "SVM"]
-BASE_MODELS = ["SVM"]
+BASE_MODELS = ["CNN", "SVM"]
+# BASE_MODELS = ["SVM"]
 results = {}
 
 for MW in MOVING_WINDOWS:
