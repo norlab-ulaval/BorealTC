@@ -222,7 +222,7 @@ def augment_data(
     # Time (s) / window * Sampling freq = samples / window
     MW_len = int(moving_window * hf)
     ST_len = int(stride * hf)
-    PW_len = train_dat[0][hf_sensor].shape[1]
+    PW_len = train_dat[0][hf_sensor].shape[1] - 1
 
     # Number of folds
     num_folds = len(train_dat)
