@@ -10,18 +10,18 @@ csv_dir = Path("data")
 
 cols = {
     "imu": [
-        "gyrX",
-        "gyrY",
-        "gyrZ",
-        "accX",
-        "accY",
-        "accZ",
+        "wx",
+        "wy",
+        "wz",
+        "ax",
+        "ay",
+        "az",
     ],
     "pro": [
-        "Lvel",
-        "Rvel",
-        "Lcur",
-        "Rcur",
+        "velL",
+        "velR",
+        "curL",
+        "curR",
     ],
 }
 
