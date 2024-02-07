@@ -1,0 +1,3 @@
+columns,sampling_freq
+"{'gyrX': True, 'gyrY': True, 'gyrZ': True, 'accX': True, 'accY': True, 'accZ': True}",50
+"{'Lvel': True, 'Rvel': True, 'Lcur': True, 'Rcur': True}",15
