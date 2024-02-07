@@ -180,7 +180,8 @@ def partition_data_csv(
     # TODO: split elsewhere ?
 
     # Split data with K folds
-    skf = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
+    rng = np.random.RandomState(random_state)
+    skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
 
     train_data, test_data = [], []
 
