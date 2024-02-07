@@ -10,6 +10,7 @@ import scipy.stats as scst
 import torch
 import torch.nn as nn
 import torchmetrics
+import torchvision as tv
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -42,18 +43,26 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-        self,
-        in_size: int,
-        num_filters: int,
-        filter_size: int,
-        num_classes: int,
-        n_wind: int,
-        n_freq: int,
-        lr: float,
+            self,
+            in_size: int,
+            num_filters: int,
+            filter_size: int,
+            num_classes: int,
+            n_wind: int,
+            n_freq: int,
+            lr: float,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.n_wind = n_wind
         self.n_freq = n_freq
+        self.class_weights = class_weights
+        self.focal_loss = focal_loss
+        self.focal_loss_alpha = focal_loss_alpha
+        self.focal_loss_gamma = focal_loss_gamma
 
         self.lr = lr
         self.in_layer = nn.Conv2d(in_size, in_size, kernel_size=1)
@@ -67,7 +76,7 @@ class CNNTerrain(L.LightningModule):
         self.fc = nn.Linear(num_filters * self.n_wind * self.n_freq, num_classes)
         self.softmax = nn.Softmax(dim=1)
 
-        self.loss = nn.CrossEntropyLoss()
+        self.loss = nn.CrossEntropyLoss(weight=torch.tensor(class_weights) if class_weights else None)
 
         self._train_accuracy = torchmetrics.classification.Accuracy(
             task="multiclass", num_classes=num_classes
@@ -75,6 +84,16 @@ class CNNTerrain(L.LightningModule):
         self._val_accuracy = torchmetrics.classification.Accuracy(
             task="multiclass", num_classes=num_classes
         )
+
+        self._val_classification = {"pred": [], "true": [], "ftime": [], "ptime": []}
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        return optimizer
+
+    @property
+    def val_classification(self):
+        return self._val_classification
 
     def forward(self, x):
         x = self.in_layer(x)
@@ -88,6 +107,11 @@ class CNNTerrain(L.LightningModule):
 
         return x
 
+    def loss(self, y, target):
+        if self.focal_loss:
+            return tv.ops.sigmoid_focal_loss(y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma)
+        return self.loss(y, target)
+
     def training_step(self, batch, batch_idx):
         x, target = batch
         y = self(x)
@@ -99,6 +123,10 @@ class CNNTerrain(L.LightningModule):
 
         return loss
 
+    def on_train_epoch_end(self):
+        self.log("train_accuracy_epoch", self._train_accuracy.compute())
+        self._train_accuracy.reset()
+
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
         y = self(x)
@@ -108,20 +136,37 @@ class CNNTerrain(L.LightningModule):
         self.log("val_loss", loss)
         self.log("val_accuracy", acc)
 
+        pred_classes = torch.argmax(y, dim=1)
+        self._val_classification["pred"].append(pred_classes.detach().cpu().numpy())
+        self._val_classification["true"].append(target.detach().cpu().numpy())
+
         return loss
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        return optimizer
+    def on_validation_epoch_end(self):
+        self.log("val_accuracy_epoch", self._val_accuracy.compute())
+        self._val_accuracy.reset()
+
+    def on_validation_end(self):
+        self._val_classification["pred"] = np.hstack(self._val_classification["pred"])
+        self._val_classification["true"] = np.hstack(self._val_classification["true"])
+
+
+def cnn_terrain(
+        train_dat: list[ExperimentData],
+        test_dat: list[ExperimentData],
+        summary: pd.DataFrame,
+) -> dict:
+    # TODO: Implement CNN terrain classification, see training.py for an example
+    raise NotImplementedError("Not implemented yet")
 
 
 def support_vector_machine(
-    train_dat: list[ExperimentData],
-    test_dat: list[ExperimentData],
-    summary: pd.DataFrame,
-    n_stat_mom: int,
-    svm_train_opt: dict,
-    random_state: int | None = None,
+        train_dat: list[ExperimentData],
+        test_dat: list[ExperimentData],
+        summary: pd.DataFrame,
+        n_stat_mom: int,
+        svm_train_opt: dict,
+        random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -191,7 +236,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
+                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y
