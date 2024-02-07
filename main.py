@@ -135,7 +135,8 @@ svm_train_opt = {
 
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
-BASE_MODELS = ["CNN", "SVM"]
+# BASE_MODELS = ["CNN", "SVM"]
+BASE_MODELS = ["LSTM", "SVM"]
 results = {}
 
 for MW in MOVING_WINDOWS:
@@ -166,13 +167,15 @@ for MW in MOVING_WINDOWS:
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt
             #     )
             # }
-        #     elif model == "LSTM":
-        #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
-        #         results[model] = {
-        #             f"{samp_window * 1000}ms": LSTM_RecurrentNet(
-        #                 train_ds, test_ds, lstm_par, lstm_train_opt
-        #             )
-        #         }
+        elif model == "LSTM":
+            train_ds, test_ds = preprocessing.downsample_data(
+                aug_train, aug_test, summary
+            )
+            # results[model] = {
+            #     f"{samp_window * 1000}ms": LSTM_RecurrentNet(
+            #         train_ds, test_ds, lstm_par, lstm_train_opt
+            #     )
+            # }
         #     elif model == "CLSTM":
         #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
         #         results[model] = {

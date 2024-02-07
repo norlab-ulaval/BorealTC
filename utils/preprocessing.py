@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
 if TYPE_CHECKING:
-    from typing import Tuple
+    from typing import List, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
@@ -92,7 +92,7 @@ def partition_data_csv(
     partition_duration: float,
     n_splits: int = 5,
     random_state: int | None = None,
-) -> Tuple[list[ExperimentData]]:
+) -> Tuple[List[ExperimentData]]:
     """_summary_
 
     Args:
@@ -103,7 +103,7 @@ def partition_data_csv(
         random_state (int | None, optional): Random state. Defaults to None.
 
     Returns:
-        list[ExperimentData]: List of dicts with numpy arrays of dimensions (Number partitions x time x channels)
+        List[ExperimentData]: List of dicts with numpy arrays of dimensions (Number partitions x time x channels)
     """
     # Highest sampling frequency
     hf_sensor = summary["sampling_freq"].idxmax()
@@ -208,7 +208,7 @@ def augment_data(
     moving_window: float,
     stride: float,
     homogeneous: bool,
-):
+) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
 
@@ -331,8 +331,8 @@ def augment_data(
 
 
 def apply_multichannel_spectogram(
-    train_dat: list[ExperimentData],
-    test_dat: list[ExperimentData],
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
     summary: pd.DataFrame,
     time_window: float,
     time_overlap: float,
@@ -347,3 +347,18 @@ def apply_multichannel_spectogram(
         print("Hello", K_idx)
 
     return 0, 0
+
+
+def downsample_data(
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
+) -> Tuple[List[ExperimentData]]:
+    # Highest sampling frequency
+    lf_sensor = summary["sampling_freq"].idxmin()
+    lf = summary["sampling_freq"].min()
+    # Other sensors are low frequency
+    hf_sensors = tuple(sens for sens in summary.index.values if sens != lf_sensor)
+
+    for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
+        print(K_idx, K_train[lf_sensor].shape, K_test[lf_sensor].shape)
