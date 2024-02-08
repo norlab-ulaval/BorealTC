@@ -28,6 +28,7 @@ cwd = Path.cwd()
 mat_dir = cwd / "datasets"
 csv_dir = cwd / "data"
 results_dir = cwd / "results"
+csv_dir = cwd / "norlab-data"
 
 RANDOM_STATE = 21
 
@@ -177,7 +178,9 @@ for mw in MOVING_WINDOWS:
             # }
         elif model == "LSTM":
             train_ds, test_ds = preprocessing.downsample_data(
-                aug_train, aug_test, summary
+                aug_train,
+                aug_test,
+                summary,
             )
             # results[model] = {
             #     f"{samp_window * 1000}ms": LSTM_RecurrentNet(
