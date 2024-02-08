@@ -80,6 +80,10 @@ def get_recordings_csv(
     sensor_dfs = {
         sens: pd.concat(sensor_df, ignore_index=True) for sens, sensor_df in dfs.items()
     }
+    sensor_dfs = {
+        sens: sens_data[sens_data.terrain != "MIXED"]
+        for sens, sens_data in sensor_dfs.items()
+    }
 
     summary["sampling_freq"] = pd.Series(sampling_freq)
 
