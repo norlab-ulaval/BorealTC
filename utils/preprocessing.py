@@ -361,5 +361,13 @@ def downsample_data(
     # Other sensors are low frequency
     hf_sensors = tuple(sens for sens in summary.index.values if sens != lf_sensor)
 
+    def data_downsampling(data: ExperimentData) -> ExperimentData:
+        # Augment the data using the appropriate sliding window for different
+        # terrains or the same for every terrain depending on homogeneous
+        # TODO: downsampling
+        pass
+
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
         print(K_idx, K_train[lf_sensor].shape, K_test[lf_sensor].shape)
+
+    raise NotImplementedError("Downsampling was not implemented")

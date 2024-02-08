@@ -137,8 +137,8 @@ svm_train_opt = {
 
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
-# BASE_MODELS = ["CNN", "SVM"]
-BASE_MODELS = ["SVM"]
+BASE_MODELS = ["CNN", "SVM"]
+# BASE_MODELS = ["SVM"]
 results = {}
 
 for MW in MOVING_WINDOWS:
