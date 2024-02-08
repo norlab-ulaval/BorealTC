@@ -38,10 +38,10 @@ def multichannel_spectrogram(
     lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
 
     pad_mcs = {hf_sensor: sens_mcs[hf_sensor]}
-    hf_shape = pad_mcs[hf_sensor]["tgrid"].shape
+    hf_shape = pad_mcs[hf_sensor]["spect"].shape
 
     for lf_sens in lf_sensors:
-        if summary.iloc[lf_sens].sampling_freq == hf:
+        if summary.loc[lf_sens].sampling_freq == hf:
             pad_mcs[lf_sens] = sens_mcs[lf_sens]
             continue
         lf_data = sens_mcs[lf_sens]
@@ -52,13 +52,25 @@ def multichannel_spectrogram(
 
         pad_mcs[lf_sens]["fgrid"] = pad_array(
             fgrid,
-            hf_shape,
+            hf_shape[1],
+            axis=0,
         )
         pad_mcs[lf_sens]["tgrid"] = pad_array(
             tgrid,
-            hf_shape,
+            hf_shape[1],
+            axis=0,
         )
-        pad_mcs[lf_sens]["spect"] = [pad_array(mcs, hf_shape) for mcs in spect]
+        pad_mcs[lf_sens]["spect"] = np.stack(
+            [
+                pad_array(
+                    lay,
+                    hf_shape[1],
+                    axis=0,
+                )
+                for lay in spect
+            ],
+            axis=0,
+        )
 
     exit(0)
 
@@ -82,6 +94,8 @@ def spectrogram(
     lim1 = np.abs(time_part - t1[:, None]).argmin(axis=1)
     limits = np.vstack([lim0, lim1 + 1]).T
 
+    # FIXME: Remove this line before running CNNs
+    data = np.concatenate([data, np.zeros(data.shape[:2])[:, :, None]], axis=2)
     windows = [data[:, slice(*lim), 5:] for lim in limits]
 
     norms, phases = [], []
@@ -92,7 +106,11 @@ def spectrogram(
 
     time_grid, freq_grid = np.meshgrid(twto * np.arange(n_windows) + tw, freq)
 
-    return norms, phases, time_grid, freq_grid
+    # 4D array : instances x frequencies x windows x channels
+    mags = np.stack(norms, axis=2)
+    angs = np.stack(phases)
+
+    return mags, angs, time_grid, freq_grid
 
 
 def DFT(signal: np.array, sampling_freq: float) -> Tuple[np.ndarray]:
@@ -128,12 +146,13 @@ def DFT(signal: np.array, sampling_freq: float) -> Tuple[np.ndarray]:
     return magn, phase, freq
 
 
-def pad_array(arr: np.ndarray, out_shape: Tuple[int]) -> np.ndarray:
+def pad_array(arr: np.ndarray, out_dim: int, axis: int) -> np.ndarray:
     """Pad array with a given output shape
 
     Args:
         arr (np.ndarray): Arrau
-        out_shape (Tuple[int]): Output shape
+        out_dim (int): Output shape along axis
+        axis (int): Pad array along axis
 
     Raises:
         ValueError: Output shape doesn't work for padding
@@ -145,29 +164,28 @@ def pad_array(arr: np.ndarray, out_shape: Tuple[int]) -> np.ndarray:
         arr = arr[np.newaxis, :]
 
     old_shp = arr.shape
+    out_shp = list(old_shp)
+    out_shp[axis] = out_dim
+    out_shape = tuple(out_shp)
+
     pad = np.zeros(shape=out_shape)
+    assert out_dim > old_shp[axis], "padded size must be greater than older size"
 
-    if old_shp[0] == out_shape[0]:
+    n_repeats = round(out_dim / old_shp[axis])
+    pad_dim = n_repeats * old_shp[axis]
+
+    if axis == 1:
         # Need to concatenate horizontally
-        assert out_shape[1] > old_shp[1], "padded size must be greater than older size"
-
-        n_repeats = round(out_shape[1] / old_shp[1])
-        pad_dim = n_repeats * old_shp[1]
-
-        pad[:, :pad_dim] = np.repeat(arr, n_repeats, axis=1)[:, : out_shape[1]]
+        pad[:, :pad_dim] = np.repeat(arr, n_repeats, axis=axis)[:, :out_dim]
         pad[:, pad_dim:] = arr[:, -1][:, None]
 
-    elif old_shp[1] == out_shape[1]:
+    elif axis == 0:
         # Need to concatenate vertically
-        assert out_shape[0] > old_shp[0], "padded size must be greater than older size"
 
-        n_repeats = round(out_shape[0] / old_shp[0])
-        pad_dim = n_repeats * old_shp[0]
-
-        pad[:pad_dim, :] = np.repeat(arr, n_repeats, axis=0)[: out_shape[0], :]
-        pad[pad_dim:, :] = arr[-1, :][None, :]
+        pad[:pad_dim] = np.repeat(arr, n_repeats, axis=axis)[:out_dim]
+        pad[pad_dim:] = arr[-1][None]
 
     else:
-        raise ValueError("Pad one dimension at the time")
+        raise NotImplementedError(f"Axis {axis} is not implemented")
 
     return pad
