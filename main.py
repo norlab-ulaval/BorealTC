@@ -28,6 +28,8 @@ mat_dir = cwd / "datasets"
 csv_dir = cwd / "data"
 results_dir = cwd / "results"
 
+RANDOM_STATE = 21
+
 # Define channels
 columns = {
     "imu": {
@@ -62,7 +64,7 @@ train, test = preprocessing.partition_data_csv(
     summary,
     PART_WINDOW,
     N_FOLDS,
-    random_state=21,
+    random_state=RANDOM_STATE,
 )
 
 
@@ -135,8 +137,8 @@ svm_train_opt = {
 
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
-BASE_MODELS = ["CNN", "SVM"]
-# BASE_MODELS = ["SVM"]
+# BASE_MODELS = ["CNN", "SVM"]
+BASE_MODELS = ["SVM"]
 results = {}
 
 for MW in MOVING_WINDOWS:
@@ -190,7 +192,7 @@ for MW in MOVING_WINDOWS:
                 summary,
                 svm_par["n_stat_mom"],
                 svm_train_opt,
-                random_state=21,
+                random_state=RANDOM_STATE,
             )
 
 
