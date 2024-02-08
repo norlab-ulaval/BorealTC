@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
 if TYPE_CHECKING:
-    from typing import List, Tuple
+    from typing import Dict, List, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
@@ -337,17 +337,17 @@ def apply_multichannel_spectogram(
     summary: pd.DataFrame,
     time_window: float,
     time_overlap: float,
-):
+) -> Tuple[List[Dict[str, ExperimentData]]]:
     tw = time_window
     to = time_overlap
 
-    for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
-        train_channels, train_time, train_freq = frequency.multichannel_spectrogram(
-            K_train, summary, tw, to
-        )
-        print("Hello", K_idx)
+    mcs_train, mcs_test = [], []
 
-    return 0, 0
+    for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
+        mcs_train.append(frequency.multichannel_spectrogram(K_train, summary, tw, to))
+        mcs_test.append(frequency.multichannel_spectrogram(K_test, summary, tw, to))
+
+    return mcs_train, mcs_test
 
 
 def downsample_data(

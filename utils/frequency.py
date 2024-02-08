@@ -18,7 +18,7 @@ def multichannel_spectrogram(
     summary: pd.DataFrame,
     tw: float,
     to: float,
-):
+) -> ExperimentData:
     # Output dictionary
     sens_mcs = {sens: {} for sens in signal_cell.keys()}
 
@@ -29,7 +29,6 @@ def multichannel_spectrogram(
         sens_mcs[sens]["fgrid"] = fgrid
         sens_mcs[sens]["tgrid"] = tgrid
         sens_mcs[sens]["spect"] = mcs
-        print(sens, sf)
 
     # Highest sampling frequency
     hf_sensor = summary["sampling_freq"].idxmax()
@@ -72,9 +71,24 @@ def multichannel_spectrogram(
             axis=0,
         )
 
-    exit(0)
+    multichannel = np.concatenate(
+        [pad_mcs[lf_sens]["spect"] for lf_sens in lf_sensors],
+        axis=3,
+    )
+    multichannel = np.concatenate([pad_mcs[hf_sensor]["spect"], multichannel], axis=3)
 
-    return (0, 0, 0)
+    freqgrid = np.dstack(
+        [pad_mcs[lf_sens]["fgrid"][:, :, None] for lf_sens in lf_sensors]
+    )
+    freqgrid = np.dstack([pad_mcs[hf_sensor]["fgrid"][:, :, None], freqgrid])
+    timegrid = np.dstack(
+        [pad_mcs[lf_sens]["tgrid"][:, :, None] for lf_sens in lf_sensors]
+    )
+    timegrid = np.dstack([pad_mcs[hf_sensor]["tgrid"][:, :, None], timegrid])
+
+    labels = signal_cell[hf_sensor][:, 0, ch_cols["terrain"]]
+
+    return {"data": multichannel, "freq": freqgrid, "time": timegrid, "label": labels}
 
 
 def spectrogram(
@@ -82,7 +96,7 @@ def spectrogram(
     sampling_freq: float,
     tw: float,
     to: float,
-):
+) -> Tuple[np.array]:
     time = data[:, :, ch_cols["time"]]
     twto = tw - to
     n_windows = ((time.shape[1] / sampling_freq) - tw) // (twto) + 1
@@ -94,8 +108,8 @@ def spectrogram(
     lim1 = np.abs(time_part - t1[:, None]).argmin(axis=1)
     limits = np.vstack([lim0, lim1 + 1]).T
 
-    # FIXME: Remove this line before running CNNs
-    data = np.concatenate([data, np.zeros(data.shape[:2])[:, :, None]], axis=2)
+    # Remove this line before running CNNs
+    # data = np.concatenate([data, np.zeros(data.shape[:2])[:, :, None]], axis=2)
     windows = [data[:, slice(*lim), 5:] for lim in limits]
 
     norms, phases = [], []
