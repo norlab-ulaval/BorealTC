@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, Callable
 
 import numpy as np
+import pipeline as pp
 import scipy
 from torch.utils.data import Dataset
 
@@ -18,7 +19,7 @@ class VulpiData:
     pro_path: str
 
 
-class VulpiDataset(Dataset):
+class RawVulpiDataset(Dataset):
     def __init__(self, root_dir: Path, transform: Optional[Callable] = None):
         self._root_dir = root_dir
         self._transform = transform
@@ -60,8 +61,15 @@ class VulpiDataset(Dataset):
         return self._id_to_class_name
 
 
-if __name__ == '__main__':
-    dataset = VulpiDataset(root_dir=Path('datasets'))
-    for d in dataset:
-        print(d.label_id, d.label, d.run_id, d.imu.shape, d.pro.shape)
-        print(d.imu_path, d.pro_path)
+class MCSDataset(Dataset):
+    def __init__(self, mcs, transform: Optional[Callable] = None):
+        super().__init__()
+        self.mcs = mcs
+        self.transform = transform if transform is not None else pp.Identity()
+
+    def __len__(self):
+        return self.mcs['data'].shape[0]
+
+    def __getitem__(self, idx):
+        sample = self.mcs['data'][idx], self.mcs['label'][idx]
+        return self.transform(sample)

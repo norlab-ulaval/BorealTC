@@ -86,7 +86,7 @@ def multichannel_spectrogram(
     )
     timegrid = np.dstack([pad_mcs[hf_sensor]["tgrid"][:, :, None], timegrid])
 
-    labels = signal_cell[hf_sensor][:, 0, ch_cols["terrain"]]
+    labels = signal_cell[hf_sensor][:, 0, ch_cols["terr_idx"]]
 
     return {"data": multichannel, "freq": freqgrid, "time": timegrid, "label": labels}
 

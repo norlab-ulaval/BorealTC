@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
+from utils.dataset import MCSDataset
 
 cwd = Path.cwd()
 mat_dir = cwd / "datasets"
@@ -141,29 +142,34 @@ BASE_MODELS = ["CNN", "SVM"]
 # BASE_MODELS = ["SVM"]
 results = {}
 
-for MW in MOVING_WINDOWS:
+for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
         train,
         test,
         summary,
-        moving_window=MW,
+        moving_window=mw,
         stride=STRIDE,
         homogeneous=HOMOGENEOUS_AUGMENTATION,
     )
 
-    print(f"Training models for a sampling window of {MW} seconds")
+    print(f"Training models for a sampling window of {mw} seconds")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     for model in BASE_MODELS:
         results.setdefault(model, {})
         if model == "CNN":
-            train_mcs, test_mcs = preprocessing.apply_multichannel_spectogram(
+            train_mcs_folds, test_mcs_folds = preprocessing.apply_multichannel_spectogram(
                 aug_train,
                 aug_test,
                 summary,
                 cnn_par["time_window"],
                 cnn_par["time_overlap"],
             )
+            for k in range(N_FOLDS):
+                train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
+                results[model][int(mw * 1000)] = models.convolutional_neural_network(
+                    train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
+                )
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt
@@ -186,7 +192,7 @@ for MW in MOVING_WINDOWS:
         #             )
         #         }
         elif model == "SVM":
-            results[model][int(MW * 1000)] = models.support_vector_machine(
+            results[model][int(mw * 1000)] = models.support_vector_machine(
                 aug_train,
                 aug_test,
                 summary,

@@ -5,7 +5,7 @@ import lightning as L
 from lightning.pytorch.callbacks import EarlyStopping, DeviceStatsMonitor, LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 
-from utils.datamodule import VulpiDataModule, to_spectrogram
+from utils.datamodule import VulpiDataModule
 from utils.models import CNNTerrain
 
 if __name__ == '__main__':

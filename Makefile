@@ -9,3 +9,6 @@ run: build
 	  --mount type=bind,source="$(pwd)",target=/code/ \
 	  --mount type=bind,source=/dev/shm,target=/dev/shm \
 	  terrain python3 training.py
+
+log:
+	xdg-open http://localhost:6006 && tensorboard --logdir . &

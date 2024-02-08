@@ -1,21 +1,26 @@
 from __future__ import annotations
 
+import pathlib
 import time
 from typing import TYPE_CHECKING
 
 import lightning as L
 import numpy as np
 import pandas as pd
+import pipeline as pp
 import scipy.stats as scst
 import torch
 import torch.nn as nn
 import torchmetrics
 import torchvision as tv
+from lightning.pytorch.callbacks import DeviceStatsMonitor, LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.loggers import TensorBoardLogger
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from utils.constants import ch_cols
+from utils.datamodule import MCSDataModule
 
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
@@ -76,7 +81,7 @@ class CNNTerrain(L.LightningModule):
         self.fc = nn.Linear(num_filters * self.n_wind * self.n_freq, num_classes)
         self.softmax = nn.Softmax(dim=1)
 
-        self.loss = nn.CrossEntropyLoss(weight=torch.tensor(class_weights) if class_weights else None)
+        self.ce_loss = nn.CrossEntropyLoss(weight=torch.tensor(class_weights) if class_weights else None)
 
         self._train_accuracy = torchmetrics.classification.Accuracy(
             task="multiclass", num_classes=num_classes
@@ -85,7 +90,7 @@ class CNNTerrain(L.LightningModule):
             task="multiclass", num_classes=num_classes
         )
 
-        self._val_classification = {"pred": [], "true": [], "ftime": [], "ptime": []}
+        self._val_classifications = [{"pred": [], "true": [], "ftime": [], "ptime": []}]
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
@@ -93,7 +98,7 @@ class CNNTerrain(L.LightningModule):
 
     @property
     def val_classification(self):
-        return self._val_classification
+        return self._val_classifications[-1]
 
     def forward(self, x):
         x = self.in_layer(x)
@@ -110,7 +115,7 @@ class CNNTerrain(L.LightningModule):
     def loss(self, y, target):
         if self.focal_loss:
             return tv.ops.sigmoid_focal_loss(y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma)
-        return self.loss(y, target)
+        return self.ce_loss(y, target)
 
     def training_step(self, batch, batch_idx):
         x, target = batch
@@ -137,8 +142,8 @@ class CNNTerrain(L.LightningModule):
         self.log("val_accuracy", acc)
 
         pred_classes = torch.argmax(y, dim=1)
-        self._val_classification["pred"].append(pred_classes.detach().cpu().numpy())
-        self._val_classification["true"].append(target.detach().cpu().numpy())
+        self._val_classifications[-1]["pred"].append(pred_classes.detach().cpu().numpy())
+        self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
 
         return loss
 
@@ -147,17 +152,77 @@ class CNNTerrain(L.LightningModule):
         self._val_accuracy.reset()
 
     def on_validation_end(self):
-        self._val_classification["pred"] = np.hstack(self._val_classification["pred"])
-        self._val_classification["true"] = np.hstack(self._val_classification["true"])
+        self._val_classifications[-1]["pred"] = np.hstack(self._val_classifications[-1]["pred"])
+        self._val_classifications[-1]["true"] = np.hstack(self._val_classifications[-1]["true"])
+        self._val_classifications.append({"pred": [], "true": [], "ftime": [], "ptime": []})
 
 
-def cnn_terrain(
-        train_dat: list[ExperimentData],
-        test_dat: list[ExperimentData],
-        summary: pd.DataFrame,
+def convolutional_neural_network(
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        cnn_par: dict,
+        cnn_train_opt: dict,
+        description: dict,
 ) -> dict:
-    # TODO: Implement CNN terrain classification, see training.py for an example
-    raise NotImplementedError("Not implemented yet")
+    # TODO take params from cnn_par and cnn_train_opt
+    # Params
+    batch_size = 32
+    lr = 1e-3
+    shape = train_data['data'].shape
+    in_size = shape[3]
+    n_wind = shape[2]
+    n_freq = shape[1]
+    num_workers = 0  # TODO to be set to 8
+    persistent_workers = False  # TODO to be set to True
+    gradient_clip_val = 6  # None to disable
+
+    def to_f32(x):
+        return x.astype(np.float32)
+
+    def transpose(x):
+        return np.transpose(x, (2, 0, 1))
+
+    # TODO move spectro generation here
+    augment = pp.Identity()
+    to_mcs = pp.Identity()
+    train_transform = pp.Bifunctor(
+        pp.Compose([to_f32, transpose, augment, to_mcs]),
+        pp.Identity(),
+    )
+    train_transform = pp.Bifunctor(
+        pp.Compose([to_f32, transpose, to_mcs]),
+        pp.Identity(),
+    )
+    datamodule = MCSDataModule(train_data, test_data, train_transform, test_transform, batch_size=batch_size,
+                               num_workers=num_workers,
+                               persistent_workers=persistent_workers)
+    model = CNNTerrain(in_size=in_size, num_filters=3, filter_size=3, num_classes=4, n_wind=n_wind, n_freq=n_freq,
+                       lr=lr)
+
+    exp_name = f'terrain_classification_mw_{description["mw"]}_fold_{description["fold"]}'
+    logger = TensorBoardLogger('tb_logs', name=exp_name)
+
+    checkpoint_folder_path = pathlib.Path('checkpoints')
+    trainer = L.Trainer(accelerator='gpu', precision=32, logger=logger, log_every_n_steps=1,
+                        min_epochs=0, max_epochs=1000,
+                        gradient_clip_val=gradient_clip_val,
+                        callbacks=[
+                            DeviceStatsMonitor(),
+                            LearningRateMonitor(),
+                            # TODO monitor what value?
+                            ModelCheckpoint(
+                                monitor='val_loss',
+                                dirpath=str(checkpoint_folder_path),
+                                filename=f'{exp_name}-' + '{epoch:02d}-{val_loss:.6f}',
+                                save_top_k=1,
+                                save_last=True,
+                                mode='min',
+                            )])
+    # train
+    trainer.fit(model, datamodule)
+    trainer.validate(model, datamodule)
+
+    return model.val_classification
 
 
 def support_vector_machine(
