@@ -61,6 +61,19 @@ class RawVulpiDataset(Dataset):
         return self._id_to_class_name
 
 
+class TemporalDataset(Dataset):
+    def __init__(self, data, transform: Optional[Callable] = None):
+        self.data = data
+        self.transform = transform if transform is not None else pp.Identity()
+
+    def __len__(self):
+        return len(self.data['imu'])
+
+    def __getitem__(self, idx):
+        sample = self.data[idx]
+        return self.transform(sample)
+
+
 class MCSDataset(Dataset):
     def __init__(self, mcs, transform: Optional[Callable] = None):
         super().__init__()
@@ -68,7 +81,7 @@ class MCSDataset(Dataset):
         self.transform = transform if transform is not None else pp.Identity()
 
     def __len__(self):
-        return self.mcs['data'].shape[0]
+        return len(self.mcs['data'])
 
     def __getitem__(self, idx):
         sample = self.mcs['data'][idx], self.mcs['label'][idx]

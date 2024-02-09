@@ -4,7 +4,7 @@ from typing import Optional, Callable
 import lightning as L
 from torch.utils.data import random_split, DataLoader
 
-from utils.dataset import RawVulpiDataset, MCSDataset
+from utils.dataset import RawVulpiDataset, MCSDataset, TemporalDataset
 
 
 class VulpiDataModule(L.LightningDataModule):
@@ -27,6 +27,27 @@ class VulpiDataModule(L.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.val_split, batch_size=self.batch_size, num_workers=self.num_workers,
+                          pin_memory=True, shuffle=False, drop_last=False, persistent_workers=self.persistent_workers)
+
+
+class TemporalDataModule(L.LightningDataModule):
+    def __init__(self, train_temporal, test_temporal, train_transform: Optional[Callable] = None,
+                 test_transform: Optional[Callable] = None, batch_size: int = 32, num_workers: int = 8,
+                 persistent_workers: bool = True):
+        super().__init__()
+        self.train_dataset = TemporalDataset(train_temporal, train_transform)
+        self.test_dataset = TemporalDataset(test_temporal, test_transform)
+
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.persistent_workers = persistent_workers
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
+                          pin_memory=True, shuffle=True, drop_last=False, persistent_workers=self.persistent_workers)
+
+    def val_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
                           pin_memory=True, shuffle=False, drop_last=False, persistent_workers=self.persistent_workers)
 
 

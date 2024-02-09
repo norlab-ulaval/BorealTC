@@ -17,8 +17,8 @@ from utils.constants import ch_cols
 
 
 def get_recordings_csv(
-    data_dir: Path,
-    summary: pd.DataFrame,
+        data_dir: Path,
+        summary: pd.DataFrame,
 ) -> ExperimentData:
     """Extract data from CSVs in data_dir and filter out the columns with `channels`
 
@@ -91,11 +91,11 @@ def get_recordings_csv(
 
 
 def partition_data_csv(
-    data: ExperimentData,
-    summary: pd.DataFrame,
-    partition_duration: float,
-    n_splits: int = 5,
-    random_state: int | None = None,
+        data: ExperimentData,
+        summary: pd.DataFrame,
+        partition_duration: float,
+        n_splits: int = 5,
+        random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]]:
     """_summary_
 
@@ -207,12 +207,12 @@ def partition_data_csv(
 
 
 def augment_data(
-    train_dat,
-    test_dat,
-    summary,
-    moving_window: float,
-    stride: float,
-    homogeneous: bool,
+        train_dat,
+        test_dat,
+        summary,
+        moving_window: float,
+        stride: float,
+        homogeneous: bool,
 ) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
@@ -316,7 +316,7 @@ def augment_data(
                 lf_time = lf_terr[0, :, ch_cols["time"]]
                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
                 lf_sli = [
-                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+                    lf_terr[:, lf_sli_idx: (lf_sli_idx + lf_win), :]
                     for lf_sli_idx in indices
                 ]
                 lf_sli = np.vstack(lf_sli)
@@ -336,11 +336,11 @@ def augment_data(
 
 
 def apply_multichannel_spectogram(
-    train_dat: List[ExperimentData],
-    test_dat: List[ExperimentData],
-    summary: pd.DataFrame,
-    time_window: float,
-    time_overlap: float,
+        train_dat: List[ExperimentData],
+        test_dat: List[ExperimentData],
+        summary: pd.DataFrame,
+        time_window: float,
+        time_overlap: float,
 ) -> Tuple[List[Dict[str, ExperimentData]]]:
     tw = time_window
     to = time_overlap
@@ -355,9 +355,9 @@ def apply_multichannel_spectogram(
 
 
 def downsample_data(
-    train_dat: List[ExperimentData],
-    test_dat: List[ExperimentData],
-    summary: pd.DataFrame,
+        train_dat: List[ExperimentData],
+        test_dat: List[ExperimentData],
+        summary: pd.DataFrame,
 ) -> Tuple[List[ExperimentData]]:
     # Highest sampling frequency
     lf_sensor = summary["sampling_freq"].idxmin()
@@ -368,10 +368,25 @@ def downsample_data(
     def data_downsampling(data: ExperimentData) -> ExperimentData:
         # Augment the data using the appropriate sliding window for different
         # terrains or the same for every terrain depending on homogeneous
-        # TODO: downsampling
-        pass
+        # TODO take hf_sensors, and make it generic to more sensors
+        imu = data['imu']
+        pro = data['pro']
+        imu_time = data['imu'][:, :, ch_cols['time']]
+        pro_time = data['pro'][:, :, ch_cols['time']]
 
+        new_data = {
+            'imu': [],
+            'pro': data['pro'],
+        }
+        for i in range(imu_time.shape[0]):
+            idx = np.argmin(np.abs(pro_time[i, :, np.newaxis] - imu_time[i, np.newaxis]), axis=1)
+            new_data['imu'].append(imu[i, idx])
+        new_data['imu'] = np.array(new_data['imu'])
+        return new_data
+
+    train_ds, test_ds = [], []
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
-        print(K_idx, K_train[lf_sensor].shape, K_test[lf_sensor].shape)
+        train_ds.append(data_downsampling(K_train))
+        test_ds.append(data_downsampling(K_test))
 
-    raise NotImplementedError("Downsampling was not implemented")
+    return train_ds, test_ds
