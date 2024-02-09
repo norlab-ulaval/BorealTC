@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
+from utils.transforms import merge_dfs
+
 if TYPE_CHECKING:
     from typing import Dict, List, Tuple
 
@@ -375,3 +377,34 @@ def downsample_data(
         print(K_idx, K_train[lf_sensor].shape, K_test[lf_sensor].shape)
 
     raise NotImplementedError("Downsampling was not implemented")
+
+
+def merge_interpolation(
+    data: ExperimentData,
+    summary: pd.DataFrame,
+) -> pd.DataFrame:
+    # Highest sampling frequency
+    hf_sensor = summary["sampling_freq"].idxmax()
+    hf = summary["sampling_freq"].max()
+    # Other sensors are low frequency
+    lf_sensors = tuple(sens for sens in data.keys() if sens != hf_sensor)
+
+    merged = []
+
+    hf_data = data[hf_sensor]
+    terrains = sorted(hf_data.terrain.unique().tolist())
+    for terr in terrains:
+        terrdat = {sens: sdata[sdata.terrain == terr] for sens, sdata in data.items()}
+
+        hf_terr = terrdat[hf_sensor]
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            exps = {
+                sens: sdata[sdata.run_idx == exp_idx].copy().reset_index(drop=True)
+                for sens, sdata in terrdat.items()
+            }
+            hf_exp = exps[hf_sensor]
+
+            merged.append(merge_dfs(exps, hf_sensor))
+
+    return pd.concat(merged, ignore_index=True)

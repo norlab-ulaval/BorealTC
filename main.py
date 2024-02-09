@@ -22,7 +22,6 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
-from utils.dataset import MCSDataset
 
 cwd = Path.cwd()
 mat_dir = cwd / "datasets"
@@ -72,6 +71,7 @@ train, test = preprocessing.partition_data(
     random_state=RANDOM_STATE,
 )
 
+merged_data = preprocessing.merge_interpolation(terr_dfs, summary)
 
 # Data augmentation parameters
 # 0 < STRIDE < MOVING_WINDOWS
