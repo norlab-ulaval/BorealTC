@@ -12,3 +12,9 @@ run: build
 
 log:
 	xdg-open http://localhost:6006 && tensorboard --logdir . &
+
+clf: build
+	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
+	  --mount type=bind,source="$(pwd)",target=/code/ \
+	  --mount type=bind,source=/dev/shm,target=/dev/shm \
+	  terrain python3 CLF.py
