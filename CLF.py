@@ -41,6 +41,7 @@ y = merged.terrain.copy()
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y, test_size=0.3)
 
+# %%
 print("=== RF ===")
 
 rf_clf = RandomForestClassifier(n_estimators=500, oob_score=True)
@@ -49,6 +50,7 @@ rf_clf.fit(X_train, y_train)
 y_pred = rf_clf.predict(X_test)
 print(rf_clf.score(X_test, y_test))
 
+# %%
 print("=== MLP ===")
 
 rf_clf = MLPClassifier(max_iter=750)
