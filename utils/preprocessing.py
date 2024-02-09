@@ -7,8 +7,10 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
+from utils.transforms import merge_dfs
+
 if TYPE_CHECKING:
-    from typing import Dict, List, Tuple
+    from typing import Dict, List, Literal, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
@@ -16,9 +18,9 @@ from utils import frequency
 from utils.constants import ch_cols
 
 
-def get_recordings_csv(
-        data_dir: Path,
-        summary: pd.DataFrame,
+def get_recordings(
+    data_dir: Path,
+    summary: pd.DataFrame,
 ) -> ExperimentData:
     """Extract data from CSVs in data_dir and filter out the columns with `channels`
 
@@ -90,12 +92,12 @@ def get_recordings_csv(
     return sensor_dfs
 
 
-def partition_data_csv(
-        data: ExperimentData,
-        summary: pd.DataFrame,
-        partition_duration: float,
-        n_splits: int = 5,
-        random_state: int | None = None,
+def partition_data(
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    partition_duration: float,
+    n_splits: int = 5,
+    random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]]:
     """_summary_
 
@@ -172,10 +174,10 @@ def partition_data_csv(
     terr_col = np.where(hf_columns == "terrain")
     # Number partitions x time x channels
     # terrain, terr_idx, run_idx, win_idx, time, <sensor_channels>
-    unified = {
-        sens: np.vstack([sens_data[terr] for terr in terrains])
-        for sens, sens_data in partitions.items()
-    }
+    unified = {}
+    for sens, sens_data in partitions.items():
+        # print(sens, [sens_data[terr][0].shape for terr in terrains])
+        unified[sens] = np.vstack([sens_data[terr] for terr in terrains])
     # n_windows = unified[hf_sensor].shape[0]
     labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0]
     # for sens, sens_data in unified.items():
@@ -390,3 +392,45 @@ def downsample_data(
         test_ds.append(data_downsampling(K_test))
 
     return train_ds, test_ds
+
+
+def merge_upsample(
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    mode: Literal["interpolation", "last"] = "interpolation",
+) -> pd.DataFrame:
+    """Upsample and merge low frequency sensors
+
+    Args:
+        data (ExperimentData): Experiment data
+        summary (pd.DataFrame): Summary DataFrame
+        mode (Literal["interpolation", "last"], optional): Merge mode. 'interpolation' for cubic spline interpolation, 'last' for interpolation based on the last available data for each hf time. Defaults to "interpolation".
+
+    Returns:
+        pd.DataFrame: Merged DataFrame
+    """
+    # Highest sampling frequency
+    hf_sensor = summary["sampling_freq"].idxmax()
+    hf = summary["sampling_freq"].max()
+    # Other sensors are low frequency
+    lf_sensors = tuple(sens for sens in data.keys() if sens != hf_sensor)
+
+    merged = []
+
+    hf_data = data[hf_sensor]
+    terrains = sorted(hf_data.terrain.unique().tolist())
+    for terr in terrains:
+        terrdat = {sens: sdata[sdata.terrain == terr] for sens, sdata in data.items()}
+
+        hf_terr = terrdat[hf_sensor]
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            exps = {
+                sens: sdata[sdata.run_idx == exp_idx].copy().reset_index(drop=True)
+                for sens, sdata in terrdat.items()
+            }
+            hf_exp = exps[hf_sensor]
+
+            merged.append(merge_dfs(exps, hf_sensor, mode))
+
+    return pd.concat(merged, ignore_index=True)

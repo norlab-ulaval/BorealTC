@@ -22,12 +22,12 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
-from utils.dataset import MCSDataset
 
 cwd = Path.cwd()
 mat_dir = cwd / "datasets"
 csv_dir = cwd / "data"
 results_dir = cwd / "results"
+# csv_dir = cwd / "norlab-data"
 
 RANDOM_STATE = 21
 
@@ -51,8 +51,11 @@ columns = {
 summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings_csv(csv_dir, summary)
+terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 
+if csv_dir.stem == "norlab-data":
+    summary.loc["imu", "sampling_freq"] = 100
+    summary.loc["pro", "sampling_freq"] = 6.5
 
 # Set data partition parameters
 N_FOLDS = 5
@@ -60,13 +63,15 @@ PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
 
 # Data partition and sample extraction
-train, test = preprocessing.partition_data_csv(
+train, test = preprocessing.partition_data(
     terr_dfs,
     summary,
     PART_WINDOW,
     N_FOLDS,
     random_state=RANDOM_STATE,
 )
+
+merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
 
 # Data augmentation parameters
@@ -139,8 +144,7 @@ svm_train_opt = {
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
 # BASE_MODELS = ["CNN", "SVM"]
-BASE_MODELS = ["LSTM"]
-# BASE_MODELS = ["SVM"]
+BASE_MODELS = ["SVM"]
 results = {}
 
 for mw in MOVING_WINDOWS:
@@ -159,7 +163,10 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         results.setdefault(model, {})
         if model == "CNN":
-            train_mcs_folds, test_mcs_folds = preprocessing.apply_multichannel_spectogram(
+            (
+                train_mcs_folds,
+                test_mcs_folds,
+            ) = preprocessing.apply_multichannel_spectogram(
                 aug_train,
                 aug_test,
                 summary,
@@ -178,7 +185,9 @@ for mw in MOVING_WINDOWS:
             # }
         elif model == "LSTM":
             train_ds, test_ds = preprocessing.downsample_data(
-                aug_train, aug_test, summary
+                aug_train,
+                aug_test,
+                summary,
             )
             # results[model] = {
             #     f"{samp_window * 1000}ms": LSTM_RecurrentNet(
