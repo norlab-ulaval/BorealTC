@@ -172,10 +172,10 @@ def partition_data_csv(
     terr_col = np.where(hf_columns == "terrain")
     # Number partitions x time x channels
     # terrain, terr_idx, run_idx, win_idx, time, <sensor_channels>
-    unified = {
-        sens: np.vstack([sens_data[terr] for terr in terrains])
-        for sens, sens_data in partitions.items()
-    }
+    unified = {}
+    for sens, sens_data in partitions.items():
+        # print(sens, [sens_data[terr][0].shape for terr in terrains])
+        unified[sens] = np.vstack([sens_data[terr] for terr in terrains])
     # n_windows = unified[hf_sensor].shape[0]
     labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0]
     # for sens, sens_data in unified.items():

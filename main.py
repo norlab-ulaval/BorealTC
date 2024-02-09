@@ -28,7 +28,7 @@ cwd = Path.cwd()
 mat_dir = cwd / "datasets"
 csv_dir = cwd / "data"
 results_dir = cwd / "results"
-csv_dir = cwd / "norlab-data"
+# csv_dir = cwd / "norlab-data"
 
 RANDOM_STATE = 21
 
@@ -54,6 +54,9 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 # Get recordings
 terr_dfs = preprocessing.get_recordings_csv(csv_dir, summary)
 
+if csv_dir.stem == "norlab-data":
+    summary.loc["imu", "sampling_freq"] = 100
+    summary.loc["pro", "sampling_freq"] = 6.5
 
 # Set data partition parameters
 N_FOLDS = 5
@@ -139,8 +142,8 @@ svm_train_opt = {
 
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
-BASE_MODELS = ["CNN", "SVM"]
-# BASE_MODELS = ["SVM"]
+# BASE_MODELS = ["CNN", "SVM"]
+BASE_MODELS = ["SVM"]
 results = {}
 
 for mw in MOVING_WINDOWS:
@@ -159,7 +162,10 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         results.setdefault(model, {})
         if model == "CNN":
-            train_mcs_folds, test_mcs_folds = preprocessing.apply_multichannel_spectogram(
+            (
+                train_mcs_folds,
+                test_mcs_folds,
+            ) = preprocessing.apply_multichannel_spectogram(
                 aug_train,
                 aug_test,
                 summary,
