@@ -52,7 +52,7 @@ columns = {
 summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings_csv(csv_dir, summary)
+terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 
 if csv_dir.stem == "norlab-data":
     summary.loc["imu", "sampling_freq"] = 100
@@ -64,7 +64,7 @@ PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
 
 # Data partition and sample extraction
-train, test = preprocessing.partition_data_csv(
+train, test = preprocessing.partition_data(
     terr_dfs,
     summary,
     PART_WINDOW,

@@ -16,7 +16,7 @@ from utils import frequency
 from utils.constants import ch_cols
 
 
-def get_recordings_csv(
+def get_recordings(
     data_dir: Path,
     summary: pd.DataFrame,
 ) -> ExperimentData:
@@ -90,7 +90,7 @@ def get_recordings_csv(
     return sensor_dfs
 
 
-def partition_data_csv(
+def partition_data(
     data: ExperimentData,
     summary: pd.DataFrame,
     partition_duration: float,
