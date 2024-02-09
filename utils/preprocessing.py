@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedKFold
 from utils.transforms import merge_dfs
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Tuple
+    from typing import Dict, List, Literal, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
@@ -379,10 +379,21 @@ def downsample_data(
     raise NotImplementedError("Downsampling was not implemented")
 
 
-def merge_interpolation(
+def merge_upsample(
     data: ExperimentData,
     summary: pd.DataFrame,
+    mode: Literal["interpolation", "last"] = "interpolation",
 ) -> pd.DataFrame:
+    """Upsample and merge low frequency sensors
+
+    Args:
+        data (ExperimentData): Experiment data
+        summary (pd.DataFrame): Summary DataFrame
+        mode (Literal["interpolation", "last"], optional): Merge mode. 'interpolation' for cubic spline interpolation, 'last' for interpolation based on the last available data for each hf time. Defaults to "interpolation".
+
+    Returns:
+        pd.DataFrame: Merged DataFrame
+    """
     # Highest sampling frequency
     hf_sensor = summary["sampling_freq"].idxmax()
     hf = summary["sampling_freq"].max()
@@ -405,6 +416,6 @@ def merge_interpolation(
             }
             hf_exp = exps[hf_sensor]
 
-            merged.append(merge_dfs(exps, hf_sensor))
+            merged.append(merge_dfs(exps, hf_sensor, mode))
 
     return pd.concat(merged, ignore_index=True)
