@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
 
+from utils.constants import HuskyConstants
+
 if TYPE_CHECKING:
     from typing import Literal
 
@@ -65,3 +67,34 @@ def merge_dfs(
         raise NotImplementedError(f"Mode {mode} is not implemented")
 
     return merged
+
+
+def motion_power(df: pd.DataFrame) -> pd.Series:
+    """Compute motion power
+
+    Args:
+        df (pd.DataFrame): Proprioceptive data
+
+    Returns:
+        pd.Series: Motion power
+    """
+    consts = HuskyConstants
+
+    I_L, I_R = df.curL, df.curR
+    vL, vR = df.velL, df.velR
+
+    # Angular velocities
+    wL = vL / consts.ugv_wr
+    wR = vR / consts.ugv_wr
+
+    Tmot_L = consts.motor_Kt * I_L * np.sign(df.wL)
+    Tmot_R = consts.motor_Kt * I_R * np.sign(df.wR)
+
+    TL = consts.gear_eta * consts.gear_ratio * Tmot_L
+    TR = consts.gear_eta * consts.gear_ratio * Tmot_R
+
+    PM_L = TL * df.wL
+    PM_R = TR * df.wR
+
+    P_motion = PM_L + PM_R
+    return P_motion
