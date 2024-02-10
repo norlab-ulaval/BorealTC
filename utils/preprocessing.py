@@ -74,7 +74,7 @@ def get_recordings(
         terr_df["terrain"] = terrain
         terr_df["run_idx"] = int(run_idx)
 
-        freq = int(1 / terr_df.time.diff().min())
+        freq = 1 / terr_df.time.diff().min()
         sampling_freq.setdefault(csv_type, freq)
 
         dfs.setdefault(csv_type, []).append(terr_df)
@@ -209,12 +209,12 @@ def partition_data(
 
 
 def augment_data(
-        train_dat,
-        test_dat,
-        summary,
-        moving_window: float,
-        stride: float,
-        homogeneous: bool,
+    train_dat,
+    test_dat,
+    summary,
+    moving_window: float,
+    stride: float,
+    homogeneous: bool,
 ) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
@@ -318,7 +318,7 @@ def augment_data(
                 lf_time = lf_terr[0, :, ch_cols["time"]]
                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
                 lf_sli = [
-                    lf_terr[:, lf_sli_idx: (lf_sli_idx + lf_win), :]
+                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
                     for lf_sli_idx in indices
                 ]
                 lf_sli = np.vstack(lf_sli)
@@ -338,11 +338,11 @@ def augment_data(
 
 
 def apply_multichannel_spectogram(
-        train_dat: List[ExperimentData],
-        test_dat: List[ExperimentData],
-        summary: pd.DataFrame,
-        time_window: float,
-        time_overlap: float,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
+    time_window: float,
+    time_overlap: float,
 ) -> Tuple[List[Dict[str, ExperimentData]]]:
     tw = time_window
     to = time_overlap
@@ -357,9 +357,9 @@ def apply_multichannel_spectogram(
 
 
 def downsample_data(
-        train_dat: List[ExperimentData],
-        test_dat: List[ExperimentData],
-        summary: pd.DataFrame,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
 ) -> Tuple[List[ExperimentData]]:
     # Highest sampling frequency
     lf_sensor = summary["sampling_freq"].idxmin()
@@ -371,19 +371,21 @@ def downsample_data(
         # Augment the data using the appropriate sliding window for different
         # terrains or the same for every terrain depending on homogeneous
         # TODO take hf_sensors, and make it generic to more sensors
-        imu = data['imu']
-        pro = data['pro']
-        imu_time = data['imu'][:, :, ch_cols['time']]
-        pro_time = data['pro'][:, :, ch_cols['time']]
+        imu = data["imu"]
+        pro = data["pro"]
+        imu_time = data["imu"][:, :, ch_cols["time"]]
+        pro_time = data["pro"][:, :, ch_cols["time"]]
 
         new_data = {
-            'imu': [],
-            'pro': data['pro'],
+            "imu": [],
+            "pro": data["pro"],
         }
         for i in range(imu_time.shape[0]):
-            idx = np.argmin(np.abs(pro_time[i, :, np.newaxis] - imu_time[i, np.newaxis]), axis=1)
-            new_data['imu'].append(imu[i, idx])
-        new_data['imu'] = np.array(new_data['imu'])
+            idx = np.argmin(
+                np.abs(pro_time[i, :, np.newaxis] - imu_time[i, np.newaxis]), axis=1
+            )
+            new_data["imu"].append(imu[i, idx])
+        new_data["imu"] = np.array(new_data["imu"])
         return new_data
 
     train_ds, test_ds = [], []
