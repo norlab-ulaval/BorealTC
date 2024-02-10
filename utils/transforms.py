@@ -87,14 +87,14 @@ def motion_power(df: pd.DataFrame) -> pd.Series:
     wL = vL / consts.ugv_wr
     wR = vR / consts.ugv_wr
 
-    Tmot_L = consts.motor_Kt * I_L * np.sign(df.wL)
-    Tmot_R = consts.motor_Kt * I_R * np.sign(df.wR)
+    Tmot_L = consts.motor_Kt * I_L * np.sign(wL)
+    Tmot_R = consts.motor_Kt * I_R * np.sign(wR)
 
     TL = consts.gear_eta * consts.gear_ratio * Tmot_L
     TR = consts.gear_eta * consts.gear_ratio * Tmot_R
 
-    PM_L = TL * df.wL
-    PM_R = TR * df.wR
+    PM_L = TL * wL
+    PM_R = TR * wR
 
     P_motion = PM_L + PM_R
     return P_motion
