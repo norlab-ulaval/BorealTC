@@ -53,10 +53,6 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 # Get recordings
 terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 
-if csv_dir.stem == "norlab-data":
-    summary.loc["imu", "sampling_freq"] = 100
-    summary.loc["pro", "sampling_freq"] = 6.5
-
 # Set data partition parameters
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
