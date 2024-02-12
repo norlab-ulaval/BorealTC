@@ -108,6 +108,9 @@ def spectrogram(
     lim0 = np.abs(time_part - t0[:, None]).argmin(axis=1)
     # lim1 = np.abs(time_part - t1[:, None]).argmin(axis=1)
     limits = np.vstack([lim0, lim0 + win_len]).T
+    overwin = limits[:, 1] - time_part.size
+    limits[overwin > 0, 0] -= overwin[overwin > 0]
+    limits[overwin > 0, 1] -= overwin[overwin > 0]
 
     # Remove this line before running CNNs
     # data = np.concatenate([data, np.zeros(data.shape[:2])[:, :, None]], axis=2)

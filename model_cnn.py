@@ -67,6 +67,8 @@ train, test = preprocessing.partition_data(
     random_state=RANDOM_STATE,
 )
 
+merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
+
 # Data augmentation parameters
 # 0 < STRIDE < MOVING_WINDOWS
 STRIDE = 0.1  # seconds
@@ -74,21 +76,30 @@ STRIDE = 0.1  # seconds
 # If False, imbalance the classes while augmenting
 HOMOGENEOUS_AUGMENTATION = True
 
-# SVM parameters
-svm_par = {"n_stat_mom": 4}
+# CNN parameters
+cnn_par = {
+    "time_window": 0.4,
+    "time_overlap": 0.2,
+    "filter_size": [3, 3],
+    "num_filters": 3,
+}
 
-svm_train_opt = {
-    "kernel_function": "poly",
-    "poly_degree": 4,
-    "kernel_scale": "auto",
-    "box_constraint": 100,
-    "standardize": True,
-    "coding": "onevsone",
+cnn_train_opt = {
+    "valid_perc": 0.1,
+    "init_learn_rate": 0.005,
+    "learn_drop_factor": 0.1,
+    "max_epochs": 150,
+    "minibatch_size": 10,
+    "valid_patience": 8,
+    "reduce_lr_patience": 4,
+    "valid_frequency": 100,
+    "gradient_treshold": 6,  # None to disable
 }
 
 # Model settings
-MODEL = "SVM"
+MODEL = "CNN"
 results = {}
+# BASE_MODELS = ["CNN", "SVM"]
 
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
@@ -103,14 +114,35 @@ for mw in MOVING_WINDOWS:
     print(f"Training models for a sampling window of {mw} seconds")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    results[int(mw * 1000)] = models.support_vector_machine(
+    (
+        train_mcs_folds,
+        test_mcs_folds,
+    ) = preprocessing.apply_multichannel_spectogram(
         aug_train,
         aug_test,
         summary,
-        svm_par["n_stat_mom"],
-        svm_train_opt,
-        random_state=RANDOM_STATE,
+        cnn_par["time_window"],
+        cnn_par["time_overlap"],
     )
+    results_per_fold = []
+    for k in range(N_FOLDS):
+        train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
+        out = models.convolutional_neural_network(
+            train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
+        )
+        results_per_fold.append(out)
+
+    results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+    results["true"] = np.hstack([r["true"] for r in results_per_fold])
+    results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+    results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
+    results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
+
+    # results[model] = {
+    #     f"{samp_window * 1000}ms": Conv_NeuralNet(
+    #         train_mcs, test_mcs, cnn_par, cnn_train_opt
+    #     )
+    # }
 
     # Store channels settings
     results["channels"] = columns
