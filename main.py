@@ -102,6 +102,7 @@ lstm_par = {
     "numLayers": 1,
     "dropout": 0.0,
     "bidirectional": False,
+    "convolutional": False,
 }
 
 lstm_train_opt = {
@@ -117,7 +118,14 @@ lstm_train_opt = {
 }
 
 # CLSTM parameters
-clstm_par = {"nHiddenUnits": 15, "numFilters": 5}
+clstm_par = {
+    "nHiddenUnits": 15,
+    "numFilters": 5,
+    "numLayers": 1,
+    "dropout": 0.0,
+    "bidirectional": False,
+    "convolutional": True,
+}
 
 clstm_train_opt = {
     "valid_perc": 0.1,
@@ -126,6 +134,7 @@ clstm_train_opt = {
     "max_epochs": 150,
     "minibatch_size": 10,
     "valid_patience": 8,
+    "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_treshold": 6,
 }
@@ -143,9 +152,8 @@ svm_train_opt = {
 }
 
 # Model settings
-# BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
+BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
 # BASE_MODELS = ["CNN", "SVM"]
-BASE_MODELS = ["LSTM"]
 
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
@@ -212,18 +220,29 @@ for mw in MOVING_WINDOWS:
             results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
             results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
             results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
-            # results[model] = {
-            #     f"{samp_window * 1000}ms": LSTM_RecurrentNet(
-            #         train_ds, test_ds, lstm_par, lstm_train_opt
-            #     )
-            # }
-        #     elif model == "CLSTM":
-        #         train_ds, test_ds = DownSample_Data(aug_train, aug_test, channels)
-        #         results[model] = {
-        #             f"{samp_window * 1000}ms": CLSTM_RecurrentNet(
-        #                 train_ds, test_ds, clstm_par, clstm_train_opt
-        #             )
-        #         }
+        elif model == "CLSTM":
+            train_ds_folds, test_ds_folds = preprocessing.downsample_data(
+                aug_train,
+                aug_test,
+                summary,
+            )
+            results_per_fold = []
+            for k in range(N_FOLDS):
+                train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
+                out = models.long_short_term_memory(
+                    train_ds,
+                    test_ds,
+                    clstm_par,
+                    clstm_train_opt,
+                    dict(mw=mw, fold=k + 1),
+                )
+                results_per_fold.append(out)
+
+            results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+            results["true"] = np.hstack([r["true"] for r in results_per_fold])
+            results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+            results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
+            results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
         elif model == "SVM":
             results = models.support_vector_machine(
                 aug_train,

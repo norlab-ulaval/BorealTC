@@ -24,6 +24,7 @@ from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+import einops as ein
 
 from utils.constants import ch_cols
 from utils.datamodule import MCSDataModule, TemporalDataModule
@@ -40,8 +41,10 @@ class LSTMTerrain(L.LightningModule):
         num_layers: int,
         dropout: float,
         bidirectional: bool,
+        convolutional: bool,
         num_classes: int,
         lr: float,
+        conv_num_filters: int = 5,
         learning_rate_factor: float = 0.1,
         reduce_lr_patience: int = 8,
         class_weights: list[float] | None = None,
@@ -58,6 +61,8 @@ class LSTMTerrain(L.LightningModule):
         self.num_classes = num_classes
         self.dropout = dropout
         self.bidirectional = bidirectional
+        self.convolutional = convolutional
+        self.conv_num_filters = conv_num_filters
         self.learning_rate_factor = learning_rate_factor
         self.reduce_lr_patience = reduce_lr_patience
         self.class_weights = class_weights
@@ -66,8 +71,20 @@ class LSTMTerrain(L.LightningModule):
         self.focal_loss_gamma = focal_loss_gamma
         self.lr = lr
 
+        self.conv = None
+        self.bn = None
+        self.fc_conv = None
+        if convolutional:
+            self.conv = nn.Conv1d(
+                in_channels=input_size,
+                out_channels=conv_num_filters,
+                kernel_size=10,
+                padding="same",
+            )
+            self.bn = nn.BatchNorm1d(conv_num_filters)
+            self.fc_conv = nn.Linear(conv_num_filters, hidden_size)
         self.rnn = nn.LSTM(
-            input_size,
+            input_size if not convolutional else hidden_size,
             hidden_size,
             num_layers,
             batch_first=True,
@@ -126,6 +143,13 @@ class LSTMTerrain(L.LightningModule):
         return self._test_classifications[-1]
 
     def forward(self, x):
+        if self.convolutional:
+            x = ein.rearrange(x, "b c n -> b n c")
+            x = self.conv(x)
+            x = self.bn(x)
+            x = ein.rearrange(x, "b n c -> b c n")
+            x = self.fc_conv(x)
+
         output, (hn, cn) = self.rnn(x)
         x = torch.flatten(hn, start_dim=0, end_dim=1)
         x = self.fc(x)
@@ -570,6 +594,8 @@ def long_short_term_memory(
     num_layers = lstm_par["numLayers"]
     dropout = lstm_par["dropout"]
     bidirectional = lstm_par["bidirectional"]
+    convolutional = lstm_par["convolutional"]
+    num_filters = lstm_par.get("numFilters", 0)
 
     # Training parameters
     valid_perc = lstm_train_opt["valid_perc"]
@@ -620,6 +646,8 @@ def long_short_term_memory(
         num_layers=num_layers,
         dropout=dropout,
         bidirectional=bidirectional,
+        convolutional=convolutional,
+        conv_num_filters=num_filters,
         num_classes=4,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
