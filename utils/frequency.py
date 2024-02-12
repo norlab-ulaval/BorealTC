@@ -103,10 +103,11 @@ def spectrogram(
     time_part = time[0, :]
     t0 = time_part[0] + twto * np.arange(n_windows)
     t1 = t0 + tw
+    win_len = int(twto * sampling_freq)
 
     lim0 = np.abs(time_part - t0[:, None]).argmin(axis=1)
-    lim1 = np.abs(time_part - t1[:, None]).argmin(axis=1)
-    limits = np.vstack([lim0, lim1 + 1]).T
+    # lim1 = np.abs(time_part - t1[:, None]).argmin(axis=1)
+    limits = np.vstack([lim0, lim0 + win_len]).T
 
     # Remove this line before running CNNs
     # data = np.concatenate([data, np.zeros(data.shape[:2])[:, :, None]], axis=2)
