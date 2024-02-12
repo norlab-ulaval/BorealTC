@@ -69,7 +69,6 @@ train, test = preprocessing.partition_data(
 
 merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
-
 # Data augmentation parameters
 # 0 < STRIDE < MOVING_WINDOWS
 STRIDE = 0.1  # seconds
@@ -97,9 +96,13 @@ cnn_train_opt = {
     "gradient_treshold": 6,  # None to disable
 }
 
-
 # LSTM parameters
-lstm_par = {"nHiddenUnits": 15}
+lstm_par = {
+    "nHiddenUnits": 15,
+    "numLayers": 1,
+    "dropout": 0.0,
+    "bidirectional": False,
+}
 
 lstm_train_opt = {
     "valid_perc": 0.1,
@@ -108,8 +111,9 @@ lstm_train_opt = {
     "max_epochs": 150,
     "minibatch_size": 10,
     "valid_patience": 8,
+    "reduce_lr_patience": 4,
     "valid_frequency": 100,
-    "gradient_treshold": 6,
+    "gradient_treshold": 6,  # None to disable
 }
 
 # CLSTM parameters
@@ -141,8 +145,7 @@ svm_train_opt = {
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
 # BASE_MODELS = ["CNN", "SVM"]
-BASE_MODELS = ["CNN"]
-results = {}
+BASE_MODELS = ["LSTM"]
 
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
@@ -158,7 +161,8 @@ for mw in MOVING_WINDOWS:
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     for model in BASE_MODELS:
-        results.setdefault(model, {})
+        results = {}
+
         if model == "CNN":
             (
                 train_mcs_folds,
@@ -170,22 +174,44 @@ for mw in MOVING_WINDOWS:
                 cnn_par["time_window"],
                 cnn_par["time_overlap"],
             )
+            results_per_fold = []
             for k in range(N_FOLDS):
                 train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
-                results[model][int(mw * 1000)] = models.convolutional_neural_network(
+                out = models.convolutional_neural_network(
                     train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
                 )
+                results_per_fold.append(out)
+
+            results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+            results["true"] = np.hstack([r["true"] for r in results_per_fold])
+            results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+            results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
+            results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
+
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt
             #     )
             # }
         elif model == "LSTM":
-            train_ds, test_ds = preprocessing.downsample_data(
+            train_ds_folds, test_ds_folds = preprocessing.downsample_data(
                 aug_train,
                 aug_test,
                 summary,
             )
+            results_per_fold = []
+            for k in range(N_FOLDS):
+                train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
+                out = models.long_short_term_memory(
+                    train_ds, test_ds, lstm_par, lstm_train_opt, dict(mw=mw, fold=k + 1)
+                )
+                results_per_fold.append(out)
+
+            results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+            results["true"] = np.hstack([r["true"] for r in results_per_fold])
+            results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+            results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
+            results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
             # results[model] = {
             #     f"{samp_window * 1000}ms": LSTM_RecurrentNet(
             #         train_ds, test_ds, lstm_par, lstm_train_opt
@@ -199,7 +225,7 @@ for mw in MOVING_WINDOWS:
         #             )
         #         }
         elif model == "SVM":
-            results[model][int(mw * 1000)] = models.support_vector_machine(
+            results = models.support_vector_machine(
                 aug_train,
                 aug_test,
                 summary,
@@ -208,12 +234,11 @@ for mw in MOVING_WINDOWS:
                 random_state=RANDOM_STATE,
             )
 
+        # Store channels settings
+        results["channels"] = columns
 
-# Store channels settings
-results["channels"] = columns
+        # Store terrain labels
+        terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
+        results["terrains"] = terrains
 
-# Store terrain labels
-terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
-results["terrains"] = terrains
-
-np.save(results_dir / "res.npy", results)
+        np.save(results_dir / f"results_{model}_mw_{mw}.npy", results)

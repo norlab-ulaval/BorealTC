@@ -26,30 +26,221 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from utils.constants import ch_cols
-from utils.datamodule import MCSDataModule
+from utils.datamodule import MCSDataModule, TemporalDataModule
 
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 
 class LSTMTerrain(L.LightningModule):
-    def __init__(self, lr: float):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int,
+        dropout: float,
+        bidirectional: bool,
+        num_classes: int,
+        lr: float,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
+    ):
         super().__init__()
+        self.save_hyperparameters()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.num_classes = num_classes
+        self.dropout = dropout
+        self.bidirectional = bidirectional
+        self.learning_rate_factor = learning_rate_factor
+        self.reduce_lr_patience = reduce_lr_patience
+        self.class_weights = class_weights
+        self.focal_loss = focal_loss
+        self.focal_loss_alpha = focal_loss_alpha
+        self.focal_loss_gamma = focal_loss_gamma
         self.lr = lr
-        self.lstm = nn.LSTM(
-            input_size=1, hidden_size=64, num_layers=1, batch_first=True
+
+        self.rnn = nn.LSTM(
+            input_size,
+            hidden_size,
+            num_layers,
+            batch_first=True,
+            dropout=dropout,
+            bidirectional=bidirectional,
         )
-        self.linear = nn.Linear(64, 1)
+        self.fc = nn.Linear(hidden_size * (2 if bidirectional else 1), num_classes)
+        self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, x):
-        ...
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=torch.tensor(class_weights) if class_weights else None
+        )
 
-    def training_step(self, batch, batch_idx):
-        ...
+        self._train_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        self._val_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        self._test_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+
+        self._val_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        ]
+        self._test_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        ]
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        return optimizer
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        # scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer,
+        #                                                       lr_lambda=lambda epoch: self.learning_rate_factor,
+        #                                                       verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            patience=self.reduce_lr_patience,
+            factor=self.learning_rate_factor,
+            verbose=True,
+        )
+        return dict(
+            optimizer=optimizer,
+            lr_scheduler=dict(
+                scheduler=scheduler,
+                monitor="val_loss",
+            ),
+        )
+
+    @property
+    def val_classification(self):
+        return self._val_classifications[-1]
+
+    @property
+    def test_classification(self):
+        return self._test_classifications[-1]
+
+    def forward(self, x):
+        output, (hn, cn) = self.rnn(x)
+        x = torch.flatten(hn, start_dim=0, end_dim=1)
+        x = self.fc(x)
+        return x
+
+    def loss(self, y, target):
+        if self.focal_loss:
+            return tv.ops.sigmoid_focal_loss(
+                y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma
+            )
+        return self.ce_loss(y, target)
+
+    def training_step(self, batch, batch_idx):
+        x, target = batch
+        pred = self(x)
+        loss = self.loss(pred, target)
+        acc = self._train_accuracy(pred, target)
+
+        self.log("train_loss", loss, prog_bar=True, on_step=True)
+        self.log("train_accuracy", acc, on_step=True)
+
+        return loss
+
+    def on_train_epoch_end(self):
+        self.log(
+            "train_accuracy_epoch",
+            self._train_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self._train_accuracy.reset()
+
+    def validation_step(self, val_batch, batch_idx):
+        x, target = val_batch
+        pred = self(x)
+        y = self.softmax(pred)
+        loss = self.loss(pred, target)
+        acc = self._val_accuracy(pred, target)
+
+        self.log("val_loss", loss, on_step=True)
+        self.log("val_accuracy", acc, on_step=True)
+
+        pred_classes = torch.argmax(y, dim=1)
+        self._val_classifications[-1]["pred"].append(
+            pred_classes.detach().cpu().numpy()
+        )
+        self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._val_classifications[-1]["conf"].append(y.detach().cpu().numpy())
+
+        return loss
+
+    def on_validation_epoch_end(self):
+        self.log(
+            "val_accuracy_epoch",
+            self._val_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self._val_accuracy.reset()
+
+    def on_validation_end(self):
+        self._val_classifications[-1]["pred"] = np.hstack(
+            self._val_classifications[-1]["pred"]
+        )
+        self._val_classifications[-1]["true"] = np.hstack(
+            self._val_classifications[-1]["true"]
+        )
+        self._val_classifications[-1]["conf"] = np.vstack(
+            self._val_classifications[-1]["conf"]
+        )
+        self._val_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        )
+
+    def test_step(self, test_batch, batch_idx):
+        x, target = test_batch
+        pred = self(x)
+        y = self.softmax(pred)
+        loss = self.loss(pred, target)
+        acc = self._test_accuracy(pred, target)
+
+        self.log("test_loss", loss, on_step=True)
+        self.log("test_accuracy", acc, on_step=True)
+
+        pred_classes = torch.argmax(y, dim=1)
+        self._test_classifications[-1]["pred"].append(
+            pred_classes.detach().cpu().numpy()
+        )
+        self._test_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._test_classifications[-1]["conf"].append(y.detach().cpu().numpy())
+
+        return loss
+
+    def on_test_epoch_end(self):
+        self.log(
+            "test_accuracy_epoch",
+            self._test_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self._test_accuracy.reset()
+
+    def on_test_end(self):
+        self._test_classifications[-1]["pred"] = np.hstack(
+            self._test_classifications[-1]["pred"]
+        )
+        self._test_classifications[-1]["true"] = np.hstack(
+            self._test_classifications[-1]["true"]
+        )
+        self._test_classifications[-1]["conf"] = np.vstack(
+            self._test_classifications[-1]["conf"]
+        )
+        self._test_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        )
 
 
 class CNNTerrain(L.LightningModule):
@@ -81,8 +272,8 @@ class CNNTerrain(L.LightningModule):
         self.focal_loss = focal_loss
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
-
         self.lr = lr
+
         self.in_layer = nn.Conv2d(in_size, in_size, kernel_size=1)
         self.batch_norm = nn.BatchNorm2d(in_size)
         self.conv2d1 = nn.Conv2d(
@@ -108,9 +299,11 @@ class CNNTerrain(L.LightningModule):
             task="multiclass", num_classes=num_classes
         )
 
-        self._val_classifications = [{"pred": [], "true": [], "ftime": [], "ptime": []}]
+        self._val_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        ]
         self._test_classifications = [
-            {"pred": [], "true": [], "ftime": [], "ptime": []}
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         ]
 
     def configure_optimizers(self):
@@ -118,7 +311,6 @@ class CNNTerrain(L.LightningModule):
         # scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer,
         #                                                       lr_lambda=lambda epoch: self.learning_rate_factor,
         #                                                       verbose=True)
-        # TODO try ReduceLROnPlateau
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             patience=self.reduce_lr_patience,
@@ -149,7 +341,6 @@ class CNNTerrain(L.LightningModule):
 
         x = self.flatten(x)
         x = self.fc(x)
-        x = self.softmax(x)
 
         return x
 
@@ -162,9 +353,9 @@ class CNNTerrain(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, target = batch
-        y = self(x)
-        loss = self.loss(y, target)
-        acc = self._train_accuracy(y, target)
+        pred = self(x)
+        loss = self.loss(pred, target)
+        acc = self._train_accuracy(pred, target)
 
         self.log("train_loss", loss, prog_bar=True, on_step=True)
         self.log("train_accuracy", acc, on_step=True)
@@ -182,9 +373,10 @@ class CNNTerrain(L.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
-        y = self(x)
-        loss = self.loss(y, target)
-        acc = self._val_accuracy(y, target)
+        pred = self(x)
+        y = self.softmax(pred)
+        loss = self.loss(pred, target)
+        acc = self._val_accuracy(pred, target)
 
         self.log("val_loss", loss, on_step=True)
         self.log("val_accuracy", acc, on_step=True)
@@ -194,6 +386,7 @@ class CNNTerrain(L.LightningModule):
             pred_classes.detach().cpu().numpy()
         )
         self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._val_classifications[-1]["conf"].append(y.detach().cpu().numpy())
 
         return loss
 
@@ -213,15 +406,19 @@ class CNNTerrain(L.LightningModule):
         self._val_classifications[-1]["true"] = np.hstack(
             self._val_classifications[-1]["true"]
         )
+        self._val_classifications[-1]["conf"] = np.vstack(
+            self._val_classifications[-1]["conf"]
+        )
         self._val_classifications.append(
-            {"pred": [], "true": [], "ftime": [], "ptime": []}
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         )
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
-        y = self(x)
-        loss = self.loss(y, target)
-        acc = self._test_accuracy(y, target)
+        pred = self(x)
+        y = self.softmax(pred)
+        loss = self.loss(pred, target)
+        acc = self._test_accuracy(pred, target)
 
         self.log("test_loss", loss, on_step=True)
         self.log("test_accuracy", acc, on_step=True)
@@ -231,6 +428,7 @@ class CNNTerrain(L.LightningModule):
             pred_classes.detach().cpu().numpy()
         )
         self._test_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._test_classifications[-1]["conf"].append(y.detach().cpu().numpy())
 
         return loss
 
@@ -250,8 +448,11 @@ class CNNTerrain(L.LightningModule):
         self._test_classifications[-1]["true"] = np.hstack(
             self._test_classifications[-1]["true"]
         )
+        self._test_classifications[-1]["conf"] = np.vstack(
+            self._test_classifications[-1]["conf"]
+        )
         self._test_classifications.append(
-            {"pred": [], "true": [], "ftime": [], "ptime": []}
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         )
 
 
@@ -321,7 +522,112 @@ def convolutional_neural_network(
     )
 
     exp_name = (
-        f'terrain_classification_mw_{description["mw"]}_fold_{description["fold"]}'
+        f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}'
+    )
+    logger = TensorBoardLogger("tb_logs", name=exp_name)
+
+    checkpoint_folder_path = pathlib.Path("checkpoints")
+    trainer = L.Trainer(
+        accelerator="gpu",
+        precision=32,
+        logger=logger,
+        log_every_n_steps=1,
+        min_epochs=0,
+        max_epochs=max_epochs,
+        gradient_clip_val=gradient_treshold,
+        val_check_interval=valid_frequency,
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
+            DeviceStatsMonitor(),
+            LearningRateMonitor(),
+            ModelCheckpoint(
+                monitor="val_loss",
+                dirpath=str(checkpoint_folder_path),
+                filename=f"{exp_name}-" + "{epoch:02d}-{val_loss:.6f}",
+                save_top_k=1,
+                save_last=True,
+                mode="min",
+            ),
+        ],
+    )
+    # train
+    trainer.fit(model, datamodule)
+    trainer.validate(model, datamodule)
+    trainer.test(model, datamodule)
+
+    return model.test_classification
+
+
+def long_short_term_memory(
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    lstm_par: dict,
+    lstm_train_opt: dict,
+    description: dict,
+) -> dict:
+    # LSTM parameters
+    n_hidden_units = lstm_par["nHiddenUnits"]
+    num_layers = lstm_par["numLayers"]
+    dropout = lstm_par["dropout"]
+    bidirectional = lstm_par["bidirectional"]
+
+    # Training parameters
+    valid_perc = lstm_train_opt["valid_perc"]
+    init_learn_rate = lstm_train_opt["init_learn_rate"]
+    learn_drop_factor = lstm_train_opt["learn_drop_factor"]
+    max_epochs = lstm_train_opt["max_epochs"]
+    minibatch_size = lstm_train_opt["minibatch_size"]
+    valid_patience = lstm_train_opt["valid_patience"]
+    reduce_lr_patience = lstm_train_opt["reduce_lr_patience"]
+    valid_frequency = lstm_train_opt["valid_frequency"]
+    gradient_treshold = lstm_train_opt["gradient_treshold"]
+    input_size = train_data["imu"].shape[-1] + train_data["pro"].shape[-1] - 10
+    num_workers = 8
+    persistent_workers = True
+
+    def to_f32(x):
+        return x.astype(np.float32)
+
+    def project(data):
+        imu = data["imu"]
+        pro = data["pro"]
+        return np.hstack([imu, pro])
+
+    # TODO data augmentation
+    augment = pp.Identity()
+    train_transform = pp.Bifunctor(
+        pp.Compose([project, to_f32, augment]), pp.Identity()
+    )
+    test_transform = pp.Bifunctor(
+        pp.Compose([project, to_f32]),
+        pp.Identity(),
+    )
+
+    datamodule = TemporalDataModule(
+        train_data,
+        test_data,
+        train_transform,
+        test_transform,
+        valid_percent=valid_perc,
+        batch_size=minibatch_size,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+    )
+
+    model = LSTMTerrain(
+        input_size=input_size,
+        hidden_size=n_hidden_units,
+        num_layers=num_layers,
+        dropout=dropout,
+        bidirectional=bidirectional,
+        num_classes=4,
+        lr=init_learn_rate,
+        learning_rate_factor=learn_drop_factor,
+        reduce_lr_patience=reduce_lr_patience,
+    )
+
+    exp_name = (
+        f'terrain_classification_lstm_mw_{description["mw"]}_fold_{description["fold"]}'
     )
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 

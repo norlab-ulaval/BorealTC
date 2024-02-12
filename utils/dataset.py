@@ -7,6 +7,8 @@ import pipeline as pp
 import scipy
 from torch.utils.data import Dataset
 
+from utils.constants import ch_cols
+
 
 @dataclass
 class VulpiData:
@@ -77,7 +79,14 @@ class TemporalDataset(Dataset):
         return len(self.data["imu"])
 
     def __getitem__(self, idx):
-        sample = self.data[idx]
+        imu = self.data["imu"][idx]
+        pro = self.data["pro"][idx]
+        label = imu[:, ch_cols["terr_idx"]][0]
+
+        imu_channels = imu[:, 5:]
+        pro_channels = pro[:, 5:]
+
+        sample = dict(imu=imu_channels, pro=pro_channels), label
         return self.transform(sample)
 
 
