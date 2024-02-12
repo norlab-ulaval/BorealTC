@@ -13,8 +13,13 @@ import torch
 import torch.nn as nn
 import torchmetrics
 import torchvision as tv
-from lightning.pytorch.callbacks import DeviceStatsMonitor, LearningRateMonitor, ModelCheckpoint, EarlyStopping
+from lightning.pytorch.callbacks import (
+    DeviceStatsMonitor,
+    LearningRateMonitor,
+    ModelCheckpoint, EarlyStopping,
+)
 from lightning.pytorch.loggers import TensorBoardLogger
+from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -88,7 +93,9 @@ class CNNTerrain(L.LightningModule):
         self.fc = nn.Linear(num_filters * self.n_wind * self.n_freq, num_classes)
         self.softmax = nn.Softmax(dim=1)
 
-        self.ce_loss = nn.CrossEntropyLoss(weight=torch.tensor(class_weights) if class_weights else None)
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=torch.tensor(class_weights) if class_weights else None
+        )
 
         self._train_accuracy = torchmetrics.classification.Accuracy(
             task="multiclass", num_classes=num_classes)
@@ -138,7 +145,9 @@ class CNNTerrain(L.LightningModule):
 
     def loss(self, y, target):
         if self.focal_loss:
-            return tv.ops.sigmoid_focal_loss(y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma)
+            return tv.ops.sigmoid_focal_loss(
+                y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma
+            )
         return self.ce_loss(y, target)
 
     def training_step(self, batch, batch_idx):
@@ -166,7 +175,9 @@ class CNNTerrain(L.LightningModule):
         self.log("val_accuracy", acc, on_step=True)
 
         pred_classes = torch.argmax(y, dim=1)
-        self._val_classifications[-1]["pred"].append(pred_classes.detach().cpu().numpy())
+        self._val_classifications[-1]["pred"].append(
+            pred_classes.detach().cpu().numpy()
+        )
         self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
 
         return loss
@@ -176,9 +187,15 @@ class CNNTerrain(L.LightningModule):
         self._val_accuracy.reset()
 
     def on_validation_end(self):
-        self._val_classifications[-1]["pred"] = np.hstack(self._val_classifications[-1]["pred"])
-        self._val_classifications[-1]["true"] = np.hstack(self._val_classifications[-1]["true"])
-        self._val_classifications.append({"pred": [], "true": [], "ftime": [], "ptime": []})
+        self._val_classifications[-1]["pred"] = np.hstack(
+            self._val_classifications[-1]["pred"]
+        )
+        self._val_classifications[-1]["true"] = np.hstack(
+            self._val_classifications[-1]["true"]
+        )
+        self._val_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": []}
+        )
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
@@ -268,8 +285,10 @@ def convolutional_neural_network(
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience)
 
-    exp_name = f'terrain_classification_mw_{description["mw"]}_fold_{description["fold"]}'
-    logger = TensorBoardLogger('tb_logs', name=exp_name)
+    exp_name = (
+        f'terrain_classification_mw_{description["mw"]}_fold_{description["fold"]}'
+    )
+    logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = pathlib.Path('checkpoints')
     trainer = L.Trainer(accelerator='gpu', precision=32, logger=logger, log_every_n_steps=1,
@@ -391,7 +410,10 @@ def support_vector_machine(
             decision_function_shape="ovo",
             random_state=random_state,
         )
-        clf = make_pipeline(StandardScaler(), svm)
+        ecoc = OutputCodeClassifier(
+            estimator=svm,
+        )
+        clf = make_pipeline(StandardScaler(), ecoc)
 
         start = time.perf_counter()
         clf.fit(Xtrain_k, ytrain_k)

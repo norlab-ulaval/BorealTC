@@ -175,7 +175,6 @@ for mw in MOVING_WINDOWS:
                 results[model][int(mw * 1000)] = models.convolutional_neural_network(
                     train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
                 )
-                exit(0)
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt
