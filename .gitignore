@@ -155,3 +155,5 @@ static
 checkpoints/
 tb_logs/
 
+# Slurm
+*.out
