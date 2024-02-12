@@ -4,6 +4,7 @@ import pathlib
 import time
 from typing import TYPE_CHECKING
 
+import einops as ein
 import lightning as L
 import numpy as np
 import pandas as pd
@@ -15,16 +16,15 @@ import torchmetrics
 import torchvision as tv
 from lightning.pytorch.callbacks import (
     DeviceStatsMonitor,
+    EarlyStopping,
     LearningRateMonitor,
     ModelCheckpoint,
-    EarlyStopping,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-import einops as ein
 
 from utils.constants import ch_cols
 from utils.datamodule import MCSDataModule, TemporalDataModule
@@ -739,7 +739,7 @@ def support_vector_machine(
         sens_data = data[:, :, 5:].astype(float)
         mean = np.mean(sens_data, axis=1)
         std = np.std(sens_data, axis=1)
-        skew = scst.skew(sens_data, axis=1)
+        skew = scst.skew(sens_data, axis=1, bias=False)
         # Use Pearson kurtosis
         kurt = scst.kurtosis(sens_data, axis=1, fisher=False)
 

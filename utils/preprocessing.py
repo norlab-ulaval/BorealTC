@@ -74,7 +74,7 @@ def get_recordings(
         terr_df["terrain"] = terrain
         terr_df["run_idx"] = int(run_idx)
 
-        freq = 1 / terr_df.time.diff().min()
+        freq = round(1 / terr_df.time.diff().min(), 1)
         sampling_freq.setdefault(csv_type, freq)
 
         dfs.setdefault(csv_type, []).append(terr_df)
@@ -146,7 +146,7 @@ def partition_data(
             hf_cols = windows[0].columns.tolist()
             hf_c = [*np.take(hf_cols, (-4, -2, -3, -1, 0)), *hf_cols[1:-4]]
             windows = [w[hf_c] for w in windows]
-            tlimits = [np.array([w.time.min(), w.time.max()]) for w in windows]
+            tlimits = np.array([w.time.min() for w in windows])
             partitions[hf_sensor].setdefault(terr, []).extend(windows)
 
             # Slice each lf sensor based on the time from the hf windows
@@ -157,10 +157,15 @@ def partition_data(
                 lf_exp = lf_exp.copy().reset_index(drop=True)
                 lf_time = lf_exp.time.to_numpy()[None, :]
 
-                indices = np.array(
-                    [np.abs(lf_time - tlim[:, None]).argmin(axis=1) for tlim in tlimits]
-                )
-                indices[:, 1] += 1
+                sf = summary.sampling_freq.loc[sens]
+                lf_winlen = int(partition_duration * sf)
+
+                indices = np.abs(lf_time - tlimits[:, None]).argmin(axis=1)
+                indices = np.vstack([indices, indices + lf_winlen]).T
+
+                overwin = indices[:, 1] - len(lf_exp.index)
+                indices[overwin > 0, 0] -= overwin[overwin > 0]
+                indices[overwin > 0, 1] -= overwin[overwin > 0]
                 lf_win = [
                     lf_exp.iloc[slice(*lim)].assign(win_idx=win_idx)
                     for win_idx, lim in enumerate(indices)
