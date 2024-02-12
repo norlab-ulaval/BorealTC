@@ -92,8 +92,9 @@ cnn_train_opt = {
     "max_epochs": 150,
     "minibatch_size": 10,
     "valid_patience": 8,
+    "reduce_lr_patience": 4,
     "valid_frequency": 100,
-    "gradient_treshold": 6,
+    "gradient_treshold": 6,  # None to disable
 }
 
 
@@ -140,7 +141,7 @@ svm_train_opt = {
 # Model settings
 # BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
 # BASE_MODELS = ["CNN", "SVM"]
-BASE_MODELS = ["SVM"]
+BASE_MODELS = ["CNN"]
 results = {}
 
 for mw in MOVING_WINDOWS:
@@ -174,6 +175,7 @@ for mw in MOVING_WINDOWS:
                 results[model][int(mw * 1000)] = models.convolutional_neural_network(
                     train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
                 )
+                exit(0)
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(
             #         train_mcs, test_mcs, cnn_par, cnn_train_opt

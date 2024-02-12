@@ -11,7 +11,7 @@ run: build
 	  terrain python3 training.py
 
 log:
-	xdg-open http://localhost:6006 && tensorboard --logdir . &
+	xdg-open http://localhost:6006 && tensorboard --logdir .
 
 jupyter: build
 	@echo "Running jupyter-server"
