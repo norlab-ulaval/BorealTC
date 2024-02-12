@@ -27,8 +27,8 @@ class RawVulpiDataset(Dataset):
         self._class_names = [x.name for x in self._class_paths]
         self._class_name_to_id = {x: i for i, x in enumerate(self._class_names)}
         self._id_to_class_name = {v: k for k, v in self._class_name_to_id.items()}
-        imus = self._root_dir.rglob('imu_*.mat')
-        pros = self._root_dir.rglob('pro_*.mat')
+        imus = self._root_dir.rglob("imu_*.mat")
+        pros = self._root_dir.rglob("pro_*.mat")
         self._imu_paths = sorted(imus)
         self._pro_paths = sorted(pros)
 
@@ -43,10 +43,17 @@ class RawVulpiDataset(Dataset):
         pro = scipy.io.loadmat(pro_path)
         label = imu_path.parent.name
         label_id = self._class_name_to_id[label]
-        run_id = int(imu_path.name.split('_')[1].split('.')[0])
+        run_id = int(imu_path.name.split("_")[1].split(".")[0])
 
-        data = VulpiData(imu=imu['imu'], pro=pro['pro'], label=label, label_id=label_id, run_id=run_id,
-                         imu_path=imu_path, pro_path=pro_path)
+        data = VulpiData(
+            imu=imu["imu"],
+            pro=pro["pro"],
+            label=label,
+            label_id=label_id,
+            run_id=run_id,
+            imu_path=imu_path,
+            pro_path=pro_path,
+        )
         if self._transform is not None:
             data = self._transform(data)
 
@@ -67,7 +74,7 @@ class TemporalDataset(Dataset):
         self.transform = transform if transform is not None else pp.Identity()
 
     def __len__(self):
-        return len(self.data['imu'])
+        return len(self.data["imu"])
 
     def __getitem__(self, idx):
         sample = self.data[idx]
@@ -81,8 +88,8 @@ class MCSDataset(Dataset):
         self.transform = transform if transform is not None else pp.Identity()
 
     def __len__(self):
-        return len(self.mcs['data'])
+        return len(self.mcs["data"])
 
     def __getitem__(self, idx):
-        sample = self.mcs['data'][idx], self.mcs['label'][idx]
+        sample = self.mcs["data"][idx], self.mcs["label"][idx]
         return self.transform(sample)

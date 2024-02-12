@@ -16,7 +16,8 @@ import torchvision as tv
 from lightning.pytorch.callbacks import (
     DeviceStatsMonitor,
     LearningRateMonitor,
-    ModelCheckpoint, EarlyStopping,
+    ModelCheckpoint,
+    EarlyStopping,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
 from sklearn.multiclass import OutputCodeClassifier
@@ -53,20 +54,20 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-            self,
-            in_size: int,
-            num_filters: int,
-            filter_size: int | (int, int),
-            num_classes: int,
-            n_wind: int,
-            n_freq: int,
-            lr: float,
-            learning_rate_factor: float = 0.1,
-            reduce_lr_patience: int = 8,
-            class_weights: list[float] | None = None,
-            focal_loss: bool = False,
-            focal_loss_alpha: float = 0.25,
-            focal_loss_gamma: float = 2,
+        self,
+        in_size: int,
+        num_filters: int,
+        filter_size: int | (int, int),
+        num_classes: int,
+        n_wind: int,
+        n_freq: int,
+        lr: float,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -98,14 +99,19 @@ class CNNTerrain(L.LightningModule):
         )
 
         self._train_accuracy = torchmetrics.classification.Accuracy(
-            task="multiclass", num_classes=num_classes)
+            task="multiclass", num_classes=num_classes
+        )
         self._val_accuracy = torchmetrics.classification.Accuracy(
-            task="multiclass", num_classes=num_classes)
+            task="multiclass", num_classes=num_classes
+        )
         self._test_accuracy = torchmetrics.classification.Accuracy(
-            task="multiclass", num_classes=num_classes)
+            task="multiclass", num_classes=num_classes
+        )
 
         self._val_classifications = [{"pred": [], "true": [], "ftime": [], "ptime": []}]
-        self._test_classifications = [{"pred": [], "true": [], "ftime": [], "ptime": []}]
+        self._test_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": []}
+        ]
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
@@ -113,14 +119,18 @@ class CNNTerrain(L.LightningModule):
         #                                                       lr_lambda=lambda epoch: self.learning_rate_factor,
         #                                                       verbose=True)
         # TODO try ReduceLROnPlateau
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=self.reduce_lr_patience,
-                                                               factor=self.learning_rate_factor, verbose=True)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            patience=self.reduce_lr_patience,
+            factor=self.learning_rate_factor,
+            verbose=True,
+        )
         return dict(
             optimizer=optimizer,
             lr_scheduler=dict(
                 scheduler=scheduler,
                 monitor="val_loss",
-            )
+            ),
         )
 
     @property
@@ -162,7 +172,12 @@ class CNNTerrain(L.LightningModule):
         return loss
 
     def on_train_epoch_end(self):
-        self.log("train_accuracy_epoch", self._train_accuracy.compute(), prog_bar=True, on_epoch=True)
+        self.log(
+            "train_accuracy_epoch",
+            self._train_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
         self._train_accuracy.reset()
 
     def validation_step(self, val_batch, batch_idx):
@@ -183,7 +198,12 @@ class CNNTerrain(L.LightningModule):
         return loss
 
     def on_validation_epoch_end(self):
-        self.log("val_accuracy_epoch", self._val_accuracy.compute(), prog_bar=True, on_epoch=True)
+        self.log(
+            "val_accuracy_epoch",
+            self._val_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
         self._val_accuracy.reset()
 
     def on_validation_end(self):
@@ -207,43 +227,56 @@ class CNNTerrain(L.LightningModule):
         self.log("test_accuracy", acc, on_step=True)
 
         pred_classes = torch.argmax(y, dim=1)
-        self._test_classifications[-1]["pred"].append(pred_classes.detach().cpu().numpy())
+        self._test_classifications[-1]["pred"].append(
+            pred_classes.detach().cpu().numpy()
+        )
         self._test_classifications[-1]["true"].append(target.detach().cpu().numpy())
 
         return loss
 
     def on_test_epoch_end(self):
-        self.log("test_accuracy_epoch", self._test_accuracy.compute(), prog_bar=True, on_epoch=True)
+        self.log(
+            "test_accuracy_epoch",
+            self._test_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
         self._test_accuracy.reset()
 
     def on_test_end(self):
-        self._test_classifications[-1]["pred"] = np.hstack(self._test_classifications[-1]["pred"])
-        self._test_classifications[-1]["true"] = np.hstack(self._test_classifications[-1]["true"])
-        self._test_classifications.append({"pred": [], "true": [], "ftime": [], "ptime": []})
+        self._test_classifications[-1]["pred"] = np.hstack(
+            self._test_classifications[-1]["pred"]
+        )
+        self._test_classifications[-1]["true"] = np.hstack(
+            self._test_classifications[-1]["true"]
+        )
+        self._test_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": []}
+        )
 
 
 def convolutional_neural_network(
-        train_data: list[ExperimentData],
-        test_data: list[ExperimentData],
-        cnn_par: dict,
-        cnn_train_opt: dict,
-        description: dict,
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    cnn_par: dict,
+    cnn_train_opt: dict,
+    description: dict,
 ) -> dict:
     # CNN parameters
-    filter_size = cnn_par['filter_size']
-    num_filters = cnn_par['num_filters']
+    filter_size = cnn_par["filter_size"]
+    num_filters = cnn_par["num_filters"]
 
     # Training parameters
-    valid_perc = cnn_train_opt['valid_perc']
-    init_learn_rate = cnn_train_opt['init_learn_rate']
-    learn_drop_factor = cnn_train_opt['learn_drop_factor']
-    max_epochs = cnn_train_opt['max_epochs']
-    minibatch_size = cnn_train_opt['minibatch_size']
-    valid_patience = cnn_train_opt['valid_patience']
-    reduce_lr_patience = cnn_train_opt['reduce_lr_patience']
-    valid_frequency = cnn_train_opt['valid_frequency']
-    gradient_treshold = cnn_train_opt['gradient_treshold']
-    _, n_freq, n_wind, in_size = train_data['data'].shape
+    valid_perc = cnn_train_opt["valid_perc"]
+    init_learn_rate = cnn_train_opt["init_learn_rate"]
+    learn_drop_factor = cnn_train_opt["learn_drop_factor"]
+    max_epochs = cnn_train_opt["max_epochs"]
+    minibatch_size = cnn_train_opt["minibatch_size"]
+    valid_patience = cnn_train_opt["valid_patience"]
+    reduce_lr_patience = cnn_train_opt["reduce_lr_patience"]
+    valid_frequency = cnn_train_opt["valid_frequency"]
+    gradient_treshold = cnn_train_opt["gradient_treshold"]
+    _, n_freq, n_wind, in_size = train_data["data"].shape
     num_workers = 8
     persistent_workers = True
 
@@ -272,7 +305,8 @@ def convolutional_neural_network(
         valid_percent=valid_perc,
         batch_size=minibatch_size,
         num_workers=num_workers,
-        persistent_workers=persistent_workers)
+        persistent_workers=persistent_workers,
+    )
 
     model = CNNTerrain(
         in_size=in_size,
@@ -283,30 +317,38 @@ def convolutional_neural_network(
         n_freq=n_freq,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
-        reduce_lr_patience=reduce_lr_patience)
+        reduce_lr_patience=reduce_lr_patience,
+    )
 
     exp_name = (
         f'terrain_classification_mw_{description["mw"]}_fold_{description["fold"]}'
     )
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
-    checkpoint_folder_path = pathlib.Path('checkpoints')
-    trainer = L.Trainer(accelerator='gpu', precision=32, logger=logger, log_every_n_steps=1,
-                        min_epochs=0, max_epochs=max_epochs,
-                        gradient_clip_val=gradient_treshold,
-                        val_check_interval=valid_frequency,
-                        callbacks=[
-                            EarlyStopping(monitor='val_loss', patience=valid_patience, mode='min'),
-                            DeviceStatsMonitor(),
-                            LearningRateMonitor(),
-                            ModelCheckpoint(
-                                monitor='val_loss',
-                                dirpath=str(checkpoint_folder_path),
-                                filename=f'{exp_name}-' + '{epoch:02d}-{val_loss:.6f}',
-                                save_top_k=1,
-                                save_last=True,
-                                mode='min',
-                            )])
+    checkpoint_folder_path = pathlib.Path("checkpoints")
+    trainer = L.Trainer(
+        accelerator="gpu",
+        precision=32,
+        logger=logger,
+        log_every_n_steps=1,
+        min_epochs=0,
+        max_epochs=max_epochs,
+        gradient_clip_val=gradient_treshold,
+        val_check_interval=valid_frequency,
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
+            DeviceStatsMonitor(),
+            LearningRateMonitor(),
+            ModelCheckpoint(
+                monitor="val_loss",
+                dirpath=str(checkpoint_folder_path),
+                filename=f"{exp_name}-" + "{epoch:02d}-{val_loss:.6f}",
+                save_top_k=1,
+                save_last=True,
+                mode="min",
+            ),
+        ],
+    )
     # train
     trainer.fit(model, datamodule)
     trainer.validate(model, datamodule)
@@ -316,12 +358,12 @@ def convolutional_neural_network(
 
 
 def support_vector_machine(
-        train_dat: list[ExperimentData],
-        test_dat: list[ExperimentData],
-        summary: pd.DataFrame,
-        n_stat_mom: int,
-        svm_train_opt: dict,
-        random_state: int | None = None,
+    train_dat: list[ExperimentData],
+    test_dat: list[ExperimentData],
+    summary: pd.DataFrame,
+    n_stat_mom: int,
+    svm_train_opt: dict,
+    random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -391,7 +433,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
+                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y
