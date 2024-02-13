@@ -10,6 +10,7 @@ jupyterlab
 matplotlib>=3.7.0
 scipy
 scikit-learn
+imbalanced-learn
 torch
 torchvision
 lightning

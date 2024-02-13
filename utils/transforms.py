@@ -9,7 +9,7 @@ from scipy.interpolate import CubicSpline
 from utils.constants import HuskyConstants
 
 if TYPE_CHECKING:
-    from typing import Literal
+    from typing import Literal, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
@@ -98,3 +98,7 @@ def motion_power(df: pd.DataFrame) -> pd.Series:
 
     P_motion = PM_L + PM_R
     return P_motion
+
+
+def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
+    pass
