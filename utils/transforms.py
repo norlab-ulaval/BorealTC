@@ -101,4 +101,16 @@ def motion_power(df: pd.DataFrame) -> pd.Series:
 
 
 def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
-    pass
+    vL, vR = df.velL, df.velR
+
+    Husky = HuskyConstants
+
+    # Normal force
+    p = Husky.ugv_mass * Husky.g / 4
+    # 4 distances
+    sumdist = np.sqrt(Husky.ugv_wl**2 + (Husky.ugv_wb**2 - Husky.ugv_Bs) ** 2)
+
+    HS = 2 * df.wz.abs() * p * sumdist
+    HR = vL.abs() + vR.abs()
+
+    return HS, HR
