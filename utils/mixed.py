@@ -61,6 +61,7 @@ def get_mixed_recordings(
 
         # Add info as DataFrame columns
         terr_df["run_idx"] = int(run_idx)
+        terr_df["terrain"] = terr_df.terrain.astype(str)
 
         dfs.setdefault(csv_type, []).append(terr_df)
 
