@@ -510,7 +510,6 @@ def convolutional_neural_network(
     _, n_freq, n_wind, in_size = train_data["data"].shape
     num_workers = 8
     persistent_workers = True
-    gpus = 0
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -560,7 +559,6 @@ def convolutional_neural_network(
     checkpoint_folder_path = pathlib.Path("checkpoints")
     trainer = L.Trainer(
         accelerator="gpu",
-        devices=gpus,
         precision=32,
         logger=logger,
         log_every_n_steps=1,
@@ -627,7 +625,6 @@ def long_short_term_memory(
     input_size = train_data["imu"].shape[-1] + train_data["pro"].shape[-1] - 10
     num_workers = 8
     persistent_workers = True
-    gpus = 0
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -680,7 +677,6 @@ def long_short_term_memory(
     checkpoint_folder_path = pathlib.Path("checkpoints")
     trainer = L.Trainer(
         accelerator="gpu",
-        devices=gpus,
         precision=32,
         logger=logger,
         log_every_n_steps=1,
