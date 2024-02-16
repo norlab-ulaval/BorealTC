@@ -538,7 +538,7 @@ def convolutional_neural_network(
         in_size=in_size,
         num_filters=num_filters,
         filter_size=filter_size,
-        num_classes=num_classes,
+        num_classes=4,
         n_wind=n_wind,
         n_freq=n_freq,
         lr=init_learn_rate,

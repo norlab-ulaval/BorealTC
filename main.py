@@ -24,7 +24,7 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = 'husky'  # 'husky' or 'vulpi'
+DATASET = 'vulpi'  # 'husky' or 'vulpi'
 if DATASET == 'husky':
     csv_dir = cwd / "norlab-data"
 elif DATASET == 'vulpi':
@@ -161,8 +161,8 @@ svm_train_opt = {
 }
 
 # Model settings
-BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
-# BASE_MODELS = ["CNN", "SVM"]
+# BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
+BASE_MODELS = ["LSTM", "SVM"]
 
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
