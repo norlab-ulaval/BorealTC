@@ -96,9 +96,9 @@ def partition_data(
     data: ExperimentData,
     summary: pd.DataFrame,
     partition_duration: float,
-    n_splits: int = 5,
+    n_splits: int | None = 5,
     random_state: int | None = None,
-) -> Tuple[List[ExperimentData]]:
+) -> Tuple[List[ExperimentData]] | ExperimentData:
     """_summary_
 
     Args:
@@ -187,6 +187,9 @@ def partition_data(
     labels = unified[hf_sensor][:, 0, terr_col][:, 0, 0]
     # for sens, sens_data in unified.items():
     #     print(sens, sens_data.shape, (sens_data[:, 0, :][:, 0] == labels).all())
+
+    if n_splits is None:
+        return unified
 
     # TODO: split elsewhere ?
 

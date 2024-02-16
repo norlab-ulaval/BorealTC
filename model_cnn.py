@@ -67,7 +67,7 @@ train, test = preprocessing.partition_data(
     random_state=RANDOM_STATE,
 )
 
-merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
+# merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
 # Data augmentation parameters
 # 0 < STRIDE < MOVING_WINDOWS
