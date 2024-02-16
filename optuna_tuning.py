@@ -173,11 +173,11 @@ def objective_svm(trial: optuna.Trial):
     return loss
 
 
-model = "SVM"
+model = os.environ.get("MODEL", "SVM")  # 'SVM', 'CNN', 'LSTM'
+IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
 storage_name = f"sqlite:///{study_name}.db"
 
-IMP_ANALYSIS = False
 OBJECTIVE = None
 if model == "CNN":
     OBJECTIVE = objective_cnn
