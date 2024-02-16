@@ -510,7 +510,7 @@ def convolutional_neural_network(
     _, n_freq, n_wind, in_size = train_data["data"].shape
     num_workers = 8
     persistent_workers = True
-    gpus = os.environ["CUDA_VISIBLE_DEVICES"]
+    gpus = os.environ.get("CUDA_VISIBLE_DEVICES", 0)
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -627,7 +627,7 @@ def long_short_term_memory(
     input_size = train_data["imu"].shape[-1] + train_data["pro"].shape[-1] - 10
     num_workers = 8
     persistent_workers = True
-    gpus = os.environ["CUDA_VISIBLE_DEVICES"]
+    gpus = os.environ.get("CUDA_VISIBLE_DEVICES", 0)
 
     def to_f32(x):
         return x.astype(np.float32)
