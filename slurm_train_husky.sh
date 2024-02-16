@@ -2,7 +2,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=4-00:00
-#SBATCH --job-name=TerrainVulpi
+#SBATCH --job-name=TerrainHusky
 #SBATCH --output=%x-%j.out
 
 cd ~/Vulpi2021-terrain-deep-learning
