@@ -491,6 +491,7 @@ def convolutional_neural_network(
     filter_size = cnn_par["filter_size"]
     num_filters = cnn_par["num_filters"]
     num_classes = cnn_par["num_classes"]
+    dataset = description["dataset"]
 
     # Training parameters
     valid_perc = cnn_train_opt["valid_perc"]
@@ -538,7 +539,7 @@ def convolutional_neural_network(
         in_size=in_size,
         num_filters=num_filters,
         filter_size=filter_size,
-        num_classes=4,
+        num_classes=num_classes,
         n_wind=n_wind,
         n_freq=n_freq,
         lr=init_learn_rate,
@@ -547,7 +548,7 @@ def convolutional_neural_network(
     )
 
     exp_name = (
-        f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}'
+        f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     )
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
@@ -598,6 +599,7 @@ def long_short_term_memory(
     bidirectional = lstm_par["bidirectional"]
     convolutional = lstm_par["convolutional"]
     num_filters = lstm_par.get("numFilters", 0)
+    dataset = description["dataset"]
 
     # Training parameters
     valid_perc = lstm_train_opt["valid_perc"]
@@ -657,7 +659,7 @@ def long_short_term_memory(
     )
 
     exp_name = (
-        f'terrain_classification_lstm_mw_{description["mw"]}_fold_{description["fold"]}'
+        f'terrain_classification_{"c" if convolutional else ""}lstm_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     )
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 

@@ -198,7 +198,7 @@ for mw in MOVING_WINDOWS:
             for k in range(N_FOLDS):
                 train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
                 out = models.convolutional_neural_network(
-                    train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
+                    train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1, dataset=DATASET)
                 )
                 results_per_fold.append(out)
 
@@ -223,7 +223,7 @@ for mw in MOVING_WINDOWS:
             for k in range(N_FOLDS):
                 train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
                 out = models.long_short_term_memory(
-                    train_ds, test_ds, lstm_par, lstm_train_opt, dict(mw=mw, fold=k + 1)
+                    train_ds, test_ds, lstm_par, lstm_train_opt, dict(mw=mw, fold=k + 1, dataset=DATASET)
                 )
                 results_per_fold.append(out)
 
@@ -246,7 +246,7 @@ for mw in MOVING_WINDOWS:
                     test_ds,
                     clstm_par,
                     clstm_train_opt,
-                    dict(mw=mw, fold=k + 1),
+                    dict(mw=mw, fold=k + 1, dataset=DATASET),
                 )
                 results_per_fold.append(out)
 
