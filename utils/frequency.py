@@ -156,8 +156,6 @@ def DFT(
 
     sigsize = fftsig.shape[1]
 
-    print(fftsig.ndim)
-
     if hamming:
         # Use a hamming window
         hamm = np.hamming(sigsize)[None, :, None]
