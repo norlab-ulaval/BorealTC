@@ -159,7 +159,6 @@ def channels_plot(results):
         )
 
         xtxt = [(rows[i - 1] + rows[i]) / 2 for i in range(1, len(rows))]
-        print(xtxt, rows)
         ytxt = np.full_like(xtxt, 0.5)
 
         features = channels[channel]["on"][:, 0]

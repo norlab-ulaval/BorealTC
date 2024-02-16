@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import pathlib
 import time
 from typing import TYPE_CHECKING
@@ -35,22 +36,22 @@ if TYPE_CHECKING:
 
 class LSTMTerrain(L.LightningModule):
     def __init__(
-        self,
-        input_size: int,
-        hidden_size: int,
-        num_layers: int,
-        dropout: float,
-        bidirectional: bool,
-        convolutional: bool,
-        num_classes: int,
-        lr: float,
-        conv_num_filters: int = 5,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
+            self,
+            input_size: int,
+            hidden_size: int,
+            num_layers: int,
+            dropout: float,
+            bidirectional: bool,
+            convolutional: bool,
+            num_classes: int,
+            lr: float,
+            conv_num_filters: int = 5,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -269,20 +270,20 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-        self,
-        in_size: int,
-        num_filters: int,
-        filter_size: int | (int, int),
-        num_classes: int,
-        n_wind: int,
-        n_freq: int,
-        lr: float,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
+            self,
+            in_size: int,
+            num_filters: int,
+            filter_size: int | (int, int),
+            num_classes: int,
+            n_wind: int,
+            n_freq: int,
+            lr: float,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -481,13 +482,16 @@ class CNNTerrain(L.LightningModule):
 
 
 def convolutional_neural_network(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    cnn_par: dict,
-    cnn_train_opt: dict,
-    description: dict,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        cnn_par: dict,
+        cnn_train_opt: dict,
+        description: dict,
+        custom_callbacks=None,
 ) -> dict:
     # CNN parameters
+    if custom_callbacks is None:
+        custom_callbacks = []
     filter_size = cnn_par["filter_size"]
     num_filters = cnn_par["num_filters"]
     num_classes = cnn_par["num_classes"]
@@ -502,10 +506,11 @@ def convolutional_neural_network(
     valid_patience = cnn_train_opt["valid_patience"]
     reduce_lr_patience = cnn_train_opt["reduce_lr_patience"]
     valid_frequency = cnn_train_opt["valid_frequency"]
-    gradient_treshold = cnn_train_opt["gradient_treshold"]
+    gradient_threshold = cnn_train_opt["gradient_threshold"]
     _, n_freq, n_wind, in_size = train_data["data"].shape
     num_workers = 8
     persistent_workers = True
+    gpus = os.environ["CUDA_VISIBLE_DEVICES"]
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -555,12 +560,13 @@ def convolutional_neural_network(
     checkpoint_folder_path = pathlib.Path("checkpoints")
     trainer = L.Trainer(
         accelerator="gpu",
+        devices=gpus,
         precision=32,
         logger=logger,
         log_every_n_steps=1,
         min_epochs=0,
         max_epochs=max_epochs,
-        gradient_clip_val=gradient_treshold,
+        gradient_clip_val=gradient_threshold,
         val_check_interval=valid_frequency,
         callbacks=[
             EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
@@ -574,23 +580,30 @@ def convolutional_neural_network(
                 save_last=True,
                 mode="min",
             ),
+            *custom_callbacks,
         ],
     )
     # train
     trainer.fit(model, datamodule)
-    trainer.validate(model, datamodule)
+    loss = trainer.validate(model, datamodule)
     trainer.test(model, datamodule)
 
-    return model.test_classification
+    out = model.test_classification
+    out['loss'] = loss
+
+    return out
 
 
 def long_short_term_memory(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    lstm_par: dict,
-    lstm_train_opt: dict,
-    description: dict,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        lstm_par: dict,
+        lstm_train_opt: dict,
+        description: dict,
+        custom_callbacks=None,
 ) -> dict:
+    if custom_callbacks is None:
+        custom_callbacks = []
     # LSTM parameters
     num_classes = lstm_par["num_classes"]
     n_hidden_units = lstm_par["nHiddenUnits"]
@@ -610,10 +623,11 @@ def long_short_term_memory(
     valid_patience = lstm_train_opt["valid_patience"]
     reduce_lr_patience = lstm_train_opt["reduce_lr_patience"]
     valid_frequency = lstm_train_opt["valid_frequency"]
-    gradient_treshold = lstm_train_opt["gradient_treshold"]
+    gradient_threshold = lstm_train_opt["gradient_threshold"]
     input_size = train_data["imu"].shape[-1] + train_data["pro"].shape[-1] - 10
     num_workers = 8
     persistent_workers = True
+    gpus = os.environ["CUDA_VISIBLE_DEVICES"]
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -666,12 +680,13 @@ def long_short_term_memory(
     checkpoint_folder_path = pathlib.Path("checkpoints")
     trainer = L.Trainer(
         accelerator="gpu",
+        devices=gpus,
         precision=32,
         logger=logger,
         log_every_n_steps=1,
         min_epochs=0,
         max_epochs=max_epochs,
-        gradient_clip_val=gradient_treshold,
+        gradient_clip_val=gradient_threshold,
         val_check_interval=valid_frequency,
         callbacks=[
             EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
@@ -685,23 +700,27 @@ def long_short_term_memory(
                 save_last=True,
                 mode="min",
             ),
+            *custom_callbacks,
         ],
     )
     # train
     trainer.fit(model, datamodule)
-    trainer.validate(model, datamodule)
+    loss = trainer.validate(model, datamodule)
     trainer.test(model, datamodule)
 
-    return model.test_classification
+    out = model.test_classification
+    out['loss'] = loss
+
+    return out
 
 
 def support_vector_machine(
-    train_dat: list[ExperimentData],
-    test_dat: list[ExperimentData],
-    summary: pd.DataFrame,
-    n_stat_mom: int,
-    svm_train_opt: dict,
-    random_state: int | None = None,
+        train_dat: list[ExperimentData],
+        test_dat: list[ExperimentData],
+        summary: pd.DataFrame,
+        n_stat_mom: int,
+        svm_train_opt: dict,
+        random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -773,7 +792,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
+                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y

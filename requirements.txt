@@ -18,10 +18,11 @@ tensorboard
 torch-metrics
 einops
 git+https://github.com/willGuimont/pipeline
+optuna
+plotly
 
 # Dev
 black
 pylint
 ipykernel
 pre-commit
-

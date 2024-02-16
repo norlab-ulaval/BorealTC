@@ -101,7 +101,7 @@ cnn_train_opt = {
     "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
-    "gradient_treshold": 6,  # None to disable
+    "gradient_threshold": 6,  # None to disable
 }
 
 # LSTM parameters
@@ -123,7 +123,7 @@ lstm_train_opt = {
     "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
-    "gradient_treshold": 6,  # None to disable
+    "gradient_threshold": 6,  # None to disable
 }
 
 # CLSTM parameters
@@ -146,7 +146,7 @@ clstm_train_opt = {
     "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
-    "gradient_treshold": 6,
+    "gradient_threshold": 6,
 }
 
 # SVM parameters
@@ -163,7 +163,6 @@ svm_train_opt = {
 
 # Model settings
 BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
-# BASE_MODELS = ["LSTM", "SVM"]
 
 print(f"Training on {DATASET} with {BASE_MODELS}...")
 for mw in MOVING_WINDOWS:
