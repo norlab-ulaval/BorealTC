@@ -89,7 +89,7 @@ def objective_cnn(trial: optuna.Trial):
         "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
-        "valid_frequency": 50,
+        "valid_frequency": 0,
         "gradient_threshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
     }
 
@@ -131,7 +131,7 @@ def objective_lstm(trial: optuna.Trial):
         "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
-        "valid_frequency": 50,
+        "valid_frequency": 0,
         "gradient_threshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
     }
 
