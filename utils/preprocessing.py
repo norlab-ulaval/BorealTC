@@ -351,6 +351,7 @@ def apply_multichannel_spectogram(
     summary: pd.DataFrame,
     time_window: float,
     time_overlap: float,
+    hamming: bool = False,
 ) -> Tuple[List[Dict[str, ExperimentData]]]:
     tw = time_window
     to = time_overlap
@@ -358,8 +359,24 @@ def apply_multichannel_spectogram(
     mcs_train, mcs_test = [], []
 
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
-        mcs_train.append(frequency.multichannel_spectrogram(K_train, summary, tw, to))
-        mcs_test.append(frequency.multichannel_spectrogram(K_test, summary, tw, to))
+        mcs_train.append(
+            frequency.multichannel_spectrogram(
+                K_train,
+                summary,
+                tw,
+                to,
+                hamming,
+            )
+        )
+        mcs_test.append(
+            frequency.multichannel_spectrogram(
+                K_test,
+                summary,
+                tw,
+                to,
+                hamming,
+            )
+        )
 
     return mcs_train, mcs_test
 

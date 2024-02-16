@@ -18,6 +18,7 @@ def multichannel_spectrogram(
     summary: pd.DataFrame,
     tw: float,
     to: float,
+    hamming: bool = False,
 ) -> ExperimentData:
     # Output dictionary
     sens_mcs = {sens: {} for sens in signal_cell.keys()}
@@ -25,7 +26,7 @@ def multichannel_spectrogram(
     # Input_cell is time
     for sens, sens_data in signal_cell.items():
         sf = summary["sampling_freq"].loc[sens]
-        mcs, _, tgrid, fgrid = spectrogram(sens_data, sf, tw, to)
+        mcs, _, tgrid, fgrid = spectrogram(sens_data, sf, tw, to, hamming)
         sens_mcs[sens]["fgrid"] = fgrid
         sens_mcs[sens]["tgrid"] = tgrid
         sens_mcs[sens]["spect"] = mcs
@@ -98,6 +99,7 @@ def spectrogram(
     sampling_freq: float,
     tw: float,
     to: float,
+    hamming: bool = False,
 ) -> Tuple[np.array]:
     time = data[:, :, ch_cols["time"]]
     twto = tw - to
@@ -120,7 +122,7 @@ def spectrogram(
 
     norms, phases = [], []
     for win in windows:
-        mag, phase, freq = DFT(win, sampling_freq)
+        mag, phase, freq = DFT(win, sampling_freq, hamming)
         norms.append(mag)
         phases.append(phase)
 
@@ -133,7 +135,11 @@ def spectrogram(
     return mags, angs, time_grid, freq_grid
 
 
-def DFT(signal: np.array, sampling_freq: float) -> Tuple[np.ndarray]:
+def DFT(
+    signal: np.array,
+    sampling_freq: float,
+    hamming: bool = False,
+) -> Tuple[np.ndarray]:
     """Single Sided Discrete Fourier Transform of a signal
 
     Args:
@@ -146,9 +152,18 @@ def DFT(signal: np.array, sampling_freq: float) -> Tuple[np.ndarray]:
     if signal.ndim == 1:
         signal = signal[np.newaxis, :]
 
-    sigsize = signal.shape[1]
+    fftsig = signal.copy()
 
-    dsft = np.fft.fft(signal, axis=1)
+    sigsize = fftsig.shape[1]
+
+    print(fftsig.ndim)
+
+    if hamming:
+        # Use a hamming window
+        hamm = np.hamming(sigsize)[None, :, None]
+        fftsig *= hamm
+
+    dsft = np.fft.fft(fftsig, axis=1)
     mag = np.absolute(dsft)
     dsft[mag < 1e-6] = 0
     ang = np.unwrap(np.angle(dsft))

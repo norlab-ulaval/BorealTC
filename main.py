@@ -192,6 +192,7 @@ for mw in MOVING_WINDOWS:
                 summary,
                 cnn_par["time_window"],
                 cnn_par["time_overlap"],
+                hamming=False,
             )
             results_per_fold = []
             for k in range(N_FOLDS):
