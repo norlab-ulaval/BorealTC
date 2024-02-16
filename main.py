@@ -24,10 +24,15 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
+DATASET = 'husky'  # 'husky' or 'vulpi'
+if DATASET == 'husky':
+    csv_dir = cwd / "norlab-data"
+elif DATASET == 'vulpi':
+    csv_dir = cwd / "data"
+
 mat_dir = cwd / "datasets"
-csv_dir = cwd / "data"
-results_dir = cwd / "results"
-# csv_dir = cwd / "norlab-data"
+results_dir = cwd / "results" / DATASET
+results_dir.mkdir(parents=True, exist_ok=True)
 
 RANDOM_STATE = 21
 
@@ -54,6 +59,7 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 
 # Set data partition parameters
+NUM_CLASSES = len(np.unique(terr_dfs['imu'].terrain))
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
@@ -78,6 +84,7 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # CNN parameters
 cnn_par = {
+    "num_classes": NUM_CLASSES,
     "time_window": 0.4,
     "time_overlap": 0.2,
     "filter_size": [3, 3],
@@ -98,6 +105,7 @@ cnn_train_opt = {
 
 # LSTM parameters
 lstm_par = {
+    "num_classes": NUM_CLASSES,
     "nHiddenUnits": 15,
     "numLayers": 1,
     "dropout": 0.0,
@@ -119,6 +127,7 @@ lstm_train_opt = {
 
 # CLSTM parameters
 clstm_par = {
+    "num_classes": NUM_CLASSES,
     "nHiddenUnits": 15,
     "numFilters": 5,
     "numLayers": 1,
@@ -152,7 +161,7 @@ svm_train_opt = {
 }
 
 # Model settings
-BASE_MODELS = ["CNN", "LSTM", "CLSTM", "SVM"]
+BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
 # BASE_MODELS = ["CNN", "SVM"]
 
 for mw in MOVING_WINDOWS:

@@ -490,6 +490,7 @@ def convolutional_neural_network(
     # CNN parameters
     filter_size = cnn_par["filter_size"]
     num_filters = cnn_par["num_filters"]
+    num_classes = cnn_par["num_classes"]
 
     # Training parameters
     valid_perc = cnn_train_opt["valid_perc"]
@@ -537,7 +538,7 @@ def convolutional_neural_network(
         in_size=in_size,
         num_filters=num_filters,
         filter_size=filter_size,
-        num_classes=4,
+        num_classes=num_classes,
         n_wind=n_wind,
         n_freq=n_freq,
         lr=init_learn_rate,
@@ -590,6 +591,7 @@ def long_short_term_memory(
     description: dict,
 ) -> dict:
     # LSTM parameters
+    num_classes = lstm_par["num_classes"]
     n_hidden_units = lstm_par["nHiddenUnits"]
     num_layers = lstm_par["numLayers"]
     dropout = lstm_par["dropout"]
@@ -648,7 +650,7 @@ def long_short_term_memory(
         bidirectional=bidirectional,
         convolutional=convolutional,
         conv_num_filters=num_filters,
-        num_classes=4,
+        num_classes=num_classes,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
@@ -740,8 +742,10 @@ def support_vector_machine(
         mean = np.mean(sens_data, axis=1)
         std = np.std(sens_data, axis=1)
         skew = scst.skew(sens_data, axis=1, bias=False)
+        skew[np.isnan(skew)] = 0
         # Use Pearson kurtosis
         kurt = scst.kurtosis(sens_data, axis=1, fisher=False)
+        kurt[np.isnan(kurt)] = 0
 
         moments = np.stack([mean, std, skew, kurt], axis=2)
 
@@ -788,6 +792,7 @@ def support_vector_machine(
         )
         ecoc = OutputCodeClassifier(
             estimator=svm,
+            n_jobs=-1,
         )
         clf = make_pipeline(StandardScaler(), ecoc)
 
