@@ -20,11 +20,12 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import os
 
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = 'vulpi'  # 'husky' or 'vulpi'
+DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
 if DATASET == 'husky':
     csv_dir = cwd / "norlab-data"
 elif DATASET == 'vulpi':
@@ -161,9 +162,10 @@ svm_train_opt = {
 }
 
 # Model settings
-# BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
-BASE_MODELS = ["LSTM", "SVM"]
+BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
+# BASE_MODELS = ["LSTM", "SVM"]
 
+print(f"Training on {DATASET} with {BASE_MODELS}...")
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
         train,
