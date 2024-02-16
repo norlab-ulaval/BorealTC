@@ -39,6 +39,7 @@ def multichannel_spectrogram(
     pad_mcs = {hf_sensor: sens_mcs[hf_sensor]}
     hf_shape = pad_mcs[hf_sensor]["spect"].shape
 
+    # Pad arrays
     for lf_sens in lf_sensors:
         if summary.loc[lf_sens].sampling_freq == hf:
             pad_mcs[lf_sens] = sens_mcs[lf_sens]
@@ -71,6 +72,7 @@ def multichannel_spectrogram(
             axis=0,
         )
 
+    # Join all channels
     multichannel = np.concatenate(
         [pad_mcs[lf_sens]["spect"] for lf_sens in lf_sensors],
         axis=3,
@@ -99,7 +101,7 @@ def spectrogram(
 ) -> Tuple[np.array]:
     time = data[:, :, ch_cols["time"]]
     twto = tw - to
-    n_windows = ((time.shape[1] / sampling_freq) - tw) // (twto) + 1
+    n_windows = (((time.shape[1] + 1) / sampling_freq) - tw) // (twto) + 1
     time_part = time[0, :]
     t0 = time_part[0] + twto * np.arange(n_windows)
     t1 = t0 + tw
