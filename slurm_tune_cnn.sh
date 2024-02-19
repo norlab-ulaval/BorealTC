@@ -16,6 +16,7 @@ container_id=$(
 
 stop_container() {
   docker container stop $container_id
+  docker logs $container_id
 }
 
 trap stop_container EXIT
