@@ -20,4 +20,5 @@ stop_container() {
 }
 
 trap stop_container EXIT
+echo "Container ID: $container_id"
 docker wait $container_id
