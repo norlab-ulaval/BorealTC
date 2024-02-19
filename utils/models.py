@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pathlib
 import time
 from typing import TYPE_CHECKING
@@ -36,22 +35,22 @@ if TYPE_CHECKING:
 
 class LSTMTerrain(L.LightningModule):
     def __init__(
-            self,
-            input_size: int,
-            hidden_size: int,
-            num_layers: int,
-            dropout: float,
-            bidirectional: bool,
-            convolutional: bool,
-            num_classes: int,
-            lr: float,
-            conv_num_filters: int = 5,
-            learning_rate_factor: float = 0.1,
-            reduce_lr_patience: int = 8,
-            class_weights: list[float] | None = None,
-            focal_loss: bool = False,
-            focal_loss_alpha: float = 0.25,
-            focal_loss_gamma: float = 2,
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int,
+        dropout: float,
+        bidirectional: bool,
+        convolutional: bool,
+        num_classes: int,
+        lr: float,
+        conv_num_filters: int = 5,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -137,11 +136,17 @@ class LSTMTerrain(L.LightningModule):
 
     @property
     def val_classification(self):
-        return self._val_classifications[-1]
+        return (
+            self._val_classifications[-2] if len(self._val_classifications) > 1 else {}
+        )
 
     @property
     def test_classification(self):
-        return self._test_classifications[-1]
+        return (
+            self._test_classifications[-2]
+            if len(self._test_classifications) > 1
+            else {}
+        )
 
     def forward(self, x):
         if self.convolutional:
@@ -211,7 +216,6 @@ class LSTMTerrain(L.LightningModule):
         )
         self._val_accuracy.reset()
 
-    def on_validation_end(self):
         self._val_classifications[-1]["pred"] = np.hstack(
             self._val_classifications[-1]["pred"]
         )
@@ -253,7 +257,6 @@ class LSTMTerrain(L.LightningModule):
         )
         self._test_accuracy.reset()
 
-    def on_test_end(self):
         self._test_classifications[-1]["pred"] = np.hstack(
             self._test_classifications[-1]["pred"]
         )
@@ -270,20 +273,20 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-            self,
-            in_size: int,
-            num_filters: int,
-            filter_size: int | (int, int),
-            num_classes: int,
-            n_wind: int,
-            n_freq: int,
-            lr: float,
-            learning_rate_factor: float = 0.1,
-            reduce_lr_patience: int = 8,
-            class_weights: list[float] | None = None,
-            focal_loss: bool = False,
-            focal_loss_alpha: float = 0.25,
-            focal_loss_gamma: float = 2,
+        self,
+        in_size: int,
+        num_filters: int,
+        filter_size: int | (int, int),
+        num_classes: int,
+        n_wind: int,
+        n_freq: int,
+        lr: float,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -352,11 +355,17 @@ class CNNTerrain(L.LightningModule):
 
     @property
     def val_classification(self):
-        return self._val_classifications[-1]
+        return (
+            self._val_classifications[-2] if len(self._val_classifications) > 1 else {}
+        )
 
     @property
     def test_classification(self):
-        return self._test_classifications[-1]
+        return (
+            self._test_classifications[-2]
+            if len(self._test_classifications) > 1
+            else {}
+        )
 
     def forward(self, x):
         x = self.in_layer(x)
@@ -424,7 +433,6 @@ class CNNTerrain(L.LightningModule):
         )
         self._val_accuracy.reset()
 
-    def on_validation_end(self):
         self._val_classifications[-1]["pred"] = np.hstack(
             self._val_classifications[-1]["pred"]
         )
@@ -466,7 +474,6 @@ class CNNTerrain(L.LightningModule):
         )
         self._test_accuracy.reset()
 
-    def on_test_end(self):
         self._test_classifications[-1]["pred"] = np.hstack(
             self._test_classifications[-1]["pred"]
         )
@@ -482,12 +489,12 @@ class CNNTerrain(L.LightningModule):
 
 
 def convolutional_neural_network(
-        train_data: list[ExperimentData],
-        test_data: list[ExperimentData],
-        cnn_par: dict,
-        cnn_train_opt: dict,
-        description: dict,
-        custom_callbacks=None,
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    cnn_par: dict,
+    cnn_train_opt: dict,
+    description: dict,
+    custom_callbacks=None,
 ) -> dict:
     # CNN parameters
     if custom_callbacks is None:
@@ -510,6 +517,7 @@ def convolutional_neural_network(
     _, n_freq, n_wind, in_size = train_data["data"].shape
     num_workers = 8
     persistent_workers = True
+    verbose = cnn_train_opt.get("verbose", True)
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -551,13 +559,13 @@ def convolutional_neural_network(
         reduce_lr_patience=reduce_lr_patience,
     )
 
-    exp_name = (
-        f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
-    )
+    exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = pathlib.Path("checkpoints")
     trainer = L.Trainer(
+        enable_progress_bar=verbose,
+        enable_model_summary=verbose,
         accelerator="gpu",
         precision=32,
         logger=logger,
@@ -587,18 +595,18 @@ def convolutional_neural_network(
     trainer.test(model, datamodule)
 
     out = model.test_classification
-    out['loss'] = loss
+    out["loss"] = loss
 
     return out
 
 
 def long_short_term_memory(
-        train_data: list[ExperimentData],
-        test_data: list[ExperimentData],
-        lstm_par: dict,
-        lstm_train_opt: dict,
-        description: dict,
-        custom_callbacks=None,
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    lstm_par: dict,
+    lstm_train_opt: dict,
+    description: dict,
+    custom_callbacks=None,
 ) -> dict:
     if custom_callbacks is None:
         custom_callbacks = []
@@ -625,6 +633,7 @@ def long_short_term_memory(
     input_size = train_data["imu"].shape[-1] + train_data["pro"].shape[-1] - 10
     num_workers = 8
     persistent_workers = True
+    verbose = lstm_train_opt.get("verbose", True)
 
     def to_f32(x):
         return x.astype(np.float32)
@@ -669,13 +678,13 @@ def long_short_term_memory(
         reduce_lr_patience=reduce_lr_patience,
     )
 
-    exp_name = (
-        f'terrain_classification_{"c" if convolutional else ""}lstm_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
-    )
+    exp_name = f'terrain_classification_{"c" if convolutional else ""}lstm_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = pathlib.Path("checkpoints")
     trainer = L.Trainer(
+        enable_progress_bar=verbose,
+        enable_model_summary=verbose,
         accelerator="gpu",
         precision=32,
         logger=logger,
@@ -705,18 +714,18 @@ def long_short_term_memory(
     trainer.test(model, datamodule)
 
     out = model.test_classification
-    out['loss'] = loss
+    out["loss"] = loss
 
     return out
 
 
 def support_vector_machine(
-        train_dat: list[ExperimentData],
-        test_dat: list[ExperimentData],
-        summary: pd.DataFrame,
-        n_stat_mom: int,
-        svm_train_opt: dict,
-        random_state: int | None = None,
+    train_dat: list[ExperimentData],
+    test_dat: list[ExperimentData],
+    summary: pd.DataFrame,
+    n_stat_mom: int,
+    svm_train_opt: dict,
+    random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -788,7 +797,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
+                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y

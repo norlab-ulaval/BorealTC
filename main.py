@@ -26,9 +26,9 @@ from utils import models, preprocessing
 
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
-if DATASET == 'husky':
+if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
-elif DATASET == 'vulpi':
+elif DATASET == "vulpi":
     csv_dir = cwd / "data"
 
 mat_dir = cwd / "datasets"
@@ -60,7 +60,7 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 
 # Set data partition parameters
-NUM_CLASSES = len(np.unique(terr_dfs['imu'].terrain))
+NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
@@ -102,6 +102,7 @@ cnn_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_threshold": 6,  # None to disable
+    "verbose": False,
 }
 
 # LSTM parameters
@@ -124,6 +125,7 @@ lstm_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_threshold": 6,  # None to disable
+    "verbose": False,
 }
 
 # CLSTM parameters
@@ -147,6 +149,7 @@ clstm_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_threshold": 6,
+    "verbose": False,
 }
 
 # SVM parameters
@@ -179,6 +182,11 @@ for mw in MOVING_WINDOWS:
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     for model in BASE_MODELS:
+        result_path = results_dir / f"results_{model}_mw_{mw}.npy"
+        if result_path.exists():
+            print(f"Results for {model} with {mw} seconds already exist. Skipping...")
+            continue
+
         results = {}
 
         if model == "CNN":
@@ -197,7 +205,11 @@ for mw in MOVING_WINDOWS:
             for k in range(N_FOLDS):
                 train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
                 out = models.convolutional_neural_network(
-                    train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1, dataset=DATASET)
+                    train_mcs,
+                    test_mcs,
+                    cnn_par,
+                    cnn_train_opt,
+                    dict(mw=mw, fold=k + 1, dataset=DATASET),
                 )
                 results_per_fold.append(out)
 
@@ -222,7 +234,11 @@ for mw in MOVING_WINDOWS:
             for k in range(N_FOLDS):
                 train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
                 out = models.long_short_term_memory(
-                    train_ds, test_ds, lstm_par, lstm_train_opt, dict(mw=mw, fold=k + 1, dataset=DATASET)
+                    train_ds,
+                    test_ds,
+                    lstm_par,
+                    lstm_train_opt,
+                    dict(mw=mw, fold=k + 1, dataset=DATASET),
                 )
                 results_per_fold.append(out)
 
@@ -271,4 +287,4 @@ for mw in MOVING_WINDOWS:
         terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
         results["terrains"] = terrains
 
-        np.save(results_dir / f"results_{model}_mw_{mw}.npy", results)
+        np.save(result_path, results)
