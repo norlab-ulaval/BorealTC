@@ -174,7 +174,8 @@ svm_train_opt = {
 }
 
 # Model settings
-BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
+# BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
+BASE_MODELS = ["LSTM"]
 
 print(f"Training on {DATASET} with {BASE_MODELS}...")
 for mw in MOVING_WINDOWS:

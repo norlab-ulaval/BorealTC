@@ -102,3 +102,28 @@ class MCSDataset(Dataset):
     def __getitem__(self, idx):
         sample = self.mcs["data"][idx], self.mcs["label"][idx]
         return self.transform(sample)
+
+
+class MambaDataset(Dataset):
+    def __init__(self, data, transform: Optional[Callable] = None):
+        super().__init__()
+        self.data = data
+        self.transform = transform if transform is not None else pp.Identity()
+
+    def __len__(self):
+        return len(self.data["imu"]["data"])
+
+    def __getitem__(self, idx):
+        sample = (
+            dict(
+                imu=self.data["imu"]["data"][idx, :],
+                pro=self.data["pro"]["data"][idx, :],
+                # imu_data=self.data['imu']['data'][idx, :, 1:],
+                # imu_time=self.data['imu']['data'][idx, :, 0],
+                # pro_data=self.data['pro']['data'][idx, :, 1:],
+                # pro_time=self.data['pro']['data'][idx, :, 0],
+            ),
+            self.data["imu"]["label"][idx],
+        )
+
+        return self.transform(sample)

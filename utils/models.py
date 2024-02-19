@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import einops as ein
 import lightning as L
+from mamba_ssm import Mamba
 import numpy as np
 import pandas as pd
 import pipeline as pp
@@ -27,8 +28,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from utils.constants import ch_cols
-from utils.datamodule import MCSDataModule, TemporalDataModule
+from utils.constants import ch_cols, imu_in_size, pro_in_size
+from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
 
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
@@ -36,22 +37,22 @@ if TYPE_CHECKING:
 
 class LSTMTerrain(L.LightningModule):
     def __init__(
-            self,
-            input_size: int,
-            hidden_size: int,
-            num_layers: int,
-            dropout: float,
-            bidirectional: bool,
-            convolutional: bool,
-            num_classes: int,
-            lr: float,
-            conv_num_filters: int = 5,
-            learning_rate_factor: float = 0.1,
-            reduce_lr_patience: int = 8,
-            class_weights: list[float] | None = None,
-            focal_loss: bool = False,
-            focal_loss_alpha: float = 0.25,
-            focal_loss_gamma: float = 2,
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int,
+        dropout: float,
+        bidirectional: bool,
+        convolutional: bool,
+        num_classes: int,
+        lr: float,
+        conv_num_filters: int = 5,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -276,20 +277,20 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-            self,
-            in_size: int,
-            num_filters: int,
-            filter_size: int | (int, int),
-            num_classes: int,
-            n_wind: int,
-            n_freq: int,
-            lr: float,
-            learning_rate_factor: float = 0.1,
-            reduce_lr_patience: int = 8,
-            class_weights: list[float] | None = None,
-            focal_loss: bool = False,
-            focal_loss_alpha: float = 0.25,
-            focal_loss_gamma: float = 2,
+        self,
+        in_size: int,
+        num_filters: int,
+        filter_size: int | (int, int),
+        num_classes: int,
+        n_wind: int,
+        n_freq: int,
+        lr: float,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -490,6 +491,339 @@ class CNNTerrain(L.LightningModule):
         self._test_classifications.append(
             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         )
+
+
+class MambaTerrain(L.LightningModule):
+    def __init__(
+        self,
+        model_dim: int,
+        state_factor: int,
+        conv_width: int,
+        expand_factor: int,
+        num_classes: int,
+        lr: float,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
+    ):
+        super().__init__()
+        self.save_hyperparameters()
+
+        self.num_classes = num_classes
+        self.lr = lr
+        self.learning_rate_factor = learning_rate_factor
+        self.reduce_lr_patience = reduce_lr_patience
+        self.class_weights = class_weights
+        self.focal_loss = focal_loss
+        self.focal_loss_alpha = focal_loss_alpha
+        self.focal_loss_gamma = focal_loss_gamma
+
+        # TODO add more mamba layers/heads
+
+        self.imu_backbone = nn.Linear(imu_in_size, model_dim)
+        self.pro_backbone = nn.Linear(pro_in_size, model_dim)
+
+        self.mamba = Mamba(model_dim, state_factor, conv_width, expand_factor)
+
+        self.fc = nn.Linear(model_dim, num_classes)
+
+        self.softmax = nn.Softmax(dim=1)
+
+        self.ce_loss = nn.CrossEntropyLoss(
+            weight=torch.tensor(class_weights) if class_weights else None
+        )
+
+        self._train_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        self._val_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        self._test_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+
+        self._val_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        ]
+        self._test_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        ]
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            patience=self.reduce_lr_patience,
+            factor=self.learning_rate_factor,
+            verbose=True,
+        )
+        return dict(
+            optimizer=optimizer,
+            lr_scheduler=dict(
+                scheduler=scheduler,
+                monitor="val_loss",
+            ),
+        )
+
+    @property
+    def val_classification(self):
+        return self._val_classifications[-1]
+
+    @property
+    def test_classification(self):
+        return self._test_classifications[-1]
+
+    def forward(self, x):
+        # x['imu_data'] = self.imu_backbone(x['imu_data'])
+        # x['pro_data'] = self.pro_backbone(x['pro_data'])
+
+        # x_data = torch.cat(x['imu_data'], x['pro_data'])
+        # x_time = torch.cat(x['imu_time'], x['pro_time'])
+
+        x["imu"] = self.imu_backbone(x["imu"])
+        x["pro"] = self.pro_backbone(x["pro"])
+
+        for i in range(532):
+            pass  # sort
+
+        x = self.mamba(x)
+        x = self.fc(x)
+
+        return x
+
+    def loss(self, y, target):
+        if self.focal_loss:
+            return tv.ops.sigmoid_focal_loss(
+                y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma
+            )
+        return self.ce_loss(y, target)
+
+    def _split_batch(self, batch):
+        split_batch = []
+
+        for i in range(len(batch)):
+            split_batch.append(
+                dict(
+                    imu_data=batch["imu_data"][i],
+                    imu_time=batch["imu_time"][i],
+                    pro_data=batch["pro_data"][i],
+                    pro_time=batch["pro_time"][i],
+                )
+            )
+
+        return split_batch
+
+    def training_step(self, batch, batch_idx):
+        x, target = batch
+        pred = [self(_x) for _x in self._split_batch(x)]
+        loss = self.loss(pred, target)
+        acc = self._train_accuracy(pred, target)
+
+        self.log("train_loss", loss, prog_bar=True, on_step=True)
+        self.log("train_accuracy", acc, on_step=True)
+
+        return loss
+
+    def on_train_epoch_end(self):
+        self.log(
+            "train_accuracy_epoch",
+            self._train_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self._train_accuracy.reset()
+
+    def validation_step(self, val_batch, batch_idx):
+        x, target = val_batch
+        pred = [self(_x) for _x in self._split_batch(x)]
+        y = self.softmax(pred)
+        loss = self.loss(pred, target)
+        acc = self._val_accuracy(pred, target)
+
+        self.log("val_loss", loss, on_step=True)
+        self.log("val_accuracy", acc, on_step=True)
+
+        pred_classes = torch.argmax(y, dim=1)
+        self._val_classifications[-1]["pred"].append(
+            pred_classes.detach().cpu().numpy()
+        )
+        self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._val_classifications[-1]["conf"].append(y.detach().cpu().numpy())
+
+        return loss
+
+    def on_validation_epoch_end(self):
+        self.log(
+            "val_accuracy_epoch",
+            self._val_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self._val_accuracy.reset()
+
+    def on_validation_end(self):
+        self._val_classifications[-1]["pred"] = np.hstack(
+            self._val_classifications[-1]["pred"]
+        )
+        self._val_classifications[-1]["true"] = np.hstack(
+            self._val_classifications[-1]["true"]
+        )
+        self._val_classifications[-1]["conf"] = np.vstack(
+            self._val_classifications[-1]["conf"]
+        )
+        self._val_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        )
+
+    def test_step(self, test_batch, batch_idx):
+        x, target = test_batch
+        pred = [self(_x) for _x in self._split_batch(x)]
+        y = self.softmax(pred)
+        loss = self.loss(pred, target)
+        acc = self._test_accuracy(pred, target)
+
+        self.log("test_loss", loss, on_step=True)
+        self.log("test_accuracy", acc, on_step=True)
+
+        pred_classes = torch.argmax(y, dim=1)
+        self._test_classifications[-1]["pred"].append(
+            pred_classes.detach().cpu().numpy()
+        )
+        self._test_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._test_classifications[-1]["conf"].append(y.detach().cpu().numpy())
+
+        return loss
+
+    def on_test_epoch_end(self):
+        self.log(
+            "test_accuracy_epoch",
+            self._test_accuracy.compute(),
+            prog_bar=True,
+            on_epoch=True,
+        )
+        self._test_accuracy.reset()
+
+    def on_test_end(self):
+        self._test_classifications[-1]["pred"] = np.hstack(
+            self._test_classifications[-1]["pred"]
+        )
+        self._test_classifications[-1]["true"] = np.hstack(
+            self._test_classifications[-1]["true"]
+        )
+        self._test_classifications[-1]["conf"] = np.vstack(
+            self._test_classifications[-1]["conf"]
+        )
+        self._test_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        )
+
+
+def mamba_network(
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    mamba_par: dict,
+    mamba_train_opt: dict,
+    # description: dict,
+) -> dict:
+    # # Mamba parameters
+    # filter_size = mamba_par["filter_size"]
+    # num_filters = mamba_par["num_filters"]
+    model_dim = mamba_par["model_dim"]
+    state_factor = mamba_par["state_factor"]
+    conv_width = mamba_par["conv_width"]
+    expand_factor = mamba_par["expand_factor"]
+
+    # Training parameters
+    valid_perc = mamba_train_opt["valid_perc"]
+    init_learn_rate = mamba_train_opt["init_learn_rate"]
+    learn_drop_factor = mamba_train_opt["learn_drop_factor"]
+    max_epochs = mamba_train_opt["max_epochs"]
+    minibatch_size = mamba_train_opt["minibatch_size"]
+    valid_patience = mamba_train_opt["valid_patience"]
+    reduce_lr_patience = mamba_train_opt["reduce_lr_patience"]
+    valid_frequency = mamba_train_opt["valid_frequency"]
+    gradient_treshold = mamba_train_opt["gradient_treshold"]
+    # _, n_freq, n_wind, in_size = train_data["data"].shape
+
+    num_workers = 8
+    persistent_workers = True
+
+    # def to_f32(x):
+    #     return x.astype(np.float32)
+
+    # def transpose(x):
+    #     return np.transpose(x, (2, 0, 1))
+
+    # augment = pp.Identity()
+    # to_mcs = pp.Identity()
+    # train_transform = pp.Bifunctor(
+    #     pp.Compose([to_f32, transpose, augment, to_mcs]),
+    #     pp.Identity(),
+    # )
+    # test_transform = pp.Bifunctor(
+    #     pp.Compose([to_f32, transpose, to_mcs]),
+    #     pp.Identity(),
+    # )
+
+    datamodule = MambaDataModule(
+        train_data,
+        test_data,
+        train_transform=None,
+        test_transform=None,
+        valid_percent=valid_perc,
+        batch_size=minibatch_size,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+    )
+
+    model = MambaTerrain(
+        model_dim=model_dim,
+        state_factor=state_factor,
+        conv_width=conv_width,
+        expand_factor=expand_factor,
+        num_classes=5,
+        lr=init_learn_rate,
+        learning_rate_factor=learn_drop_factor,
+        reduce_lr_patience=reduce_lr_patience,
+    )
+
+    exp_name = f"terrain_classification_mamba"
+    logger = TensorBoardLogger("tb_logs", name=exp_name)
+
+    checkpoint_folder_path = pathlib.Path("checkpoints")
+    trainer = L.Trainer(
+        accelerator="gpu",
+        precision=32,
+        logger=logger,
+        log_every_n_steps=1,
+        min_epochs=0,
+        max_epochs=max_epochs,
+        gradient_clip_val=gradient_treshold,
+        val_check_interval=valid_frequency,
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
+            DeviceStatsMonitor(),
+            LearningRateMonitor(),
+            ModelCheckpoint(
+                monitor="val_loss",
+                dirpath=str(checkpoint_folder_path),
+                filename=f"{exp_name}-" + "{epoch:02d}-{val_loss:.6f}",
+                save_top_k=1,
+                save_last=True,
+                mode="min",
+            ),
+        ],
+    )
+    # train
+    trainer.fit(model, datamodule)
+    trainer.validate(model, datamodule)
+    trainer.test(model, datamodule)
+
+    return model.test_classification
 
 
 def convolutional_neural_network(
@@ -748,12 +1082,12 @@ def long_short_term_memory(
 
 
 def support_vector_machine(
-        train_dat: list[ExperimentData],
-        test_dat: list[ExperimentData],
-        summary: pd.DataFrame,
-        n_stat_mom: int,
-        svm_train_opt: dict,
-        random_state: int | None = None,
+    train_dat: list[ExperimentData],
+    test_dat: list[ExperimentData],
+    summary: pd.DataFrame,
+    n_stat_mom: int,
+    svm_train_opt: dict,
+    random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -825,7 +1159,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
+                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y

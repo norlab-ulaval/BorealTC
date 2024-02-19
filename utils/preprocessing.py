@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from utils.transforms import merge_dfs
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 from utils import frequency
-from utils.constants import ch_cols
+from utils.constants import ch_cols, imu_in_size, pro_in_size
 
 
 def get_recordings(
@@ -188,13 +188,29 @@ def partition_data(
     # for sens, sens_data in unified.items():
     #     print(sens, sens_data.shape, (sens_data[:, 0, :][:, 0] == labels).all())
 
-    if n_splits is None:
-        return unified
-
     # TODO: split elsewhere ?
 
-    # Split data with K folds
     rng = np.random.RandomState(random_state)
+
+    if n_splits is None:
+        (
+            train_imu_data,
+            test_imu_data,
+            train_pro_data,
+            test_pro_data,
+        ) = train_test_split(
+            *unified.values(),
+            test_size=0.2,
+            random_state=rng,
+            shuffle=True,
+            stratify=labels,
+        )
+
+        return cleanup_windowless_partition_data(
+            train_imu_data, train_pro_data, test_imu_data, test_pro_data
+        )
+
+    # Split data with K folds
     skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
 
     train_data, test_data = [], []
@@ -214,6 +230,100 @@ def partition_data(
         )
 
     return train_data, test_data
+
+
+def cleanup_windowless_partition_data(
+    train_imu_data: ExperimentData,
+    train_pro_data: ExperimentData,
+    test_imu_data: ExperimentData,
+    test_pro_data: ExperimentData,
+) -> Tuple[Dict[ExperimentData]]:
+    train_labels = train_imu_data[:, 0, ch_cols["terr_idx"]]
+    test_labels = test_imu_data[:, 0, ch_cols["terr_idx"]]
+
+    def _cleanup_windowless_partition_data(data):
+        return data[:, :, 4:].astype(np.float32)
+
+    train_imu_data = _cleanup_windowless_partition_data(train_imu_data)
+    train_pro_data = _cleanup_windowless_partition_data(train_pro_data)
+    test_imu_data = _cleanup_windowless_partition_data(test_imu_data)
+    test_pro_data = _cleanup_windowless_partition_data(test_pro_data)
+
+    def _order_imu_pro_data(imu_data, pro_data):
+        imu_time = imu_data[:, :, 0]
+        pro_time = pro_data[:, :, 0]
+        c = np.hstack([imu_time, pro_time])
+
+        return c.argsort(axis=1)
+
+    train_order = _order_imu_pro_data(train_imu_data, train_pro_data)
+    test_order = _order_imu_pro_data(test_imu_data, test_pro_data)
+
+    return dict(
+        imu=train_imu_data[:, :, 1:],
+        pro=train_pro_data[:, :, 1:],
+        labels=train_labels,
+        order=train_order,
+    ), dict(
+        imu=test_imu_data[:, :, 1:],
+        pro=test_pro_data[:, :, 1:],
+        labels=test_labels,
+        order=test_order,
+    )
+
+    # def _cleanup_data(data):
+    #     cleaned_data = []
+
+    #     for datum in data:
+    #         _cleaned_data = []
+
+    #         for _datum in datum:
+    #             _cleaned_data.append(
+    #                 {
+    #                     'time': _datum[ch_cols['time']],
+    #                     'data': _datum[5:].astype(np.float32),
+    #                     'label': _datum[ch_cols['terr_idx']]
+    #                 }
+    #             )
+
+    #         cleaned_data.append(_cleaned_data)
+
+    #     return cleaned_data
+
+    # train_imu_data = _cleanup_data(train_imu_data)
+    # train_pro_data = _cleanup_data(train_pro_data)
+    # test_imu_data = _cleanup_data(test_imu_data)
+    # test_pro_data = _cleanup_data(test_pro_data)
+
+    # train_data = sorted(train_imu_data + train_pro_data, key=lambda x: x['time'])
+
+    # train_imu_data = {}
+    # train_pro_data = {}
+
+    # for idx, train_datum in enumerate(train_data):
+    #     if len(train_datum['data']) == imu_in_size:
+    #         train_imu_data[idx] = train_datum
+    #     else: # pro
+    #         train_pro_data[idx] = train_datum
+
+    # test_data = sorted(test_imu_data + test_pro_data, key=lambda x: x['time'])
+
+    # test_imu_data = {}
+    # test_pro_data = {}
+
+    # for idx, test_datum in enumerate(test_data):
+    #     if len(test_datum['data']) == imu_in_size:
+    #         test_imu_data[idx] = test_datum
+    #     else: # pro
+    #         test_pro_data[idx] = test_datum
+
+    # def _order_imu_pro_data(imu_data, pro_data):
+    #     ordered_data = []
+
+    #     while len(imu_data) + len(pro_data) > 0:
+
+    # train_imu_data, train_pro_data = _order_imu_pro_data(train_imu_data, train_pro_data)
+    # test_imu_data, test_pro_data = _order_imu_pro_data(test_imu_data, test_pro_data)
 
 
 def augment_data(
