@@ -19,6 +19,9 @@ run-gpu: build-gpu
 log:
 	xdg-open http://localhost:6006 && tensorboard --logdir .
 
+watch-results:
+	watch "(ls results/husky/ && ls results/vulpi/) | wc"
+
 jupyter: build
 	@echo "Running jupyter-server"
 	docker run -v .:/code -p 8887:8888 --rm terrain \
