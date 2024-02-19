@@ -182,9 +182,12 @@ for mw in MOVING_WINDOWS:
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     for model in BASE_MODELS:
+        print(f"Training {model} model with {mw} seconds...")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         result_path = results_dir / f"results_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
+            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             continue
 
         results = {}
@@ -267,7 +270,7 @@ for mw in MOVING_WINDOWS:
 
             results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
             results["true"] = np.hstack([r["true"] for r in results_per_fold])
-            results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+            results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
             results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
             results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
         elif model == "SVM":
