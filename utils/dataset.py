@@ -111,19 +111,16 @@ class MambaDataset(Dataset):
         self.transform = transform if transform is not None else pp.Identity()
 
     def __len__(self):
-        return len(self.data["imu"]["data"])
+        return len(self.data["imu"])
 
     def __getitem__(self, idx):
         sample = (
             dict(
-                imu=self.data["imu"]["data"][idx, :],
-                pro=self.data["pro"]["data"][idx, :],
-                # imu_data=self.data['imu']['data'][idx, :, 1:],
-                # imu_time=self.data['imu']['data'][idx, :, 0],
-                # pro_data=self.data['pro']['data'][idx, :, 1:],
-                # pro_time=self.data['pro']['data'][idx, :, 0],
+                imu=self.data["imu"][idx],
+                pro=self.data["pro"][idx],
+                order=self.data["order"][idx],
             ),
-            self.data["imu"]["label"][idx],
+            self.data["labels"][idx],
         )
 
         return self.transform(sample)

@@ -577,18 +577,28 @@ class MambaTerrain(L.LightningModule):
     def test_classification(self):
         return self._test_classifications[-1]
 
+    def _to_ordered_embeddings(self, x):
+        ordered_x = []
+
+        for idx in range(len(x["imu"])):
+            _ordered_x = []
+
+            _x_imu = self.imu_backbone(x["imu"][idx])
+            _x_pro = self.pro_backbone(x["pro"][idx])
+
+            for _idx in x["order"][idx]:
+                if _idx < len(_x_imu):
+                    _ordered_x.append(_x_imu[_idx])
+                else:
+                    _idx -= len(_x_imu)
+                    _ordered_x.append(_x_pro[_idx])
+
+            ordered_x.append(torch.stack(_ordered_x))
+
+        return torch.stack(ordered_x)
+
     def forward(self, x):
-        # x['imu_data'] = self.imu_backbone(x['imu_data'])
-        # x['pro_data'] = self.pro_backbone(x['pro_data'])
-
-        # x_data = torch.cat(x['imu_data'], x['pro_data'])
-        # x_time = torch.cat(x['imu_time'], x['pro_time'])
-
-        x["imu"] = self.imu_backbone(x["imu"])
-        x["pro"] = self.pro_backbone(x["pro"])
-
-        for i in range(532):
-            pass  # sort
+        x = self._to_ordered_embeddings(x)
 
         x = self.mamba(x)
         x = self.fc(x)
@@ -602,24 +612,9 @@ class MambaTerrain(L.LightningModule):
             )
         return self.ce_loss(y, target)
 
-    def _split_batch(self, batch):
-        split_batch = []
-
-        for i in range(len(batch)):
-            split_batch.append(
-                dict(
-                    imu_data=batch["imu_data"][i],
-                    imu_time=batch["imu_time"][i],
-                    pro_data=batch["pro_data"][i],
-                    pro_time=batch["pro_time"][i],
-                )
-            )
-
-        return split_batch
-
     def training_step(self, batch, batch_idx):
         x, target = batch
-        pred = [self(_x) for _x in self._split_batch(x)]
+        pred = self(x)
         loss = self.loss(pred, target)
         acc = self._train_accuracy(pred, target)
 
@@ -639,7 +634,7 @@ class MambaTerrain(L.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
-        pred = [self(_x) for _x in self._split_batch(x)]
+        pred = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._val_accuracy(pred, target)
@@ -681,7 +676,7 @@ class MambaTerrain(L.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
-        pred = [self(_x) for _x in self._split_batch(x)]
+        pred = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._test_accuracy(pred, target)
