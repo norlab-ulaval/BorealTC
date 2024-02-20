@@ -749,6 +749,7 @@ def mamba_network(
     reduce_lr_patience = mamba_train_opt["reduce_lr_patience"]
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
+    num_classes = mamba_train_opt["num_classes"]
     in_size = len(train_data["order"][0])
 
     num_workers = 8
@@ -771,7 +772,7 @@ def mamba_network(
         state_factor=state_factor,
         conv_width=conv_width,
         expand_factor=expand_factor,
-        num_classes=5,
+        num_classes=num_classes,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,

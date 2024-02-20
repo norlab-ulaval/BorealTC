@@ -52,8 +52,9 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
 terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+terrains = sorted(terr_dfs["imu"].terrain.unique())
 
-# # Set data partition parameters
+# Set data partition parameters
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
@@ -87,6 +88,7 @@ mamba_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_treshold": 6,  # None to disable
+    "num_classes": len(terrains)
 }
 
 # Model settings
@@ -129,7 +131,6 @@ for mw in MOVING_WINDOWS:
     results["channels"] = columns
 
     # Store terrain labels
-    terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
     results["terrains"] = terrains
 
     data_name = 'norlab' if csv_dir == (cwd / "norlab-data") else 'vulpi'
