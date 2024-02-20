@@ -93,6 +93,6 @@ results["channels"] = columns
 terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
 results["terrains"] = terrains
 
-data_name = 'norlab' if csv_dir == 'norlab-data' else 'vulpi'
+data_name = 'norlab' if csv_dir == (cwd / "norlab-data") else 'vulpi'
 
 np.save(results_dir / f"results_{MODEL}_part_{PART_WINDOW}_data_{data_name}.npy", results)
