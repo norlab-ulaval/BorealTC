@@ -121,7 +121,7 @@ for mw in MOVING_WINDOWS:
 
     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
     results["true"] = np.hstack([r["true"] for r in results_per_fold])
-    results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+    # results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
     results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
     results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
 
