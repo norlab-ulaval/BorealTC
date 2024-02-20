@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
 
-from utils.constants import HuskyConstants
+from utils.constants import HuskyConstants, ch_cols
 
 if TYPE_CHECKING:
-    from typing import Literal, Tuple
+    from typing import Literal, Sequence, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
@@ -114,3 +114,76 @@ def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
     HR = vL.abs() + vR.abs()
 
     return HS, HR
+
+
+def wip_data_augmentation(
+    data: ExperimentData,
+    hf_sensor: str,
+    terrains: Sequence[str],
+    lf_sensors: Sequence[str],
+    summary: pd.DataFrame,
+    aug_windows: np.ndarray,
+    moving_window: float,
+) -> ExperimentData:
+    # Augment the data using the appropriate sliding window for different
+    # terrains or the same for every terrain depending on homogeneous
+
+    # For every terrain
+    Kterr = {}
+
+    hf_data = data[hf_sensor]
+
+    for terr_idx, terr in enumerate(terrains):
+        # Get partitions for label terrain
+        terr_mask = hf_data[:, 0, ch_cols["terrain"]] == terr
+        hf_terr = hf_data[terr_mask]
+
+        # Sliding window for the terrain class
+        sli_len = aug_windows[terr_idx]
+        n_slides = n_slides_terr[terr]
+
+        # Slice the array based on the slide length
+        starts = sli_len * np.arange(n_slides)
+        # starts = np.arange(0, PW_len - MW_len, sli_len)
+        # starts = starts[(starts + MW_len) < PW_len]
+        limits = np.vstack([starts, starts + MW_len]).T
+        # TODO: Check number of strides per partition
+        # if K_idx == 4:
+        #     print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
+        # print(strides_min, n_slides, limits.shape[0])
+
+        # Get slices for each limit
+        hf_sli = [hf_terr[:, slice(*lim), :] for lim in limits]
+
+        # Get time values
+        hf_tlim = hf_terr[0, limits, ch_cols["time"]]
+
+        # Stack all slices together
+        hf_sli = np.vstack(hf_sli)
+
+        Kterr.setdefault(hf_sensor, []).append(hf_sli)
+
+        for lf_sens in lf_sensors:
+            lf_data = data[lf_sens]
+
+            # Sampling frequency
+            sf = summary.sampling_freq.loc[lf_sens]
+            lf_win = int(moving_window * sf)
+
+            # Select partitions based on terrain
+            terr_mask = lf_data[:, 0, ch_cols["terrain"]] == terr
+            lf_terr = lf_data[terr_mask]
+
+            lf_time = lf_terr[0, :, ch_cols["time"]]
+            indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
+            lf_sli = [
+                lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+                for lf_sli_idx in indices
+            ]
+            lf_sli = np.vstack(lf_sli)
+
+            Kterr.setdefault(lf_sens, []).append(lf_sli)
+
+    K_sli = {sens: np.vstack(sens_data) for sens, sens_data in Kterr.items()}
+
+    return K_sli
