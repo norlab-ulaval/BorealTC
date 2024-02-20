@@ -572,11 +572,17 @@ class MambaTerrain(L.LightningModule):
 
     @property
     def val_classification(self):
-        return self._val_classifications[-1]
+        return (
+            self._val_classifications[-2] if len(self._val_classifications) > 1 else {}
+        )
 
     @property
     def test_classification(self):
-        return self._test_classifications[-1]
+        return (
+            self._test_classifications[-2]
+            if len(self._test_classifications) > 1
+            else {}
+        )
 
     def _to_ordered_embeddings(self, x):
         ordered_x = []
@@ -663,7 +669,6 @@ class MambaTerrain(L.LightningModule):
         )
         self._val_accuracy.reset()
 
-    def on_validation_end(self):
         self._val_classifications[-1]["pred"] = np.hstack(
             self._val_classifications[-1]["pred"]
         )
@@ -705,7 +710,6 @@ class MambaTerrain(L.LightningModule):
         )
         self._test_accuracy.reset()
 
-    def on_test_end(self):
         self._test_classifications[-1]["pred"] = np.hstack(
             self._test_classifications[-1]["pred"]
         )
@@ -728,8 +732,6 @@ def mamba_network(
     # description: dict,
 ) -> dict:
     # # Mamba parameters
-    # filter_size = mamba_par["filter_size"]
-    # num_filters = mamba_par["num_filters"]
     model_dim = mamba_par["model_dim"]
     state_factor = mamba_par["state_factor"]
     conv_width = mamba_par["conv_width"]
@@ -749,23 +751,6 @@ def mamba_network(
 
     num_workers = 8
     persistent_workers = True
-
-    # def to_f32(x):
-    #     return x.astype(np.float32)
-
-    # def transpose(x):
-    #     return np.transpose(x, (2, 0, 1))
-
-    # augment = pp.Identity()
-    # to_mcs = pp.Identity()
-    # train_transform = pp.Bifunctor(
-    #     pp.Compose([to_f32, transpose, augment, to_mcs]),
-    #     pp.Identity(),
-    # )
-    # test_transform = pp.Bifunctor(
-    #     pp.Compose([to_f32, transpose, to_mcs]),
-    #     pp.Identity(),
-    # )
 
     datamodule = MambaDataModule(
         train_data,

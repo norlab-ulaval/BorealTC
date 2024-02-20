@@ -82,7 +82,7 @@ mamba_train_opt = {
 }
 
 # Model settings
-MODEL = "Mamba"
+MODEL = "mamba"
 
 results = models.mamba_network(train, test, mamba_par, mamba_train_opt)
 
@@ -93,56 +93,6 @@ results["channels"] = columns
 terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
 results["terrains"] = terrains
 
-np.save(results_dir / f"results_{MODEL}.npy", results)
+data_name = 'norlab' if csv_dir == 'norlab-data' else 'vulpi'
 
-# for mw in MOVING_WINDOWS:
-#     aug_train, aug_test = preprocessing.augment_data(
-#         train,
-#         test,
-#         summary,
-#         moving_window=mw,
-#         stride=STRIDE,
-#         homogeneous=HOMOGENEOUS_AUGMENTATION,
-#     )
-
-#     print(f"Training models for a sampling window of {mw} seconds")
-#     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-#     (
-#         train_mcs_folds,
-#         test_mcs_folds,
-#     ) = preprocessing.apply_multichannel_spectogram(
-#         aug_train,
-#         aug_test,
-#         summary,
-#         cnn_par["time_window"],
-#         cnn_par["time_overlap"],
-#     )
-#     results_per_fold = []
-#     for k in range(N_FOLDS):
-#         train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
-#         out = models.convolutional_neural_network(
-#             train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
-#         )
-#         results_per_fold.append(out)
-
-#     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-#     results["true"] = np.hstack([r["true"] for r in results_per_fold])
-#     results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
-#     results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
-#     results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
-
-#     # results[model] = {
-#     #     f"{samp_window * 1000}ms": Conv_NeuralNet(
-#     #         train_mcs, test_mcs, cnn_par, cnn_train_opt
-#     #     )
-#     # }
-
-#     # Store channels settings
-#     results["channels"] = columns
-
-#     # Store terrain labels
-#     terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
-#     results["terrains"] = terrains
-
-#     np.save(results_dir / f"results_{MODEL}_mw_{mw}.npy", results)
+np.save(results_dir / f"results_{MODEL}_part_{PART_WINDOW}_data_{data_name}.npy", results)

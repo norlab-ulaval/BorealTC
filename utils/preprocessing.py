@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 from utils import frequency
-from utils.constants import ch_cols, imu_in_size, pro_in_size
+from utils.constants import ch_cols
 
 
 def get_recordings(
