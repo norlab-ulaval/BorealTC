@@ -10,9 +10,9 @@ from utils import models, preprocessing
 
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
-if DATASET == 'husky':
+if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
-elif DATASET == 'vulpi':
+elif DATASET == "vulpi":
     csv_dir = cwd / "data"
 
 mat_dir = cwd / "datasets"
@@ -42,7 +42,7 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 
 # Set data partition parameters
-NUM_CLASSES = len(np.unique(terr_dfs['imu'].terrain))
+NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOW = 1.5
@@ -56,7 +56,7 @@ train, test = preprocessing.partition_data(
     random_state=RANDOM_STATE,
 )
 
-merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
+# merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
 STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
@@ -90,7 +90,9 @@ def objective_cnn(trial: optuna.Trial):
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
         "valid_frequency": 1,
-        "gradient_threshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
+        "gradient_threshold": trial.suggest_categorical(
+            "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
+        ),
     }
 
     (
@@ -100,6 +102,7 @@ def objective_cnn(trial: optuna.Trial):
         aug_train,
         aug_test,
         summary,
+        MOVING_WINDOW,
         cnn_par["time_window"],
         cnn_par["time_overlap"],
         hamming=cnn_par["hamming"],
@@ -107,8 +110,12 @@ def objective_cnn(trial: optuna.Trial):
     k = 1
     train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
     out = models.convolutional_neural_network(
-        train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
-        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")]
+        train_mcs,
+        test_mcs,
+        cnn_par,
+        cnn_train_opt,
+        dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
+        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
     )
     return out["loss"]
 
@@ -120,7 +127,7 @@ def objective_lstm(trial: optuna.Trial):
         "numLayers": trial.suggest_int("numLayers", 1, 3),
         "dropout": trial.suggest_float("dropout", 0.0, 0.5),
         "bidirectional": trial.suggest_categorical("bidirectional", [True, False]),
-        "convolutional": trial.suggest_categorical("convolutional", [True, False])
+        "convolutional": trial.suggest_categorical("convolutional", [True, False]),
     }
 
     lstm_train_opt = {
@@ -132,7 +139,9 @@ def objective_lstm(trial: optuna.Trial):
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
         "valid_frequency": 1,
-        "gradient_threshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
+        "gradient_threshold": trial.suggest_categorical(
+            "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
+        ),
     }
 
     train_ds_folds, test_ds_folds = preprocessing.downsample_data(
@@ -143,8 +152,12 @@ def objective_lstm(trial: optuna.Trial):
     k = 1
     train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
     out = models.long_short_term_memory(
-        train_ds, test_ds, lstm_par, lstm_train_opt, dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
-        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")]
+        train_ds,
+        test_ds,
+        lstm_par,
+        lstm_train_opt,
+        dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
+        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
     )
     return out["loss"]
 
@@ -153,7 +166,9 @@ def objective_svm(trial: optuna.Trial):
     svm_par = {"n_stat_mom": 4}
 
     svm_train_opt = {
-        "kernel_function": trial.suggest_categorical("kernel_function", ['linear', 'poly', 'rbf', 'sigmoid']),
+        "kernel_function": trial.suggest_categorical(
+            "kernel_function", ["linear", "poly", "rbf", "sigmoid"]
+        ),
         "poly_degree": trial.suggest_int("poly_degree", 2, 10),
         "kernel_scale": "auto",
         "box_constraint": trial.suggest_float("box_constraint", 1e-5, 1e5, log=True),
@@ -192,15 +207,22 @@ if IMP_ANALYSIS:
     pruner = optuna.pruners.MedianPruner()
     sampler = optuna.samplers.RandomSampler(seed=420)
 
-    study = optuna.create_study(direction='minimize', sampler=sampler, study_name=study_name, storage=storage_name,
-                                load_if_exists=True)
+    study = optuna.create_study(
+        direction="minimize",
+        sampler=sampler,
+        study_name=study_name,
+        storage=storage_name,
+        load_if_exists=True,
+    )
     study.optimize(OBJECTIVE, n_trials=20, catch=(RuntimeError,))
 
     fig = optuna.visualization.plot_param_importances(study)
     fig.show()
 else:
     pruner = optuna.pruners.HyperbandPruner()
-    study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True)
+    study = optuna.create_study(
+        study_name=study_name, storage=storage_name, load_if_exists=True
+    )
     study.optimize(OBJECTIVE, n_trials=500, catch=(RuntimeError,))
 
     print("Number of finished trials: {}".format(len(study.trials)))
