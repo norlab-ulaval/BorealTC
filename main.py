@@ -16,11 +16,11 @@ benchmark
 -------------------------------------------------------------------------
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import os
 
 from utils import models, preprocessing
 
@@ -200,6 +200,7 @@ for mw in MOVING_WINDOWS:
                 aug_train,
                 aug_test,
                 summary,
+                mw,
                 cnn_par["time_window"],
                 cnn_par["time_overlap"],
                 hamming=False,

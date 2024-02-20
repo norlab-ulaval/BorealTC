@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 def multichannel_spectrogram(
     signal_cell: ExperimentData,
     summary: pd.DataFrame,
+    mw: float,
     tw: float,
     to: float,
     hamming: bool = False,
@@ -27,7 +28,7 @@ def multichannel_spectrogram(
     # Input_cell is time
     for sens, sens_data in signal_cell.items():
         sf = summary["sampling_freq"].loc[sens]
-        mcs, _, tgrid, fgrid = spectrogram(sens_data, sf, tw, to, hamming)
+        mcs, _, tgrid, fgrid = spectrogram(sens_data, sf, mw, tw, to, hamming)
         sens_mcs[sens]["fgrid"] = fgrid
         sens_mcs[sens]["tgrid"] = tgrid
         sens_mcs[sens]["spect"] = mcs
@@ -98,13 +99,14 @@ def multichannel_spectrogram(
 def spectrogram(
     data: np.ndarray,
     sampling_freq: float,
+    moving_window: float,
     tw: float,
     to: float,
     hamming: bool = False,
 ) -> Tuple[np.array]:
     time = data[:, :, ch_cols["time"]]
     twto = tw - to
-    n_windows = (((time.shape[1] + 1) / sampling_freq) - tw) // (twto) + 1
+    n_windows = (moving_window - tw) // (twto) + 1
     time_part = time[0, :]
     t0 = time_part[0] + twto * np.arange(n_windows)
     t1 = t0 + tw

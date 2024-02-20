@@ -349,6 +349,7 @@ def apply_multichannel_spectogram(
     train_dat: List[ExperimentData],
     test_dat: List[ExperimentData],
     summary: pd.DataFrame,
+    moving_window: float,
     time_window: float,
     time_overlap: float,
     hamming: bool = False,
@@ -363,6 +364,7 @@ def apply_multichannel_spectogram(
             frequency.multichannel_spectrogram(
                 K_train,
                 summary,
+                moving_window,
                 tw,
                 to,
                 hamming,
@@ -372,6 +374,7 @@ def apply_multichannel_spectogram(
             frequency.multichannel_spectrogram(
                 K_test,
                 summary,
+                moving_window,
                 tw,
                 to,
                 hamming,
