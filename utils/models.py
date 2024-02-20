@@ -28,7 +28,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from utils.constants import ch_cols, imu_in_size, pro_in_size
+from utils.constants import ch_cols, imu_dim, pro_dim
 from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
 
 if TYPE_CHECKING:
@@ -496,6 +496,7 @@ class CNNTerrain(L.LightningModule):
 class MambaTerrain(L.LightningModule):
     def __init__(
         self,
+        in_size: int,
         model_dim: int,
         state_factor: int,
         conv_width: int,
@@ -521,14 +522,14 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
 
+        self.imu_backbone = nn.Linear(imu_dim, model_dim)
+        self.pro_backbone = nn.Linear(pro_dim, model_dim)
+
         # TODO add more mamba layers/heads
-
-        self.imu_backbone = nn.Linear(imu_in_size, model_dim)
-        self.pro_backbone = nn.Linear(pro_in_size, model_dim)
-
         self.mamba = Mamba(model_dim, state_factor, conv_width, expand_factor)
 
-        self.fc = nn.Linear(model_dim, num_classes)
+        self.flatten = nn.Flatten()
+        self.fc = nn.Linear(in_size * model_dim, num_classes)
 
         self.softmax = nn.Softmax(dim=1)
 
@@ -601,6 +602,8 @@ class MambaTerrain(L.LightningModule):
         x = self._to_ordered_embeddings(x)
 
         x = self.mamba(x)
+
+        x = self.flatten(x)
         x = self.fc(x)
 
         return x
@@ -742,7 +745,7 @@ def mamba_network(
     reduce_lr_patience = mamba_train_opt["reduce_lr_patience"]
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
-    # _, n_freq, n_wind, in_size = train_data["data"].shape
+    in_size = len(train_data["order"][0])
 
     num_workers = 8
     persistent_workers = True
@@ -776,6 +779,7 @@ def mamba_network(
     )
 
     model = MambaTerrain(
+        in_size=in_size,
         model_dim=model_dim,
         state_factor=state_factor,
         conv_width=conv_width,
