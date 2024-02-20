@@ -96,7 +96,7 @@ def partition_data(
     data: ExperimentData,
     summary: pd.DataFrame,
     partition_duration: float,
-    n_splits: int | None = 5,
+    n_splits: int = 5,
     random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
@@ -192,24 +192,6 @@ def partition_data(
 
     rng = np.random.RandomState(random_state)
 
-    if n_splits is None:
-        (
-            train_imu_data,
-            test_imu_data,
-            train_pro_data,
-            test_pro_data,
-        ) = train_test_split(
-            *unified.values(),
-            test_size=0.2,
-            random_state=rng,
-            shuffle=True,
-            stratify=labels,
-        )
-
-        return cleanup_windowless_partition_data(
-            train_imu_data, train_pro_data, test_imu_data, test_pro_data
-        )
-
     # Split data with K folds
     skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
 
@@ -232,41 +214,39 @@ def partition_data(
     return train_data, test_data
 
 
-def cleanup_windowless_partition_data(
-    train_imu_data: ExperimentData,
-    train_pro_data: ExperimentData,
-    test_imu_data: ExperimentData,
-    test_pro_data: ExperimentData,
+def prepare_data_ordering(
+    train_data: ExperimentData,
+    test_data: ExperimentData,
 ) -> Tuple[Dict[ExperimentData]]:
-    train_labels = train_imu_data[:, 0, ch_cols["terr_idx"]]
-    test_labels = test_imu_data[:, 0, ch_cols["terr_idx"]]
+    train_labels = train_data['imu'][:, 0, ch_cols["terr_idx"]]
+    test_labels = test_data['imu'][:, 0, ch_cols["terr_idx"]]
 
-    def _cleanup_windowless_partition_data(data):
+    def _cleanup_data(data):
         return data[:, :, 4:].astype(np.float32)
 
-    train_imu_data = _cleanup_windowless_partition_data(train_imu_data)
-    train_pro_data = _cleanup_windowless_partition_data(train_pro_data)
-    test_imu_data = _cleanup_windowless_partition_data(test_imu_data)
-    test_pro_data = _cleanup_windowless_partition_data(test_pro_data)
+    train_data['imu'] = _cleanup_data(train_data['imu'])
+    train_data['pro'] = _cleanup_data(train_data['pro'])
+    test_data['imu'] = _cleanup_data(test_data['imu'])
+    test_data['pro'] = _cleanup_data(test_data['pro'])
 
-    def _order_imu_pro_data(imu_data, pro_data):
-        imu_time = imu_data[:, :, 0]
-        pro_time = pro_data[:, :, 0]
-        c = np.hstack([imu_time, pro_time])
+    def _order_data(data):
+        imu_time = data['imu'][:, :, 0]
+        pro_time = data['pro'][:, :, 0]
+        imu_pro_ordering = np.hstack([imu_time, pro_time])
 
-        return c.argsort(axis=1)
+        return imu_pro_ordering.argsort(axis=1)
 
-    train_order = _order_imu_pro_data(train_imu_data, train_pro_data)
-    test_order = _order_imu_pro_data(test_imu_data, test_pro_data)
+    train_order = _order_data(train_data)
+    test_order = _order_data(test_data)
 
     return dict(
-        imu=train_imu_data[:, :, 1:],
-        pro=train_pro_data[:, :, 1:],
+        imu=train_data['imu'][:, :, 1:],
+        pro=train_data['pro'][:, :, 1:],
         labels=train_labels,
         order=train_order,
     ), dict(
-        imu=test_imu_data[:, :, 1:],
-        pro=test_pro_data[:, :, 1:],
+        imu=test_data['imu'][:, :, 1:],
+        pro=test_data['pro'][:, :, 1:],
         labels=test_labels,
         order=test_order,
     )

@@ -729,7 +729,7 @@ def mamba_network(
     test_data: list[ExperimentData],
     mamba_par: dict,
     mamba_train_opt: dict,
-    # description: dict,
+    description: dict,
 ) -> dict:
     # # Mamba parameters
     model_dim = mamba_par["model_dim"]
@@ -775,7 +775,7 @@ def mamba_network(
         reduce_lr_patience=reduce_lr_patience,
     )
 
-    exp_name = f"terrain_classification_mamba"
+    exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = pathlib.Path("checkpoints")
