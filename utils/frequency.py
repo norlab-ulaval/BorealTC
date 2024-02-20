@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
+from scipy import signal as sig
 
 from utils.constants import ch_cols
 
@@ -107,7 +108,20 @@ def spectrogram(
     time_part = time[0, :]
     t0 = time_part[0] + twto * np.arange(n_windows)
     t1 = t0 + tw
-    win_len = int(twto * sampling_freq)
+    win_len = int(tw * sampling_freq)
+
+    # TODO: Use ShortTimeFFT for better results
+    win_boxcar = sig.windows.boxcar(win_len, sym=False)
+    win_hamming = sig.windows.hamming(win_len, sym=False)
+    hop = int(twto * sampling_freq)
+    sft = sig.ShortTimeFFT.from_window(
+        ("boxcar"),
+        fs=sampling_freq,
+        nperseg=int(tw * sampling_freq),
+        noverlap=int(to * sampling_freq),
+        scale_to="magnitude",
+    )
+    # print(sft.stft(data[:, :, 5:], axis=1).shape, n_windows)
 
     lim0 = np.abs(time_part - t0[:, None]).argmin(axis=1)
     # lim1 = np.abs(time_part - t1[:, None]).argmin(axis=1)
