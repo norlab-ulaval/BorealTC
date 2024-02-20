@@ -573,7 +573,9 @@ class MambaTerrain(L.LightningModule):
     @property
     def val_classification(self):
         return (
-            self._val_classifications[-2] if len(self._val_classifications) > 1 else {}
+            self._val_classifications[-2]
+            if len(self._val_classifications) > 1
+            else {}
         )
 
     @property
