@@ -271,60 +271,6 @@ def cleanup_windowless_partition_data(
         order=test_order,
     )
 
-    # def _cleanup_data(data):
-    #     cleaned_data = []
-
-    #     for datum in data:
-    #         _cleaned_data = []
-
-    #         for _datum in datum:
-    #             _cleaned_data.append(
-    #                 {
-    #                     'time': _datum[ch_cols['time']],
-    #                     'data': _datum[5:].astype(np.float32),
-    #                     'label': _datum[ch_cols['terr_idx']]
-    #                 }
-    #             )
-
-    #         cleaned_data.append(_cleaned_data)
-
-    #     return cleaned_data
-
-    # train_imu_data = _cleanup_data(train_imu_data)
-    # train_pro_data = _cleanup_data(train_pro_data)
-    # test_imu_data = _cleanup_data(test_imu_data)
-    # test_pro_data = _cleanup_data(test_pro_data)
-
-    # train_data = sorted(train_imu_data + train_pro_data, key=lambda x: x['time'])
-
-    # train_imu_data = {}
-    # train_pro_data = {}
-
-    # for idx, train_datum in enumerate(train_data):
-    #     if len(train_datum['data']) == imu_in_size:
-    #         train_imu_data[idx] = train_datum
-    #     else: # pro
-    #         train_pro_data[idx] = train_datum
-
-    # test_data = sorted(test_imu_data + test_pro_data, key=lambda x: x['time'])
-
-    # test_imu_data = {}
-    # test_pro_data = {}
-
-    # for idx, test_datum in enumerate(test_data):
-    #     if len(test_datum['data']) == imu_in_size:
-    #         test_imu_data[idx] = test_datum
-    #     else: # pro
-    #         test_pro_data[idx] = test_datum
-
-    # def _order_imu_pro_data(imu_data, pro_data):
-    #     ordered_data = []
-
-    #     while len(imu_data) + len(pro_data) > 0:
-
-    # train_imu_data, train_pro_data = _order_imu_pro_data(train_imu_data, train_pro_data)
-    # test_imu_data, test_pro_data = _order_imu_pro_data(test_imu_data, test_pro_data)
-
 
 def augment_data(
     train_dat,
