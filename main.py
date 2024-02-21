@@ -214,6 +214,7 @@ for mw in MOVING_WINDOWS:
                     cnn_par,
                     cnn_train_opt,
                     dict(mw=mw, fold=k + 1, dataset=DATASET),
+                    random_state=RANDOM_STATE,
                 )
                 results_per_fold.append(out)
 

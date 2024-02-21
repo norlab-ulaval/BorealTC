@@ -495,7 +495,11 @@ def convolutional_neural_network(
     cnn_train_opt: dict,
     description: dict,
     custom_callbacks=None,
+    random_state: int | None = None,
 ) -> dict:
+    # Seed
+    L.seed_everything(random_state)
+
     # CNN parameters
     if custom_callbacks is None:
         custom_callbacks = []
