@@ -497,11 +497,13 @@ class MambaTerrain(L.LightningModule):
     def __init__(
         self,
         in_size: int,
-        out_method: str,
-        model_dim: int,
+        state_dim: int,
         state_factor: int,
         conv_width: int,
         expand_factor: int,
+        out_method: str,
+        mamba_width: int,
+        mamba_height: int,
         num_classes: int,
         lr: float,
         learning_rate_factor: float = 0.1,
@@ -524,23 +526,23 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
 
-        self.imu_in_layer = nn.Linear(imu_dim, model_dim)
-        self.pro_in_layer = nn.Linear(pro_dim, model_dim)
+        self.imu_in_layer = nn.Linear(imu_dim, state_dim)
+        self.pro_in_layer = nn.Linear(pro_dim, state_dim)
 
-        self.mamba = Mamba(model_dim, state_factor, conv_width, expand_factor)
+        self.mamba = Mamba(state_dim, state_factor, conv_width, expand_factor)
 
         if out_method == 'flatten':
             self.flatten = nn.Flatten()
-            self.fc = nn.Linear(in_size * model_dim, num_classes)
+            self.fc = nn.Linear(in_size * state_dim, num_classes)
             self.out_layer = self._out_layer_flatten
 
         elif out_method == 'max_pool':
             self.max_pool = nn.MaxPool1d(kernel_size=in_size)
-            self.fc = nn.Linear(model_dim, num_classes)
+            self.fc = nn.Linear(state_dim, num_classes)
             self.out_layer = self._out_layer_max_pool
 
         elif out_method == 'last_state':
-            self.fc = nn.Linear(model_dim, num_classes)
+            self.fc = nn.Linear(state_dim, num_classes)
             self.out_layer = self._out_layer_last_state
 
         self.softmax = nn.Softmax(dim=1)
@@ -762,10 +764,12 @@ def mamba_network(
     description: dict,
 ) -> dict:
     # Mamba parameters
-    model_dim = mamba_par["model_dim"]
+    state_dim = mamba_par["state_dim"]
     state_factor = mamba_par["state_factor"]
     conv_width = mamba_par["conv_width"]
     expand_factor = mamba_par["expand_factor"]
+    mamba_width = mamba_par["mamba_width"]
+    mamba_height = mamba_par["mamba_height"]
 
     # Training parameters
     valid_perc = mamba_train_opt["valid_perc"]
@@ -798,11 +802,13 @@ def mamba_network(
 
     model = MambaTerrain(
         in_size=in_size,
-        out_method=out_method,
-        model_dim=model_dim,
+        state_dim=state_dim,
         state_factor=state_factor,
         conv_width=conv_width,
         expand_factor=expand_factor,
+        out_method=out_method,
+        mamba_width=mamba_width,
+        mamba_height=mamba_height,
         num_classes=num_classes,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,

@@ -76,7 +76,14 @@ STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
-mamba_par = {"model_dim": 16, "state_factor": 16, "conv_width": 4, "expand_factor": 2}
+mamba_par = {
+    "state_dim": 16,
+    "state_factor": 16,
+    "conv_width": 4,
+    "expand_factor": 2,
+    "mamba_width": 3,
+    "mamba_height": 3
+}
 
 mamba_train_opt = {
     "valid_perc": 0.1,
