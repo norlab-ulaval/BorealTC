@@ -16,6 +16,7 @@ benchmark
 -------------------------------------------------------------------------
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -24,10 +25,15 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
+DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
+if DATASET == "husky":
+    csv_dir = cwd / "norlab-data"
+elif DATASET == "vulpi":
+    csv_dir = cwd / "data"
+
 mat_dir = cwd / "datasets"
-csv_dir = cwd / "data"
-results_dir = cwd / "results"
-# csv_dir = cwd / "norlab-data"
+results_dir = cwd / "results" / DATASET
+results_dir.mkdir(parents=True, exist_ok=True)
 
 RANDOM_STATE = 21
 
@@ -52,8 +58,10 @@ summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
 terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+terrains = sorted(terr_dfs["imu"].terrain.unique().tolist())
 
 # Set data partition parameters
+NUM_CLASSES = len(terrains)
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
@@ -78,6 +86,7 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # CNN parameters
 cnn_par = {
+    "num_classes": NUM_CLASSES,
     "time_window": 0.4,
     "time_overlap": 0.2,
     "filter_size": [3, 3],
@@ -93,14 +102,14 @@ cnn_train_opt = {
     "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
-    "gradient_treshold": 6,  # None to disable
+    "gradient_threshold": 6,  # None to disable
+    "verbose": False,
 }
 
 # Model settings
 MODEL = "CNN"
-results = {}
-# BASE_MODELS = ["CNN", "SVM"]
 
+print(f"Training on {DATASET} with {MODEL}...")
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
         train,
@@ -114,6 +123,16 @@ for mw in MOVING_WINDOWS:
     print(f"Training models for a sampling window of {mw} seconds")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
+    print(f"Training {MODEL} model with {mw} seconds...")
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    result_path = results_dir / f"results_{MODEL}_mw_{mw}.npy"
+    if result_path.exists():
+        print(f"Results for {MODEL} with {mw} seconds already exist. Skipping...")
+        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        continue
+
+    results = {}
+
     (
         train_mcs_folds,
         test_mcs_folds,
@@ -121,6 +140,7 @@ for mw in MOVING_WINDOWS:
         aug_train,
         aug_test,
         summary,
+        mw,
         cnn_par["time_window"],
         cnn_par["time_overlap"],
         hamming=False,
@@ -129,27 +149,25 @@ for mw in MOVING_WINDOWS:
     for k in range(N_FOLDS):
         train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
         out = models.convolutional_neural_network(
-            train_mcs, test_mcs, cnn_par, cnn_train_opt, dict(mw=mw, fold=k + 1)
+            train_mcs,
+            test_mcs,
+            cnn_par,
+            cnn_train_opt,
+            dict(mw=mw, fold=k + 1, dataset=DATASET),
+            random_state=RANDOM_STATE,
         )
         results_per_fold.append(out)
 
     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
     results["true"] = np.hstack([r["true"] for r in results_per_fold])
-    results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+    results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
     results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
     results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
-
-    # results[model] = {
-    #     f"{samp_window * 1000}ms": Conv_NeuralNet(
-    #         train_mcs, test_mcs, cnn_par, cnn_train_opt
-    #     )
-    # }
 
     # Store channels settings
     results["channels"] = columns
 
     # Store terrain labels
-    terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
     results["terrains"] = terrains
 
-    np.save(results_dir / f"results_{MODEL}_mw_{mw}.npy", results)
+    np.save(result_path, results)
