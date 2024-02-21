@@ -497,6 +497,7 @@ class MambaTerrain(L.LightningModule):
     def __init__(
         self,
         in_size: int,
+        out_method: str,
         model_dim: int,
         state_factor: int,
         conv_width: int,
@@ -513,6 +514,7 @@ class MambaTerrain(L.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
+        self.out_method = out_method
         self.num_classes = num_classes
         self.lr = lr
         self.learning_rate_factor = learning_rate_factor
@@ -522,14 +524,24 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
 
-        self.imu_backbone = nn.Linear(imu_dim, model_dim)
-        self.pro_backbone = nn.Linear(pro_dim, model_dim)
+        self.imu_in_layer = nn.Linear(imu_dim, model_dim)
+        self.pro_in_layer = nn.Linear(pro_dim, model_dim)
 
-        # TODO add more mamba layers/heads
         self.mamba = Mamba(model_dim, state_factor, conv_width, expand_factor)
 
-        self.flatten = nn.Flatten()
-        self.fc = nn.Linear(in_size * model_dim, num_classes)
+        if out_method == 'flatten':
+            self.flatten = nn.Flatten()
+            self.fc = nn.Linear(in_size * model_dim, num_classes)
+            self.out_layer = self._out_layer_flatten
+
+        elif out_method == 'max_pool':
+            self.max_pool = nn.MaxPool1d(kernel_size=in_size)
+            self.fc = nn.Linear(model_dim, num_classes)
+            self.out_layer = self._out_layer_max_pool
+
+        elif out_method == 'last_state':
+            self.fc = nn.Linear(model_dim, num_classes)
+            self.out_layer = self._out_layer_last_state
 
         self.softmax = nn.Softmax(dim=1)
 
@@ -586,14 +598,14 @@ class MambaTerrain(L.LightningModule):
             else {}
         )
 
-    def _to_ordered_embeddings(self, x):
+    def in_layer(self, x):
         ordered_x = []
 
         for idx in range(len(x["imu"])):
             _ordered_x = []
 
-            _x_imu = self.imu_backbone(x["imu"][idx])
-            _x_pro = self.pro_backbone(x["pro"][idx])
+            _x_imu = self.imu_in_layer(x["imu"][idx])
+            _x_pro = self.pro_in_layer(x["pro"][idx])
 
             for _idx in x["order"][idx]:
                 if _idx < len(_x_imu):
@@ -606,13 +618,29 @@ class MambaTerrain(L.LightningModule):
 
         return torch.stack(ordered_x)
 
+    def _out_layer_flatten(self, x):
+        x = self.flatten(x)
+        x = self.fc(x)
+        return x
+    
+    def _out_layer_max_pool(self, x):
+        x = x.transpose(1, 2)
+        x = self.max_pool(x)
+        x = x.squeeze(dim=2)
+        x = self.fc(x)
+        return x
+    
+    def _out_layer_last_state(self, x):
+        x = x[:, -1]
+        x = self.fc(x)
+        return x
+
     def forward(self, x):
-        x = self._to_ordered_embeddings(x)
+        x = self.in_layer(x)
 
         x = self.mamba(x)
 
-        x = self.flatten(x)
-        x = self.fc(x)
+        x = self.out_layer(x)
 
         return x
 
@@ -733,7 +761,7 @@ def mamba_network(
     mamba_train_opt: dict,
     description: dict,
 ) -> dict:
-    # # Mamba parameters
+    # Mamba parameters
     model_dim = mamba_par["model_dim"]
     state_factor = mamba_par["state_factor"]
     conv_width = mamba_par["conv_width"]
@@ -750,7 +778,9 @@ def mamba_network(
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
     num_classes = mamba_train_opt["num_classes"]
+
     in_size = len(train_data["order"][0])
+    out_method = mamba_train_opt["out_method"]
 
     num_workers = 8
     persistent_workers = True
@@ -768,6 +798,7 @@ def mamba_network(
 
     model = MambaTerrain(
         in_size=in_size,
+        out_method=out_method,
         model_dim=model_dim,
         state_factor=state_factor,
         conv_width=conv_width,

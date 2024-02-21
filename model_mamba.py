@@ -80,7 +80,7 @@ mamba_par = {"model_dim": 16, "state_factor": 16, "conv_width": 4, "expand_facto
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 0.005,
+    "init_learn_rate": 0.0005,
     "learn_drop_factor": 0.1,
     "max_epochs": 150,
     "minibatch_size": 10,
@@ -88,7 +88,8 @@ mamba_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_treshold": 6,  # None to disable
-    "num_classes": len(terrains)
+    "num_classes": len(terrains),
+    "out_method": "last_state"
 }
 
 # Model settings
