@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from typing import Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
+    FrequencyData = dict[str, np.ndarray]
 
 
 def multichannel_spectrogram(
@@ -21,7 +22,7 @@ def multichannel_spectrogram(
     tw: float,
     to: float,
     hamming: bool = False,
-) -> ExperimentData:
+) -> FrequencyData:
     # Output dictionary
     sens_mcs = {sens: {} for sens in signal_cell.keys()}
 

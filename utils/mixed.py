@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 
-def get_mixed_recordings(
+def mx_get_recordings(
     data_dir: Path,
     summary: pd.DataFrame,
 ) -> ExperimentData:
@@ -70,3 +70,7 @@ def get_mixed_recordings(
     }
 
     return sensor_dfs
+
+
+def mx_partition_data():
+    pass

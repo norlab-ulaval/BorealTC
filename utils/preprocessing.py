@@ -249,13 +249,14 @@ def augment_data(
     terrains = np.sort(np.unique(all_labels))
     num_terrains = terrains.shape[0]
 
+    # How many samples are generated for one partition window
+    n_strides_part = (PW_len - MW_len) // ST_len
+
     if homogeneous:
         # Get number of windows per terrain
         terr_counts = pd.Series(all_labels).value_counts(sort=False).sort_index()
         min_count = terr_counts.min()
 
-        # How many samples are generated for one partition window
-        n_strides_part = (PW_len - MW_len) // ST_len
         # Maximum amount of samples / slides for the class with less partitions
         # strides_min = n_strides/part * n_partitions(small class)
         strides_min = n_strides_part * min_count
@@ -270,6 +271,8 @@ def augment_data(
     else:
         # Use ST for all terrains
         aug_windows = np.full_like(terrains, int(stride * hf))
+        # Number of slides is given by the number of strides per partition
+        n_slides_terr = np.full_like(terrains, n_strides_part)
 
     aug_train, aug_test = [], []
 
@@ -353,7 +356,7 @@ def apply_multichannel_spectogram(
     time_window: float,
     time_overlap: float,
     hamming: bool = False,
-) -> Tuple[List[Dict[str, ExperimentData]]]:
+) -> Tuple[List[ExperimentData]]:
     tw = time_window
     to = time_overlap
 

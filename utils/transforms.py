@@ -6,12 +6,14 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
 
+from utils import frequency
 from utils.constants import HuskyConstants, ch_cols
 
 if TYPE_CHECKING:
     from typing import Literal, Sequence, Tuple
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
+    FrequencyData = dict[str, np.ndarray]
 
 
 def merge_dfs(
@@ -19,6 +21,19 @@ def merge_dfs(
     hf_sensor: str,
     mode: Literal["interpolation", "last"] = "interpolation",
 ) -> pd.DataFrame:
+    """Merge dataframes, based on high frequency
+
+    Args:
+        data (ExperimentData): Dictionary of experiment data
+        hf_sensor (str): High frequency sensor
+        mode (Literal['interpolation', 'last'], optional): Merge mode. Defaults to "interpolation".
+
+    Raises:
+        NotImplementedError: Merge mode is not implemented
+
+    Returns:
+        pd.DataFrame: Merged DataFrame
+    """
     # Unmerged columns
     unmerged = ["terrain", "run_idx"]
 
@@ -101,6 +116,14 @@ def motion_power(df: pd.DataFrame) -> pd.Series:
 
 
 def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
+    """Apply SSMR power model
+
+    Args:
+        df (pd.DataFrame): Sensor values dataframe
+
+    Returns:
+        Tuple[pd.Series]: HS and HR columns
+    """
     vL, vR = df.velL, df.velR
 
     Husky = HuskyConstants
@@ -116,7 +139,7 @@ def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
     return HS, HR
 
 
-def wip_data_augmentation(
+def transform_augment(
     data: ExperimentData,
     hf_sensor: str,
     terrains: Sequence[str],
@@ -187,3 +210,34 @@ def wip_data_augmentation(
     K_sli = {sens: np.vstack(sens_data) for sens, sens_data in Kterr.items()}
 
     return K_sli
+
+
+def transform_mcs(
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    moving_window: float,
+    time_window: float,
+    time_overlap: float,
+    hamming: bool = False,
+) -> FrequencyData:
+    """Apply multichannel spectrogram on data
+
+    Args:
+        data (ExperimentData): Experiment data
+        summary (pd.DataFrame): Summary DataFrame
+        moving_window (float): Moving Window, in seconds
+        time_window (float): Fourier Window duration, in seconds
+        time_overlap (float): Overlap duration, in seconds
+        hamming (bool, optional): Use a hamming window. Defaults to False.
+
+    Returns:
+        FrequencyData: Multi Channel Spectrogram
+    """
+    return frequency.multichannel_spectrogram(
+        data,
+        summary,
+        moving_window,
+        time_window,
+        time_overlap,
+        hamming,
+    )
