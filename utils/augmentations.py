@@ -1,3 +1,5 @@
+from enum import IntEnum
+
 import einops as ein
 import numpy as np
 import numpy.random as npr
@@ -50,23 +52,34 @@ class SpectralCutout:
 
 
 class SpectralAxialCutout:
-    def __init__(self, p_apply, dim_to_cut, num_cut: int = 1):
+    class CutoutType(IntEnum):
+        CHANNEL = 0  # 10
+        FREQUENCY = 1  # 11
+        TIME = 2  # 7
+
+    def __init__(self, p_apply, dim_to_cut: CutoutType, max_num_cut: int = 1):
         self.p_apply = p_apply
         self.dim_to_cut = dim_to_cut
-        self.num_cut = num_cut
+        self.max_num_cut = max_num_cut
 
     def __call__(self, spec):
         if npr.uniform(0, 1) > self.p_apply:
             return spec
-        channel_cut = npr.choice(np.arange(spec.shape[self.dim_to_cut]), size=self.num_cut, replace=False)
+        n_cut = npr.randint(1, self.max_num_cut + 1)
+        channel_cut = npr.choice(np.arange(spec.shape[int(self.dim_to_cut)]), size=n_cut, replace=False)
         idx = [slice(None)] * len(spec.shape)
-        idx[self.dim_to_cut] = channel_cut
+        idx[int(self.dim_to_cut)] = channel_cut
         spec[*idx] = 0
         return spec
 
 
-"""
-Channel cutout sur dim 10
-Freq cutout sur 11
-window cutout 7 nb window
-"""
+class SpectralNoise:
+    def __init__(self, p_apply, noise_level=0.1):
+        self.p_apply = p_apply
+        self.noise_level = noise_level
+
+    def __call__(self, spec):
+        if npr.uniform(0, 1) > self.p_apply:
+            return spec
+        noise = npr.normal(0, self.noise_level, spec.shape)
+        return spec + noise

@@ -109,6 +109,7 @@ cnn_train_opt = {
     "focal_loss_alpha": 0.25,
     "focal_loss_gamma": 2,
     "verbose": True,
+    "dropout": 0.0,
 }
 
 # LSTM parameters

@@ -307,8 +307,7 @@ class CNNTerrain(L.LightningModule):
             focal_loss_alpha: float = 0.25,
             focal_loss_gamma: float = 2,
             scheduler: str = "plateau",
-            mins: np.ndarray | None = None,
-            maxs: np.ndarray | None = None,
+            dropout: float = 0.0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -324,15 +323,16 @@ class CNNTerrain(L.LightningModule):
         self.focal_loss_gamma = focal_loss_gamma
         self.lr = lr
         self.scheduler = scheduler
-        self.mins = torch.Tensor(mins)
-        self.maxs = torch.Tensor(maxs)
+        self.dropout = dropout
 
         self.in_layer = nn.Conv2d(in_size, in_size, kernel_size=1)
         self.bn1 = nn.BatchNorm2d(in_size)
+        self.drop1 = nn.Dropout2d(p=dropout)
         self.conv2d1 = nn.Conv2d(
             in_size, num_filters, kernel_size=filter_size, padding="same"
         )
         self.bn2 = nn.BatchNorm2d(num_filters)
+        self.drop2 = nn.Dropout2d(p=dropout)
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(num_filters * self.n_wind * self.n_freq, num_classes)
         self.softmax = nn.Softmax(dim=1)
@@ -398,9 +398,11 @@ class CNNTerrain(L.LightningModule):
         x = self.in_layer(x)
         x = self.bn1(x)
         x = F.relu(x)
+        x = self.drop1(x)
         x = self.conv2d1(x)
         x = self.bn2(x)
         x = F.relu(x)
+        x = self.drop2(x)
 
         x = self.flatten(x)
         x = self.fc(x)
@@ -969,6 +971,7 @@ def convolutional_neural_network(
     focal_loss = cnn_train_opt.get("focal_loss", False)
     focal_loss_alpha = cnn_train_opt.get("focal_loss_alpha", 0.25)
     focal_loss_gamma = cnn_train_opt.get("focal_loss_gamma", 2)
+    dropout = cnn_train_opt.get("dropout", 0.0)
     _, n_freq, n_wind, in_size = train_data["data"].shape
     scheduler = cnn_train_opt.get("scheduler", "plateau")
     num_workers = 0
@@ -992,7 +995,7 @@ def convolutional_neural_network(
     train_data_augmentation = pp.Bifunctor(
         pp.Compose([
             # SpectralCutout(p_apply=0.5, num_mask=1, max_size=20),
-            SpectralAxialCutout(p_apply=0.5, dim_to_cut=0, num_cut=2),
+            SpectralAxialCutout(p_apply=0.5, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=2),
             to_f32
         ]),
         pp.Identity()
@@ -1023,8 +1026,7 @@ def convolutional_neural_network(
         focal_loss_alpha=focal_loss_alpha,
         focal_loss_gamma=focal_loss_gamma,
         scheduler=scheduler,
-        mins=mins,
-        maxs=maxs,
+        dropout=dropout
     )
 
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
