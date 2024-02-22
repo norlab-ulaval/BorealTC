@@ -191,7 +191,7 @@ def objective_svm(trial: optuna.Trial):
 model = os.environ.get("MODEL", "SVM")  # 'SVM', 'CNN', 'LSTM'
 IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
-storage_name = f"sqlite:///results/optuna/{study_name}.db"
+storage_name = f"sqlite:///results/{DATASET}/optuna/{study_name}.db"
 
 OBJECTIVE = None
 if model == "CNN":
