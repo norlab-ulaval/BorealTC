@@ -78,6 +78,7 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
+    "num_branches": 4,
     "norm_epsilon": 1e-5
 }
 
@@ -89,7 +90,7 @@ ssm_cfg = {
 
 mamba_cfg = MambaConfig(
     d_model=16,
-    n_layer=8,
+    n_layer=4,
     ssm_cfg=ssm_cfg,
 )
 
@@ -105,7 +106,7 @@ mamba_train_opt = {
     "gradient_treshold": 6,  # None to disable
     "focal_loss": True,
     "num_classes": len(terrains),
-    "out_method": "last_state"
+    "out_method": "last_state" # "flatten", "max_pool", "last_state"
 }
 
 # Model settings
@@ -151,6 +152,4 @@ for mw in MOVING_WINDOWS:
     # Store terrain labels
     results["terrains"] = terrains
 
-    data_name = 'norlab' if csv_dir == (cwd / "norlab-data") else 'vulpi'
-
-    np.save(results_dir / f"results_{MODEL}_mw_{mw}_data_{data_name}.npy", results)
+    np.save(results_dir / f"results_{MODEL}_mw_{mw}.npy", results)

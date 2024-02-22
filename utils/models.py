@@ -503,6 +503,7 @@ class MambaTerrain(L.LightningModule):
     def __init__(
         self,
         mamba_cfg: MambaConfig,
+        num_branches: int,
         norm_epsilon: float,
         fused_add_norm: bool,
         residual_in_fp32: bool,
@@ -520,6 +521,8 @@ class MambaTerrain(L.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
+        self.num_branches = num_branches
+        self.num_layers = mamba_cfg.n_layer
         self.out_method = out_method
         self.num_classes = num_classes
         self.lr = lr
@@ -540,7 +543,7 @@ class MambaTerrain(L.LightningModule):
         self.imu_in_layer = nn.Linear(imu_dim, mamba_cfg.d_model)
         self.pro_in_layer = nn.Linear(pro_dim, mamba_cfg.d_model)
 
-        self.mamba_layers = nn.ModuleList(
+        self.mamba_blocks = nn.ModuleList(
             [
                 create_block(
                     d_model=mamba_cfg.d_model,
@@ -551,7 +554,7 @@ class MambaTerrain(L.LightningModule):
                     fused_add_norm=mamba_cfg.fused_add_norm,
                     layer_idx=idx,
                 )
-                for idx in range(mamba_cfg.n_layer)
+                for idx in range(mamba_cfg.n_layer * num_branches)
             ]
         )
 
@@ -562,16 +565,16 @@ class MambaTerrain(L.LightningModule):
 
         if out_method == 'flatten':
             self.flatten = nn.Flatten()
-            self.fc = nn.Linear(in_size * mamba_cfg.d_model, num_classes)
+            self.fc = nn.Linear(in_size * mamba_cfg.d_model * num_branches, num_classes)
             self.out_layer = self._out_layer_flatten
 
         elif out_method == 'max_pool':
             self.max_pool = nn.MaxPool1d(kernel_size=in_size)
-            self.fc = nn.Linear(mamba_cfg.d_model, num_classes)
+            self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
             self.out_layer = self._out_layer_max_pool
 
         elif out_method == 'last_state':
-            self.fc = nn.Linear(mamba_cfg.d_model, num_classes)
+            self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
             self.out_layer = self._out_layer_last_state
 
         self.softmax = nn.Softmax(dim=1)
@@ -669,26 +672,33 @@ class MambaTerrain(L.LightningModule):
     def forward(self, x):
         x = self.in_layer(x)
 
-        r = None
-        for layer in self.mamba_layers:
-            x, r = layer(x, r)
-        
-        if not self.fused_add_norm:
-            r = (x + r) if r is not None else x
-            x = self.norm_f(r.to(dtype=self.norm_f.weight.dtype))
-        else:
-            # Set prenorm=False here since we don't need the residual
-            fused_add_norm_fn = rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
-            x = fused_add_norm_fn(
-                x,
-                self.norm_f.weight,
-                self.norm_f.bias,
-                eps=self.norm_f.eps,
-                residual=r,
-                prenorm=False,
-                residual_in_fp32=self.residual_in_fp32,
-            )
+        x_branches = []
 
+        for branch_idx in range(self.num_branches):
+            x_branch, r_branch = x.clone(), None
+            
+            for layer_idx in range(self.num_layers):
+                x_branch, r_branch = self.mamba_blocks[branch_idx * self.num_layers + layer_idx](x_branch, r_branch)
+            
+            if not self.fused_add_norm:
+                r_branch = (x_branch + r_branch) if r_branch is not None else x_branch
+                x_branch = self.norm_f(r_branch.to(dtype=self.norm_f.weight.dtype))
+            else:
+                # Set prenorm=False here since we don't need the residual
+                fused_add_norm_fn = rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
+                x_branch = fused_add_norm_fn(
+                    x_branch,
+                    self.norm_f.weight,
+                    self.norm_f.bias,
+                    eps=self.norm_f.eps,
+                    residual=r_branch,
+                    prenorm=False,
+                    residual_in_fp32=self.residual_in_fp32,
+                )
+
+            x_branches.append(x_branch)
+
+        x = torch.cat(x_branches, dim=2)
         x = self.out_layer(x)
 
         return x
@@ -700,7 +710,7 @@ class MambaTerrain(L.LightningModule):
                 F.one_hot(target, self.num_classes).to(torch.float),
                 alpha=self.focal_loss_alpha,
                 gamma=self.focal_loss_gamma,
-                reduction="sum"
+                reduction="mean"
             )
         return self.ce_loss(y, target)
 
@@ -819,6 +829,7 @@ def mamba_network(
     in_size = len(train_data["order"][0])
     out_method = mamba_train_opt["out_method"]
     num_classes = mamba_train_opt["num_classes"]
+    num_branches = mamba_par["num_branches"]
     norm_epsilon = mamba_par["norm_epsilon"]
     fused_add_norm = mamba_cfg.fused_add_norm
     residual_in_fp32 = mamba_cfg.residual_in_fp32
@@ -851,6 +862,7 @@ def mamba_network(
 
     model = MambaTerrain(
         mamba_cfg=mamba_cfg,
+        num_branches=num_branches,
         norm_epsilon=norm_epsilon,
         fused_add_norm=fused_add_norm,
         residual_in_fp32=residual_in_fp32,
