@@ -17,6 +17,8 @@ lightning
 tensorboard
 torch-metrics
 einops
+causal-conv1d>=1.1.0
+mamba-ssm
 git+https://github.com/willGuimont/pipeline
 optuna
 plotly

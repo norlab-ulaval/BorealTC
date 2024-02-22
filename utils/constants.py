@@ -3,6 +3,9 @@ import numpy as np
 # terrain, terr_idx, run_idx, win_idx, time, <sensor_channels>
 ch_cols = dict(zip(("terrain", "terr_idx", "run_idx", "win_idx", "time"), range(5)))
 
+imu_dim = 6
+pro_dim = 4
+
 
 class HuskyConstants:
     # Data from Reina2016 + Manufacturer specs

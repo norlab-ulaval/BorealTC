@@ -5,7 +5,7 @@ import lightning as L
 import numpy as np
 from torch.utils.data import random_split, DataLoader
 
-from utils.dataset import RawVulpiDataset, MCSDataset, TemporalDataset
+from utils.dataset import RawVulpiDataset, MCSDataset, TemporalDataset, MambaDataset
 
 
 def _split(dataset, valid_percent: float):
@@ -71,7 +71,7 @@ class CustomDataModule(L.LightningDataModule):
     ):
         super().__init__()
         train_dataset = dataset_type(train_temporal, train_transform)
-        self.train_dataset, self.val_dataset = _split(train_dataset, valid_percent=0.1)
+        self.train_dataset, self.val_dataset = _split(train_dataset, valid_percent=valid_percent)
         self.test_dataset = dataset_type(test_temporal, test_transform)
 
         self.batch_size = batch_size
@@ -151,6 +151,31 @@ class MCSDataModule(CustomDataModule):
     ):
         super().__init__(
             MCSDataset,
+            train_temporal,
+            test_temporal,
+            train_transform,
+            test_transform,
+            valid_percent,
+            batch_size,
+            num_workers,
+            persistent_workers,
+        )
+
+
+class MambaDataModule(CustomDataModule):
+    def __init__(
+        self,
+        train_temporal,
+        test_temporal,
+        train_transform: Optional[Callable] = None,
+        test_transform: Optional[Callable] = None,
+        valid_percent: float = 0.1,
+        batch_size: int = 32,
+        num_workers: int = 8,
+        persistent_workers: bool = True,
+    ):
+        super().__init__(
+            MambaDataset,
             train_temporal,
             test_temporal,
             train_transform,
