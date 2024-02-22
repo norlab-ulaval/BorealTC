@@ -99,7 +99,7 @@ def partition_data(
     n_splits: int | None = 5,
     random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
-    """_summary_
+    """Partition data in 'partition duration' seconds long windows
 
     Args:
         data (ExperimentData): Dictionary of pandas DataFrames
