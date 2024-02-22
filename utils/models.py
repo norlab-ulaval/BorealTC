@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import einops as ein
 import lightning as L
-from mamba_ssm import Mamba
 import numpy as np
 import pandas as pd
 import pipeline as pp
@@ -23,6 +22,8 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
+from mamba_ssm.models.config_mamba import MambaConfig
+from mamba_ssm.models.mixer_seq_simple import create_block
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -30,6 +31,11 @@ from sklearn.svm import SVC
 
 from utils.constants import ch_cols, imu_dim, pro_dim
 from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
+
+try:
+    from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
+except ImportError:
+    RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
@@ -496,14 +502,12 @@ class CNNTerrain(L.LightningModule):
 class MambaTerrain(L.LightningModule):
     def __init__(
         self,
+        mamba_cfg: MambaConfig,
+        norm_epsilon: float,
+        fused_add_norm: bool,
+        residual_in_fp32: bool,
         in_size: int,
-        state_dim: int,
-        state_factor: int,
-        conv_width: int,
-        expand_factor: int,
         out_method: str,
-        mamba_width: int,
-        mamba_height: int,
         num_classes: int,
         lr: float,
         learning_rate_factor: float = 0.1,
@@ -525,24 +529,52 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss = focal_loss
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
+        
+        # factory_kwargs = {"device": device, "dtype": dtype}
+        self.fused_add_norm = fused_add_norm
+        self.residual_in_fp32 = residual_in_fp32
 
-        self.imu_in_layer = nn.Linear(imu_dim, state_dim)
-        self.pro_in_layer = nn.Linear(pro_dim, state_dim)
+        if self.fused_add_norm:
+            if layer_norm_fn is None or rms_norm_fn is None:
+                raise ImportError("Failed to import Triton LayerNorm / RMSNorm kernels")
 
-        self.mamba = Mamba(state_dim, state_factor, conv_width, expand_factor)
+        self.imu_in_layer = nn.Linear(imu_dim, mamba_cfg.d_model)
+        self.pro_in_layer = nn.Linear(pro_dim, mamba_cfg.d_model)
+
+        self.mamba_layers = nn.ModuleList(
+            [
+                create_block(
+                    d_model=mamba_cfg.d_model,
+                    ssm_cfg=mamba_cfg.ssm_cfg,
+                    norm_epsilon=norm_epsilon,
+                    rms_norm=mamba_cfg.rms_norm,
+                    residual_in_fp32=mamba_cfg.residual_in_fp32,
+                    fused_add_norm=mamba_cfg.fused_add_norm,
+                    layer_idx=idx,
+                    # **factory_kwargs
+                )
+                for idx in range(mamba_cfg.n_layer)
+            ]
+        )
+
+        self.norm_f = (nn.LayerNorm if not mamba_cfg.rms_norm else RMSNorm)(
+            mamba_cfg.d_model,
+            eps=norm_epsilon,
+            # **factory_kwargs
+        )
 
         if out_method == 'flatten':
             self.flatten = nn.Flatten()
-            self.fc = nn.Linear(in_size * state_dim, num_classes)
+            self.fc = nn.Linear(in_size * mamba_cfg.d_model, num_classes)
             self.out_layer = self._out_layer_flatten
 
         elif out_method == 'max_pool':
             self.max_pool = nn.MaxPool1d(kernel_size=in_size)
-            self.fc = nn.Linear(state_dim, num_classes)
+            self.fc = nn.Linear(mamba_cfg.d_model, num_classes)
             self.out_layer = self._out_layer_max_pool
 
         elif out_method == 'last_state':
-            self.fc = nn.Linear(state_dim, num_classes)
+            self.fc = nn.Linear(mamba_cfg.d_model, num_classes)
             self.out_layer = self._out_layer_last_state
 
         self.softmax = nn.Softmax(dim=1)
@@ -640,7 +672,25 @@ class MambaTerrain(L.LightningModule):
     def forward(self, x):
         x = self.in_layer(x)
 
-        x = self.mamba(x)
+        r = None
+        for layer in self.mamba_layers:
+            x, r = layer(x, r)
+        
+        if not self.fused_add_norm:
+            r = (x + r) if r is not None else x
+            x = self.norm_f(r.to(dtype=self.norm_f.weight.dtype))
+        else:
+            # Set prenorm=False here since we don't need the residual
+            fused_add_norm_fn = rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
+            x = fused_add_norm_fn(
+                x,
+                self.norm_f.weight,
+                self.norm_f.bias,
+                eps=self.norm_f.eps,
+                residual=r,
+                prenorm=False,
+                residual_in_fp32=self.residual_in_fp32,
+            )
 
         x = self.out_layer(x)
 
@@ -761,15 +811,16 @@ def mamba_network(
     test_data: list[ExperimentData],
     mamba_par: dict,
     mamba_train_opt: dict,
+    mamba_cfg: MambaConfig,
     description: dict,
 ) -> dict:
     # Mamba parameters
-    state_dim = mamba_par["state_dim"]
-    state_factor = mamba_par["state_factor"]
-    conv_width = mamba_par["conv_width"]
-    expand_factor = mamba_par["expand_factor"]
-    mamba_width = mamba_par["mamba_width"]
-    mamba_height = mamba_par["mamba_height"]
+    in_size = len(train_data["order"][0])
+    out_method = mamba_train_opt["out_method"]
+    num_classes = mamba_train_opt["num_classes"]
+    norm_epsilon = mamba_par["norm_epsilon"]
+    fused_add_norm = mamba_cfg.fused_add_norm
+    residual_in_fp32 = mamba_cfg.residual_in_fp32
 
     # Training parameters
     valid_perc = mamba_train_opt["valid_perc"]
@@ -781,10 +832,6 @@ def mamba_network(
     reduce_lr_patience = mamba_train_opt["reduce_lr_patience"]
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
-    num_classes = mamba_train_opt["num_classes"]
-
-    in_size = len(train_data["order"][0])
-    out_method = mamba_train_opt["out_method"]
 
     num_workers = 8
     persistent_workers = True
@@ -801,14 +848,12 @@ def mamba_network(
     )
 
     model = MambaTerrain(
+        mamba_cfg=mamba_cfg,
+        norm_epsilon=norm_epsilon,
+        fused_add_norm=fused_add_norm,
+        residual_in_fp32=residual_in_fp32,
         in_size=in_size,
-        state_dim=state_dim,
-        state_factor=state_factor,
-        conv_width=conv_width,
-        expand_factor=expand_factor,
         out_method=out_method,
-        mamba_width=mamba_width,
-        mamba_height=mamba_height,
         num_classes=num_classes,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,

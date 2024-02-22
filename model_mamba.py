@@ -16,6 +16,7 @@ benchmark
 -------------------------------------------------------------------------
 """
 
+from mamba_ssm.models.config_mamba import MambaConfig
 from pathlib import Path
 
 import numpy as np
@@ -77,13 +78,20 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
-    "state_dim": 16,
-    "state_factor": 16,
-    "conv_width": 4,
-    "expand_factor": 2,
-    "mamba_width": 3,
-    "mamba_height": 3
+    "norm_epsilon": 1e-5
 }
+
+ssm_cfg = {
+    "d_state": 16,
+    "d_conv": 4,
+    "expand": 2,
+}
+
+mamba_cfg = MambaConfig(
+    d_model=16,
+    n_layer=8,
+    ssm_cfg=ssm_cfg,
+)
 
 mamba_train_opt = {
     "valid_perc": 0.1,
@@ -125,6 +133,7 @@ for mw in MOVING_WINDOWS:
             aug_test_fold,
             mamba_par,
             mamba_train_opt,
+            mamba_cfg,
             dict(mw=mw, fold=k+1)
         )
         results_per_fold.append(out)
