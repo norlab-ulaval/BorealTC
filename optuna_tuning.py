@@ -134,7 +134,7 @@ def objective_cnn(trial: optuna.Trial):
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
         "num_branches": trial.suggest_int("num_branches", 1, 16),
-        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-1, 1e-8, log=True) # 1e-5
+        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
     }
 
     ssm_cfg = {
@@ -145,23 +145,27 @@ def objective_mamba(trial: optuna.Trial):
 
     mamba_cfg = MambaConfig(
         d_model=trial.suggest_int("d_model", 4, 128, step=4),
-        n_layer=4,
-        ssm_cfg=ssm_cfg,
+        n_layer=trial.suggest_int("num_layers", 1, 16),
+        rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
+        fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
+        ssm_cfg=ssm_cfg
     )
 
     mamba_train_opt = {
         "valid_perc": 0.1,
-        "init_learn_rate": 0.0005,
-        "learn_drop_factor": 0.1,
+        "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
+        "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 1.0),
         "max_epochs": 150,
-        "minibatch_size": 10,
-        "valid_patience": 8,
-        "reduce_lr_patience": 4,
-        "valid_frequency": 100,
-        "gradient_treshold": 6,  # None to disable
-        "focal_loss": True,
+        "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
+        "valid_patience": trial.suggest_int("valid_patience", 5, 15),
+        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
+        "valid_frequency": None,
+        "gradient_treshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
+        "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
+        "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
+        "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,
-        "out_method": "last_state" # "flatten", "max_pool", "last_state"
+        "out_method": trial.suggest_categorical("out_method", ["flatten", "max_pool", "last_state"])
     }
 
     results = {}
@@ -256,7 +260,7 @@ def objective_svm(trial: optuna.Trial):
     return acc.mean()
 
 
-model = os.environ.get("MODEL", "CNN")  # 'SVM', 'CNN', 'LSTM'
+model = os.environ.get("MODEL", "CNN")  # 'SVM', 'CNN', 'LSTM', 'Mamba'
 IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
 optuna_path = pathlib.Path(f"results/{DATASET}/optuna")
@@ -271,6 +275,8 @@ elif model == "LSTM":
     OBJECTIVE = objective_lstm
 elif model == "SVM":
     OBJECTIVE = objective_svm
+elif model == "Mamba":
+    OBJECTIVE = objective_mamba
 else:
     raise ValueError(f"Model {model} not recognized")
 
