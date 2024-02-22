@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --time=4-00:00
 #SBATCH --job-name=TuneSVM
