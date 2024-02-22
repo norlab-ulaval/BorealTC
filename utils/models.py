@@ -27,6 +27,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from utils.augmentations import NormalizeMCS, SpectralCutout, SpectralAxialCutout
 from utils.constants import ch_cols
 from utils.datamodule import MCSDataModule, TemporalDataModule
 
@@ -290,6 +291,9 @@ class CNNTerrain(L.LightningModule):
             focal_loss: bool = False,
             focal_loss_alpha: float = 0.25,
             focal_loss_gamma: float = 2,
+            scheduler: str = "plateau",
+            mins: np.ndarray | None = None,
+            maxs: np.ndarray | None = None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -304,14 +308,16 @@ class CNNTerrain(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
         self.lr = lr
+        self.scheduler = scheduler
+        self.mins = torch.Tensor(mins)
+        self.maxs = torch.Tensor(maxs)
 
         self.in_layer = nn.Conv2d(in_size, in_size, kernel_size=1)
-        self.batch_norm = nn.BatchNorm2d(in_size)
+        self.bn1 = nn.BatchNorm2d(in_size)
         self.conv2d1 = nn.Conv2d(
             in_size, num_filters, kernel_size=filter_size, padding="same"
         )
-        self.relu = nn.ReLU()
-
+        self.bn2 = nn.BatchNorm2d(num_filters)
         self.flatten = nn.Flatten()
         self.fc = nn.Linear(num_filters * self.n_wind * self.n_freq, num_classes)
         self.softmax = nn.Softmax(dim=1)
@@ -339,15 +345,18 @@ class CNNTerrain(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        if self.scheduler == 'plateau':
+            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                patience=self.reduce_lr_patience,
+                factor=self.learning_rate_factor,
+                verbose=True,
+            )
+        elif self.scheduler == 'linear':
+            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=self.learning_rate_factor)
         # scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer,
         #                                                       lr_lambda=lambda epoch: self.learning_rate_factor,
         #                                                       verbose=True)
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            patience=self.reduce_lr_patience,
-            factor=self.learning_rate_factor,
-            verbose=True,
-        )
         return dict(
             optimizer=optimizer,
             lr_scheduler=dict(
@@ -372,9 +381,11 @@ class CNNTerrain(L.LightningModule):
 
     def forward(self, x):
         x = self.in_layer(x)
-        x = self.batch_norm(x)
+        x = self.bn1(x)
+        x = F.relu(x)
         x = self.conv2d1(x)
-        x = self.relu(x)
+        x = self.bn2(x)
+        x = F.relu(x)
 
         x = self.flatten(x)
         x = self.fc(x)
@@ -512,6 +523,8 @@ def convolutional_neural_network(
     num_filters = cnn_par["num_filters"]
     num_classes = cnn_par["num_classes"]
     dataset = description["dataset"]
+    mins = description["mins"]
+    maxs = description["maxs"]
 
     # Training parameters
     valid_perc = cnn_train_opt["valid_perc"]
@@ -527,8 +540,9 @@ def convolutional_neural_network(
     focal_loss_alpha = cnn_train_opt.get("focal_loss_alpha", 0.25)
     focal_loss_gamma = cnn_train_opt.get("focal_loss_gamma", 2)
     _, n_freq, n_wind, in_size = train_data["data"].shape
-    num_workers = 8
-    persistent_workers = True
+    scheduler = cnn_train_opt.get("scheduler", "plateau")
+    num_workers = 0
+    persistent_workers = False
     verbose = cnn_train_opt.get("verbose", True)
 
     def to_f32(x):
@@ -537,22 +551,28 @@ def convolutional_neural_network(
     def transpose(x):
         return np.transpose(x, (2, 0, 1))
 
-    # TODO move spectro generation here
-    augment = pp.Identity()
-    to_mcs = pp.Identity()
     train_transform = pp.Bifunctor(
-        pp.Compose([to_f32, transpose, augment, to_mcs]),
+        pp.Compose([transpose, NormalizeMCS(mins, maxs), to_f32]),
         pp.Identity(),
     )
     test_transform = pp.Bifunctor(
-        pp.Compose([to_f32, transpose, to_mcs]),
+        pp.Compose([transpose, NormalizeMCS(mins, maxs), to_f32]),
         pp.Identity(),
+    )
+    train_data_augmentation = pp.Bifunctor(
+        pp.Compose([
+            # SpectralCutout(p_apply=0.5, num_mask=1, max_size=20),
+            SpectralAxialCutout(p_apply=0.5, dim_to_cut=0, num_cut=2),
+            to_f32
+        ]),
+        pp.Identity()
     )
     datamodule = MCSDataModule(
         train_data,
         test_data,
         train_transform,
         test_transform,
+        train_data_augmentation,
         valid_percent=valid_perc,
         batch_size=minibatch_size,
         num_workers=num_workers,
@@ -572,6 +592,9 @@ def convolutional_neural_network(
         focal_loss=focal_loss,
         focal_loss_alpha=focal_loss_alpha,
         focal_loss_gamma=focal_loss_gamma,
+        scheduler=scheduler,
+        mins=mins,
+        maxs=maxs,
     )
 
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
@@ -653,7 +676,7 @@ def long_short_term_memory(
     focal_loss = lstm_train_opt.get("focal_loss", False)
     focal_loss_alpha = lstm_train_opt.get("focal_loss_alpha", 0.25)
     focal_loss_gamma = lstm_train_opt.get("focal_loss_gamma", 2)
-    num_workers = 8
+    num_workers = 0
     persistent_workers = True
     verbose = lstm_train_opt.get("verbose", True)
 

@@ -19,13 +19,14 @@ benchmark
 import os
 from pathlib import Path
 
+import einops as ein
 import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
+DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
 elif DATASET == "vulpi":
@@ -63,7 +64,8 @@ terr_dfs = preprocessing.get_recordings(csv_dir, summary)
 NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
-MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
+# MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
+MOVING_WINDOWS = [1.7]  # seconds
 
 # Data partition and sample extraction
 train, test = preprocessing.partition_data(
@@ -89,7 +91,7 @@ cnn_par = {
     "time_window": 0.4,
     "time_overlap": 0.2,
     "filter_size": [3, 3],
-    "num_filters": 3,
+    "num_filters": 16,
 }
 
 cnn_train_opt = {
@@ -99,13 +101,14 @@ cnn_train_opt = {
     "max_epochs": 150,
     "minibatch_size": 10,
     "valid_patience": 8,
+    "scheduler": "plateau",  # "plateau" or "reduce_lr_on_plateau
     "reduce_lr_patience": 4,
     "valid_frequency": 1.0,
     "gradient_threshold": 6,  # None to disable
     "focal_loss": False,
     "focal_loss_alpha": 0.25,
     "focal_loss_gamma": 2,
-    "verbose": False,
+    "verbose": True,
 }
 
 # LSTM parameters
@@ -125,7 +128,7 @@ lstm_train_opt = {
     "max_epochs": 150,
     "minibatch_size": 10,
     "valid_patience": 8,
-    "reduce_lr_patience": 4,
+    "reduce_lr_patience": 10,
     "valid_frequency": 1.0,
     "gradient_threshold": 6,  # None to disable
     "focal_loss": True,
@@ -174,7 +177,8 @@ svm_train_opt = {
 }
 
 # Model settings
-BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
+# BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
+BASE_MODELS = ["CNN"]
 
 print(f"Training on {DATASET} with {BASE_MODELS}...")
 for mw in MOVING_WINDOWS:
@@ -193,7 +197,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_augm1_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -215,6 +219,8 @@ for mw in MOVING_WINDOWS:
                 hamming=False,
             )
             results_per_fold = []
+            maxs = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').max(axis=0) for idx in range(N_FOLDS)]).max(axis=0)
+            mins = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').min(axis=0) for idx in range(N_FOLDS)]).min(axis=0)
             for k in range(N_FOLDS):
                 train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
                 out = models.convolutional_neural_network(
@@ -222,7 +228,7 @@ for mw in MOVING_WINDOWS:
                     test_mcs,
                     cnn_par,
                     cnn_train_opt,
-                    dict(mw=mw, fold=k + 1, dataset=DATASET),
+                    dict(mw=mw, fold=k + 1, dataset=DATASET, mins=mins, maxs=maxs),
                     random_state=RANDOM_STATE,
                 )
                 results_per_fold.append(out)

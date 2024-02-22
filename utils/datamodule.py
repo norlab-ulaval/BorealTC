@@ -1,8 +1,10 @@
+import copy
 from pathlib import Path
 from typing import Optional, Callable
 
 import lightning as L
 import numpy as np
+import pipeline as pp
 from torch.utils.data import random_split, DataLoader
 
 from utils.dataset import RawVulpiDataset, MCSDataset, TemporalDataset
@@ -18,13 +20,13 @@ def _split(dataset, valid_percent: float):
 
 class VulpiDataModule(L.LightningDataModule):
     def __init__(
-        self,
-        root_dir: Path,
-        transform: Optional[Callable] = None,
-        batch_size: int = 32,
-        split: float = 0.8,
-        num_workers: int = 8,
-        persistent_workers: bool = True,
+            self,
+            root_dir: Path,
+            transform: Optional[Callable] = None,
+            batch_size: int = 32,
+            split: float = 0.8,
+            num_workers: int = 8,
+            persistent_workers: bool = True,
     ):
         super().__init__()
         self.dataset = RawVulpiDataset(root_dir, transform)
@@ -58,20 +60,26 @@ class VulpiDataModule(L.LightningDataModule):
 
 class CustomDataModule(L.LightningDataModule):
     def __init__(
-        self,
-        dataset_type,
-        train_temporal,
-        test_temporal,
-        train_transform: Optional[Callable] = None,
-        test_transform: Optional[Callable] = None,
-        valid_percent: float = 0.1,
-        batch_size: int = 32,
-        num_workers: int = 8,
-        persistent_workers: bool = True,
+            self,
+            dataset_type,
+            train_temporal,
+            test_temporal,
+            train_transform: Optional[Callable] = None,
+            test_transform: Optional[Callable] = None,
+            train_data_augmentation: Optional[Callable] = None,
+            valid_percent: float = 0.1,
+            batch_size: int = 32,
+            num_workers: int = 8,
+            persistent_workers: bool = True,
     ):
         super().__init__()
+        if train_data_augmentation is None:
+            train_data_augmentation = pp.Identity()
+
         train_dataset = dataset_type(train_temporal, train_transform)
-        self.train_dataset, self.val_dataset = _split(train_dataset, valid_percent=0.1)
+        self.train_dataset, self.val_dataset = _split(train_dataset, valid_percent=valid_percent)
+        self.train_dataset.dataset.transform = pp.Compose([copy.deepcopy(train_transform),
+                                                           train_data_augmentation])
         self.test_dataset = dataset_type(test_temporal, test_transform)
 
         self.batch_size = batch_size
@@ -114,15 +122,16 @@ class CustomDataModule(L.LightningDataModule):
 
 class TemporalDataModule(CustomDataModule):
     def __init__(
-        self,
-        train_temporal,
-        test_temporal,
-        train_transform: Optional[Callable] = None,
-        test_transform: Optional[Callable] = None,
-        valid_percent: float = 0.1,
-        batch_size: int = 32,
-        num_workers: int = 8,
-        persistent_workers: bool = True,
+            self,
+            train_temporal,
+            test_temporal,
+            train_transform: Optional[Callable] = None,
+            test_transform: Optional[Callable] = None,
+            train_data_augmentation: Optional[Callable] = None,
+            valid_percent: float = 0.1,
+            batch_size: int = 32,
+            num_workers: int = 8,
+            persistent_workers: bool = True,
     ):
         super().__init__(
             TemporalDataset,
@@ -130,6 +139,7 @@ class TemporalDataModule(CustomDataModule):
             test_temporal,
             train_transform,
             test_transform,
+            train_data_augmentation,
             valid_percent,
             batch_size,
             num_workers,
@@ -139,15 +149,16 @@ class TemporalDataModule(CustomDataModule):
 
 class MCSDataModule(CustomDataModule):
     def __init__(
-        self,
-        train_temporal,
-        test_temporal,
-        train_transform: Optional[Callable] = None,
-        test_transform: Optional[Callable] = None,
-        valid_percent: float = 0.1,
-        batch_size: int = 32,
-        num_workers: int = 8,
-        persistent_workers: bool = True,
+            self,
+            train_temporal,
+            test_temporal,
+            train_transform: Optional[Callable] = None,
+            test_transform: Optional[Callable] = None,
+            train_data_augmentation: Optional[Callable] = None,
+            valid_percent: float = 0.1,
+            batch_size: int = 32,
+            num_workers: int = 8,
+            persistent_workers: bool = True,
     ):
         super().__init__(
             MCSDataset,
@@ -155,6 +166,7 @@ class MCSDataModule(CustomDataModule):
             test_temporal,
             train_transform,
             test_transform,
+            train_data_augmentation,
             valid_percent,
             batch_size,
             num_workers,
