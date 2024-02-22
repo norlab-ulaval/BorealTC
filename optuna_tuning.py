@@ -94,6 +94,9 @@ def objective_cnn(trial: optuna.Trial):
         "gradient_threshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
         ),
+        "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
+        "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
+        "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
     }
 
     (
@@ -118,8 +121,9 @@ def objective_cnn(trial: optuna.Trial):
         dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
         random_state=RANDOM_STATE,
+        test=False
     )
-    return out["loss"][0]["val_loss_epoch"]
+    return (out["pred"] == out["true"]).mean().item()
 
 
 def objective_lstm(trial: optuna.Trial):
@@ -131,7 +135,6 @@ def objective_lstm(trial: optuna.Trial):
         "bidirectional": trial.suggest_categorical("bidirectional", [True, False]),
         "convolutional": trial.suggest_categorical("convolutional", [True, False]),
     }
-
     lstm_train_opt = {
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
@@ -144,6 +147,9 @@ def objective_lstm(trial: optuna.Trial):
         "gradient_threshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
         ),
+        "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
+        "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
+        "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
     }
 
     train_ds_folds, test_ds_folds = preprocessing.downsample_data(
@@ -160,8 +166,9 @@ def objective_lstm(trial: optuna.Trial):
         lstm_train_opt,
         dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
+        test=False
     )
-    return out["loss"][0]["val_loss_epoch"]
+    return (out["pred"] == out["true"]).mean().item()
 
 
 def objective_svm(trial: optuna.Trial):
@@ -186,11 +193,10 @@ def objective_svm(trial: optuna.Trial):
         random_state=RANDOM_STATE,
     )
     acc = results["pred"] == results["true"]
-    loss = 1 - acc.mean()
-    return loss
+    return acc.mean()
 
 
-model = os.environ.get("MODEL", "LSTM")  # 'SVM', 'CNN', 'LSTM'
+model = os.environ.get("MODEL", "CNN")  # 'SVM', 'CNN', 'LSTM'
 IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
 optuna_path = pathlib.Path(f"results/{DATASET}/optuna")
@@ -213,7 +219,7 @@ if IMP_ANALYSIS:
     sampler = optuna.samplers.RandomSampler(seed=420)
 
     study = optuna.create_study(
-        direction="minimize",
+        direction="maximize",
         sampler=sampler,
         study_name=study_name,
         storage=storage_name,

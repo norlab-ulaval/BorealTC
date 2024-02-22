@@ -12,6 +12,7 @@ import pipeline as pp
 import scipy.stats as scst
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torchmetrics
 import torchvision as tv
 from lightning.pytorch.callbacks import (
@@ -35,22 +36,22 @@ if TYPE_CHECKING:
 
 class LSTMTerrain(L.LightningModule):
     def __init__(
-        self,
-        input_size: int,
-        hidden_size: int,
-        num_layers: int,
-        dropout: float,
-        bidirectional: bool,
-        convolutional: bool,
-        num_classes: int,
-        lr: float,
-        conv_num_filters: int = 5,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
+            self,
+            input_size: int,
+            hidden_size: int,
+            num_layers: int,
+            dropout: float,
+            bidirectional: bool,
+            convolutional: bool,
+            num_classes: int,
+            lr: float,
+            conv_num_filters: int = 5,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -164,7 +165,9 @@ class LSTMTerrain(L.LightningModule):
     def loss(self, y, target):
         if self.focal_loss:
             return tv.ops.sigmoid_focal_loss(
-                y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma
+                y, F.one_hot(target, self.num_classes).to(torch.float), alpha=self.focal_loss_alpha,
+                reduction='mean',
+                gamma=self.focal_loss_gamma
             )
         return self.ce_loss(y, target)
 
@@ -273,20 +276,20 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-        self,
-        in_size: int,
-        num_filters: int,
-        filter_size: int | (int, int),
-        num_classes: int,
-        n_wind: int,
-        n_freq: int,
-        lr: float,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
+            self,
+            in_size: int,
+            num_filters: int,
+            filter_size: int | (int, int),
+            num_classes: int,
+            n_wind: int,
+            n_freq: int,
+            lr: float,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -381,7 +384,8 @@ class CNNTerrain(L.LightningModule):
     def loss(self, y, target):
         if self.focal_loss:
             return tv.ops.sigmoid_focal_loss(
-                y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma
+                y, F.one_hot(target, self.num_classes).to(torch.float), alpha=self.focal_loss_alpha,
+                reduction='mean',
             )
         return self.ce_loss(y, target)
 
@@ -489,13 +493,14 @@ class CNNTerrain(L.LightningModule):
 
 
 def convolutional_neural_network(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    cnn_par: dict,
-    cnn_train_opt: dict,
-    description: dict,
-    custom_callbacks=None,
-    random_state: int | None = None,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        cnn_par: dict,
+        cnn_train_opt: dict,
+        description: dict,
+        custom_callbacks=None,
+        random_state: int | None = None,
+        test: bool = True,
 ) -> dict:
     # Seed
     L.seed_everything(random_state)
@@ -518,6 +523,9 @@ def convolutional_neural_network(
     reduce_lr_patience = cnn_train_opt["reduce_lr_patience"]
     valid_frequency = cnn_train_opt["valid_frequency"]
     gradient_threshold = cnn_train_opt["gradient_threshold"]
+    focal_loss = cnn_train_opt.get("focal_loss", False)
+    focal_loss_alpha = cnn_train_opt.get("focal_loss_alpha", 0.25)
+    focal_loss_gamma = cnn_train_opt.get("focal_loss_gamma", 2)
     _, n_freq, n_wind, in_size = train_data["data"].shape
     num_workers = 8
     persistent_workers = True
@@ -561,6 +569,9 @@ def convolutional_neural_network(
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
+        focal_loss=focal_loss,
+        focal_loss_alpha=focal_loss_alpha,
+        focal_loss_gamma=focal_loss_gamma,
     )
 
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
@@ -596,21 +607,25 @@ def convolutional_neural_network(
     # train
     trainer.fit(model, datamodule)
     loss = trainer.validate(model, datamodule)
-    trainer.test(model, datamodule)
 
-    out = model.test_classification
+    if test:
+        trainer.test(model, datamodule)
+        out = model.test_classification
+    else:
+        out = model.val_classification
+
     out["loss"] = loss
-
     return out
 
 
 def long_short_term_memory(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    lstm_par: dict,
-    lstm_train_opt: dict,
-    description: dict,
-    custom_callbacks=None,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        lstm_par: dict,
+        lstm_train_opt: dict,
+        description: dict,
+        custom_callbacks=None,
+        test: bool = True,
 ) -> dict:
     if custom_callbacks is None:
         custom_callbacks = []
@@ -635,6 +650,9 @@ def long_short_term_memory(
     valid_frequency = lstm_train_opt["valid_frequency"]
     gradient_threshold = lstm_train_opt["gradient_threshold"]
     input_size = train_data["imu"].shape[-1] + train_data["pro"].shape[-1] - 10
+    focal_loss = lstm_train_opt.get("focal_loss", False)
+    focal_loss_alpha = lstm_train_opt.get("focal_loss_alpha", 0.25)
+    focal_loss_gamma = lstm_train_opt.get("focal_loss_gamma", 2)
     num_workers = 8
     persistent_workers = True
     verbose = lstm_train_opt.get("verbose", True)
@@ -680,6 +698,9 @@ def long_short_term_memory(
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
+        focal_loss=focal_loss,
+        focal_loss_alpha=focal_loss_alpha,
+        focal_loss_gamma=focal_loss_gamma,
     )
 
     exp_name = f'terrain_classification_{"c" if convolutional else ""}lstm_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
@@ -715,21 +736,24 @@ def long_short_term_memory(
     # train
     trainer.fit(model, datamodule)
     loss = trainer.validate(model, datamodule)
-    trainer.test(model, datamodule)
 
-    out = model.test_classification
+    if test:
+        trainer.test(model, datamodule)
+        out = model.test_classification
+    else:
+        out = model.val_classification
+
     out["loss"] = loss
-
     return out
 
 
 def support_vector_machine(
-    train_dat: list[ExperimentData],
-    test_dat: list[ExperimentData],
-    summary: pd.DataFrame,
-    n_stat_mom: int,
-    svm_train_opt: dict,
-    random_state: int | None = None,
+        train_dat: list[ExperimentData],
+        test_dat: list[ExperimentData],
+        summary: pd.DataFrame,
+        n_stat_mom: int,
+        svm_train_opt: dict,
+        random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -801,7 +825,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
+                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y

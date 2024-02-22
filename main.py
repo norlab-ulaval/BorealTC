@@ -102,6 +102,9 @@ cnn_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 1.0,
     "gradient_threshold": 6,  # None to disable
+    "focal_loss": False,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2,
     "verbose": False,
 }
 
@@ -125,7 +128,10 @@ lstm_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 1.0,
     "gradient_threshold": 6,  # None to disable
-    "verbose": False,
+    "focal_loss": True,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2,
+    "verbose": True,
 }
 
 # CLSTM parameters
@@ -149,6 +155,9 @@ clstm_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 1.0,
     "gradient_threshold": 6,
+    "focal_loss": False,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2,
     "verbose": False,
 }
 
