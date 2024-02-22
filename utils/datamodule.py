@@ -71,7 +71,7 @@ class CustomDataModule(L.LightningDataModule):
     ):
         super().__init__()
         train_dataset = dataset_type(train_temporal, train_transform)
-        self.train_dataset, self.val_dataset = _split(train_dataset, valid_percent=0.1)
+        self.train_dataset, self.val_dataset = _split(train_dataset, valid_percent=valid_percent)
         self.test_dataset = dataset_type(test_temporal, test_transform)
 
         self.batch_size = batch_size

@@ -103,6 +103,7 @@ mamba_train_opt = {
     "reduce_lr_patience": 4,
     "valid_frequency": 100,
     "gradient_treshold": 6,  # None to disable
+    "focal_loss": True,
     "num_classes": len(terrains),
     "out_method": "last_state"
 }

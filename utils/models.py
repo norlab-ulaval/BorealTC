@@ -530,7 +530,6 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
         
-        # factory_kwargs = {"device": device, "dtype": dtype}
         self.fused_add_norm = fused_add_norm
         self.residual_in_fp32 = residual_in_fp32
 
@@ -551,7 +550,6 @@ class MambaTerrain(L.LightningModule):
                     residual_in_fp32=mamba_cfg.residual_in_fp32,
                     fused_add_norm=mamba_cfg.fused_add_norm,
                     layer_idx=idx,
-                    # **factory_kwargs
                 )
                 for idx in range(mamba_cfg.n_layer)
             ]
@@ -560,7 +558,6 @@ class MambaTerrain(L.LightningModule):
         self.norm_f = (nn.LayerNorm if not mamba_cfg.rms_norm else RMSNorm)(
             mamba_cfg.d_model,
             eps=norm_epsilon,
-            # **factory_kwargs
         )
 
         if out_method == 'flatten':
@@ -699,7 +696,11 @@ class MambaTerrain(L.LightningModule):
     def loss(self, y, target):
         if self.focal_loss:
             return tv.ops.sigmoid_focal_loss(
-                y, target, alpha=self.focal_loss_alpha, gamma=self.focal_loss_gamma
+                y,
+                F.one_hot(target, self.num_classes).to(torch.float),
+                alpha=self.focal_loss_alpha,
+                gamma=self.focal_loss_gamma,
+                reduction="sum"
             )
         return self.ce_loss(y, target)
 
@@ -832,6 +833,7 @@ def mamba_network(
     reduce_lr_patience = mamba_train_opt["reduce_lr_patience"]
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
+    focal_loss = mamba_train_opt["focal_loss"]
 
     num_workers = 8
     persistent_workers = True
@@ -858,6 +860,7 @@ def mamba_network(
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
+        focal_loss=focal_loss
     )
 
     exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}'
