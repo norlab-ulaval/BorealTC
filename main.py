@@ -100,7 +100,7 @@ cnn_train_opt = {
     "minibatch_size": 10,
     "valid_patience": 8,
     "reduce_lr_patience": 4,
-    "valid_frequency": 100,
+    "valid_frequency": 1.0,
     "gradient_threshold": 6,  # None to disable
     "verbose": False,
 }
@@ -123,7 +123,7 @@ lstm_train_opt = {
     "minibatch_size": 10,
     "valid_patience": 8,
     "reduce_lr_patience": 4,
-    "valid_frequency": 100,
+    "valid_frequency": 1.0,
     "gradient_threshold": 6,  # None to disable
     "verbose": False,
 }
@@ -147,7 +147,7 @@ clstm_train_opt = {
     "minibatch_size": 10,
     "valid_patience": 8,
     "reduce_lr_patience": 4,
-    "valid_frequency": 100,
+    "valid_frequency": 1.0,
     "gradient_threshold": 6,
     "verbose": False,
 }

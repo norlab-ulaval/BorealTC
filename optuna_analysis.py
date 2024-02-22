@@ -2,8 +2,11 @@ import optuna
 from optuna.visualization import plot_optimization_history, plot_intermediate_values
 
 if __name__ == "__main__":
-    name = "SVM_vulpi"
-    storage_name = f"sqlite:///results/optuna/{name}.db"
+    model = "CNN"
+    dataset = "husky"
+    name = f"{model}_{dataset}"
+    storage_name = f"sqlite:///results/{dataset}/optuna/{name}.db"
+    print(f"Loading study {name} from {storage_name}")
 
     sampler = optuna.samplers.RandomSampler(seed=420)
     study = optuna.create_study(

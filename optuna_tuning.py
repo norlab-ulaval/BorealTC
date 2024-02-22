@@ -90,7 +90,7 @@ def objective_cnn(trial: optuna.Trial):
         "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
-        "valid_frequency": 1,
+        "valid_frequency": None,
         "gradient_threshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
         ),
@@ -119,7 +119,7 @@ def objective_cnn(trial: optuna.Trial):
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
         random_state=RANDOM_STATE,
     )
-    return out["loss"]
+    return out["loss"][0]["val_loss_epoch"]
 
 
 def objective_lstm(trial: optuna.Trial):
@@ -140,7 +140,7 @@ def objective_lstm(trial: optuna.Trial):
         "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
-        "valid_frequency": 1,
+        "valid_frequency": None,
         "gradient_threshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
         ),
@@ -161,7 +161,7 @@ def objective_lstm(trial: optuna.Trial):
         dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
     )
-    return out["loss"]
+    return out["loss"][0]["val_loss_epoch"]
 
 
 def objective_svm(trial: optuna.Trial):
