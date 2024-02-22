@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from utils.transforms import merge_dfs
 
@@ -214,6 +214,44 @@ def partition_data(
         )
 
     return train_data, test_data
+
+
+def prepare_data_ordering(
+    train_data: ExperimentData,
+    test_data: ExperimentData,
+) -> Tuple[Dict[ExperimentData]]:
+    train_labels = train_data['imu'][:, 0, ch_cols["terr_idx"]]
+    test_labels = test_data['imu'][:, 0, ch_cols["terr_idx"]]
+
+    def _cleanup_data(data):
+        return data[:, :, 4:].astype(np.float32)
+
+    train_data['imu'] = _cleanup_data(train_data['imu'])
+    train_data['pro'] = _cleanup_data(train_data['pro'])
+    test_data['imu'] = _cleanup_data(test_data['imu'])
+    test_data['pro'] = _cleanup_data(test_data['pro'])
+
+    def _order_data(data):
+        imu_time = data['imu'][:, :, 0]
+        pro_time = data['pro'][:, :, 0]
+        imu_pro_ordering = np.hstack([imu_time, pro_time])
+
+        return imu_pro_ordering.argsort(axis=1)
+
+    train_order = _order_data(train_data)
+    test_order = _order_data(test_data)
+
+    return dict(
+        imu=train_data['imu'][:, :, 1:],
+        pro=train_data['pro'][:, :, 1:],
+        labels=train_labels,
+        order=train_order,
+    ), dict(
+        imu=test_data['imu'][:, :, 1:],
+        pro=test_data['pro'][:, :, 1:],
+        labels=test_labels,
+        order=test_order,
+    )
 
 
 def augment_data(

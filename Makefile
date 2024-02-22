@@ -17,7 +17,7 @@ run-gpu: build-gpu
 	  terrain-gpu python3 main.py
 
 log:
-	xdg-open http://localhost:6006 && tensorboard --logdir .
+	xdg-open http://localhost:6006 && tensorboard --logdir tb_logs
 
 watch-results:
 	watch "(ls results/husky/ && ls results/vulpi/) | wc"

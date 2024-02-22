@@ -7,7 +7,7 @@ import numpy as np
 import pipeline as pp
 from torch.utils.data import random_split, DataLoader
 
-from utils.dataset import RawVulpiDataset, MCSDataset, TemporalDataset
+from utils.dataset import RawVulpiDataset, MCSDataset, TemporalDataset, MambaDataset
 
 
 def _split(dataset, valid_percent: float):
@@ -167,6 +167,31 @@ class MCSDataModule(CustomDataModule):
             train_transform,
             test_transform,
             train_data_augmentation,
+            valid_percent,
+            batch_size,
+            num_workers,
+            persistent_workers,
+        )
+
+
+class MambaDataModule(CustomDataModule):
+    def __init__(
+        self,
+        train_temporal,
+        test_temporal,
+        train_transform: Optional[Callable] = None,
+        test_transform: Optional[Callable] = None,
+        valid_percent: float = 0.1,
+        batch_size: int = 32,
+        num_workers: int = 8,
+        persistent_workers: bool = True,
+    ):
+        super().__init__(
+            MambaDataset,
+            train_temporal,
+            test_temporal,
+            train_transform,
+            test_transform,
             valid_percent,
             batch_size,
             num_workers,
