@@ -1,4 +1,5 @@
 import os
+import pathlib
 from pathlib import Path
 
 import numpy as np
@@ -191,7 +192,9 @@ def objective_svm(trial: optuna.Trial):
 model = os.environ.get("MODEL", "SVM")  # 'SVM', 'CNN', 'LSTM'
 IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
-storage_name = f"sqlite:///results/{DATASET}/optuna/{study_name}.db"
+optuna_path = pathlib.Path(f"results/{DATASET}/optuna")
+optuna_path.mkdir(parents=True, exist_ok=True)
+storage_name = f"sqlite:///{optuna_path}/{study_name}.db"
 
 OBJECTIVE = None
 if model == "CNN":
@@ -221,7 +224,10 @@ if IMP_ANALYSIS:
 else:
     pruner = optuna.pruners.HyperbandPruner()
     study = optuna.create_study(
-        study_name=study_name, storage=storage_name, load_if_exists=True
+        study_name=study_name,
+        storage=storage_name,
+        load_if_exists=True,
+        pruner=pruner,
     )
     study.optimize(OBJECTIVE, n_trials=500, catch=(RuntimeError,))
 
