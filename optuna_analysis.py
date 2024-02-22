@@ -3,7 +3,7 @@ from optuna.visualization import plot_optimization_history, plot_intermediate_va
 
 if __name__ == "__main__":
     model = "CNN"
-    dataset = "husky"
+    dataset = "vulpi"
     name = f"{model}_{dataset}"
     storage_name = f"sqlite:///results/{dataset}/optuna/{name}.db"
     print(f"Loading study {name} from {storage_name}")

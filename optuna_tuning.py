@@ -190,7 +190,7 @@ def objective_svm(trial: optuna.Trial):
     return loss
 
 
-model = os.environ.get("MODEL", "SVM")  # 'SVM', 'CNN', 'LSTM'
+model = os.environ.get("MODEL", "LSTM")  # 'SVM', 'CNN', 'LSTM'
 IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
 optuna_path = pathlib.Path(f"results/{DATASET}/optuna")

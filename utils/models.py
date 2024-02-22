@@ -91,7 +91,7 @@ class LSTMTerrain(L.LightningModule):
             dropout=dropout,
             bidirectional=bidirectional,
         )
-        self.fc = nn.Linear(hidden_size * (2 if bidirectional else 1), num_classes)
+        self.fc = nn.Linear(hidden_size * (2 if bidirectional else 1) * num_layers, num_classes)
         self.softmax = nn.Softmax(dim=1)
 
         self.ce_loss = nn.CrossEntropyLoss(
@@ -157,7 +157,7 @@ class LSTMTerrain(L.LightningModule):
             x = self.fc_conv(x)
 
         output, (hn, cn) = self.rnn(x)
-        x = torch.flatten(hn, start_dim=0, end_dim=1)
+        x = ein.rearrange(hn, "l n c -> n (l c)")
         x = self.fc(x)
         return x
 
