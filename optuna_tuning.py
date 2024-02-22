@@ -9,6 +9,11 @@ from optuna.integration import PyTorchLightningPruningCallback
 
 from utils import models, preprocessing
 
+try:
+    from mamba_ssm.models.config_mamba import MambaConfig
+except ImportError:
+    MambaConfig = None
+
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
@@ -49,7 +54,7 @@ PART_WINDOW = 5  # seconds
 MOVING_WINDOW = 1.5
 
 # Data partition and sample extraction
-train, test = preprocessing.partition_data(
+train_folds, test_folds = preprocessing.partition_data(
     terr_dfs,
     summary,
     PART_WINDOW,
@@ -62,9 +67,9 @@ train, test = preprocessing.partition_data(
 STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
 
-aug_train, aug_test = preprocessing.augment_data(
-    train,
-    test,
+aug_train_folds, aug_test_folds = preprocessing.augment_data(
+    train_folds,
+    test_folds,
     summary,
     moving_window=MOVING_WINDOW,
     stride=STRIDE,
@@ -103,8 +108,8 @@ def objective_cnn(trial: optuna.Trial):
         train_mcs_folds,
         test_mcs_folds,
     ) = preprocessing.apply_multichannel_spectogram(
-        aug_train,
-        aug_test,
+        aug_train_folds,
+        aug_test_folds,
         summary,
         MOVING_WINDOW,
         cnn_par["time_window"],
@@ -124,6 +129,61 @@ def objective_cnn(trial: optuna.Trial):
         test=False
     )
     return (out["pred"] == out["true"]).mean().item()
+
+
+def objective_mamba(trial: optuna.Trial):
+    mamba_par = {
+        "num_branches": trial.suggest_int("num_branches", 1, 16),
+        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-1, 1e-8, log=True) # 1e-5
+    }
+
+    ssm_cfg = {
+        "d_state": trial.suggest_int("d_state", 4, 128, step=4),
+        "d_conv": trial.suggest_int("d_conv", 2, 32, step=2),
+        "expand": trial.suggest_int("expand", 2, 16, step=2),
+    }
+
+    mamba_cfg = MambaConfig(
+        d_model=trial.suggest_int("d_model", 4, 128, step=4),
+        n_layer=4,
+        ssm_cfg=ssm_cfg,
+    )
+
+    mamba_train_opt = {
+        "valid_perc": 0.1,
+        "init_learn_rate": 0.0005,
+        "learn_drop_factor": 0.1,
+        "max_epochs": 150,
+        "minibatch_size": 10,
+        "valid_patience": 8,
+        "reduce_lr_patience": 4,
+        "valid_frequency": 100,
+        "gradient_treshold": 6,  # None to disable
+        "focal_loss": True,
+        "num_classes": NUM_CLASSES,
+        "out_method": "last_state" # "flatten", "max_pool", "last_state"
+    }
+
+    results = {}
+    results_per_fold = []
+
+    for k in range(3):
+        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
+
+        out = models.mamba_network(
+            aug_train_fold,
+            aug_test_fold,
+            mamba_par,
+            mamba_train_opt,
+            mamba_cfg,
+            dict(mw=MOVING_WINDOW, fold=k+1)
+        )
+        results_per_fold.append(out)
+    
+    results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+    results["true"] = np.hstack([r["true"] for r in results_per_fold])
+
+    return (results["pred"] == results["true"]).mean().item()
 
 
 def objective_lstm(trial: optuna.Trial):
@@ -153,8 +213,8 @@ def objective_lstm(trial: optuna.Trial):
     }
 
     train_ds_folds, test_ds_folds = preprocessing.downsample_data(
-        aug_train,
-        aug_test,
+        aug_train_folds,
+        aug_test_folds,
         summary,
     )
     k = 1
@@ -185,8 +245,8 @@ def objective_svm(trial: optuna.Trial):
         "coding": "onevsone",
     }
     results = models.support_vector_machine(
-        aug_train,
-        aug_test,
+        aug_train_folds,
+        aug_test_folds,
         summary,
         svm_par["n_stat_mom"],
         svm_train_opt,
