@@ -117,6 +117,7 @@ def objective_cnn(trial: optuna.Trial):
         cnn_train_opt,
         dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
+        random_state=RANDOM_STATE,
     )
     return out["loss"]
 
@@ -195,6 +196,7 @@ study_name = f"{model}_{DATASET}"
 optuna_path = pathlib.Path(f"results/{DATASET}/optuna")
 optuna_path.mkdir(parents=True, exist_ok=True)
 storage_name = f"sqlite:///{optuna_path}/{study_name}.db"
+print(f"Using database {storage_name}")
 
 OBJECTIVE = None
 if model == "CNN":
