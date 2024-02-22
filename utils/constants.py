@@ -7,6 +7,19 @@ imu_dim = 6
 pro_dim = 4
 
 
+PLOTCOLORS = {
+    "asphalt": "xkcd:dark grey",
+    "flooring": "xkcd:bright lilac",
+    "ice": "#067d77",
+    "sandy loam": "xkcd:dark orange",
+    "snow": "xkcd:cerulean",
+    "concrete": "#4248ad",
+    "dirt road": "xkcd:burnt sienna",
+    "ploughed": "xkcd:grass green",
+    "unploughed": "xkcd:denim blue",
+}
+
+
 class HuskyConstants:
     # Data from Reina2016 + Manufacturer specs
     # https://doi.org/10.1080/00423114.2016.1203961

@@ -115,6 +115,20 @@ def motion_power(df: pd.DataFrame) -> pd.Series:
     return P_motion
 
 
+def unicycle_model(df: pd.DataFrame) -> Tuple[pd.Series]:
+    """Compute unicycle model
+
+    Args:
+        df (pd.DataFrame): Proprioceptive DataFrame
+
+    Returns:
+        Tuple[pd.Series]: Linear and angular velocities
+    """
+    vx = (df.velL + df.velR) / 2
+    wz = (df.velR - df.velL) / HuskyConstants.ugv_Bs
+    return vx, wz
+
+
 def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
     """Apply SSMR power model
 
