@@ -22,8 +22,7 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
-from mamba_ssm.models.config_mamba import MambaConfig
-from mamba_ssm.models.mixer_seq_simple import create_block
+
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -33,11 +32,14 @@ from utils.constants import ch_cols, imu_dim, pro_dim
 from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
 
 try:
+    from mamba_ssm.models.mixer_seq_simple import create_block
     from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
 except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 if TYPE_CHECKING:
+    from mamba_ssm.models.config_mamba import MambaConfig
+
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 
@@ -99,7 +101,9 @@ class LSTMTerrain(L.LightningModule):
             dropout=dropout,
             bidirectional=bidirectional,
         )
-        self.fc = nn.Linear(hidden_size * (2 if bidirectional else 1) * num_layers, num_classes)
+        self.fc = nn.Linear(
+            hidden_size * (2 if bidirectional else 1) * num_layers, num_classes
+        )
         self.softmax = nn.Softmax(dim=1)
 
         self.ce_loss = nn.CrossEntropyLoss(
@@ -172,9 +176,11 @@ class LSTMTerrain(L.LightningModule):
     def loss(self, y, target):
         if self.focal_loss:
             return tv.ops.sigmoid_focal_loss(
-                y, F.one_hot(target, self.num_classes).to(torch.float), alpha=self.focal_loss_alpha,
-                reduction='mean',
-                gamma=self.focal_loss_gamma
+                y,
+                F.one_hot(target, self.num_classes).to(torch.float),
+                alpha=self.focal_loss_alpha,
+                reduction="mean",
+                gamma=self.focal_loss_gamma,
             )
         return self.ce_loss(y, target)
 
@@ -391,8 +397,10 @@ class CNNTerrain(L.LightningModule):
     def loss(self, y, target):
         if self.focal_loss:
             return tv.ops.sigmoid_focal_loss(
-                y, F.one_hot(target, self.num_classes).to(torch.float), alpha=self.focal_loss_alpha,
-                reduction='mean',
+                y,
+                F.one_hot(target, self.num_classes).to(torch.float),
+                alpha=self.focal_loss_alpha,
+                reduction="mean",
             )
         return self.ce_loss(y, target)
 
@@ -532,7 +540,7 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss = focal_loss
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
-        
+
         self.fused_add_norm = fused_add_norm
         self.residual_in_fp32 = residual_in_fp32
 
@@ -563,17 +571,17 @@ class MambaTerrain(L.LightningModule):
             eps=norm_epsilon,
         )
 
-        if out_method == 'flatten':
+        if out_method == "flatten":
             self.flatten = nn.Flatten()
             self.fc = nn.Linear(in_size * mamba_cfg.d_model * num_branches, num_classes)
             self.out_layer = self._out_layer_flatten
 
-        elif out_method == 'max_pool':
+        elif out_method == "max_pool":
             self.max_pool = nn.MaxPool1d(kernel_size=in_size)
             self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
             self.out_layer = self._out_layer_max_pool
 
-        elif out_method == 'last_state':
+        elif out_method == "last_state":
             self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
             self.out_layer = self._out_layer_last_state
 
@@ -619,9 +627,7 @@ class MambaTerrain(L.LightningModule):
     @property
     def val_classification(self):
         return (
-            self._val_classifications[-2]
-            if len(self._val_classifications) > 1
-            else {}
+            self._val_classifications[-2] if len(self._val_classifications) > 1 else {}
         )
 
     @property
@@ -656,14 +662,14 @@ class MambaTerrain(L.LightningModule):
         x = self.flatten(x)
         x = self.fc(x)
         return x
-    
+
     def _out_layer_max_pool(self, x):
         x = x.transpose(1, 2)
         x = self.max_pool(x)
         x = x.squeeze(dim=2)
         x = self.fc(x)
         return x
-    
+
     def _out_layer_last_state(self, x):
         x = x[:, -1]
         x = self.fc(x)
@@ -676,16 +682,20 @@ class MambaTerrain(L.LightningModule):
 
         for branch_idx in range(self.num_branches):
             x_branch, r_branch = x.clone(), None
-            
+
             for layer_idx in range(self.num_layers):
-                x_branch, r_branch = self.mamba_blocks[branch_idx * self.num_layers + layer_idx](x_branch, r_branch)
-            
+                x_branch, r_branch = self.mamba_blocks[
+                    branch_idx * self.num_layers + layer_idx
+                ](x_branch, r_branch)
+
             if not self.fused_add_norm:
                 r_branch = (x_branch + r_branch) if r_branch is not None else x_branch
                 x_branch = self.norm_f(r_branch.to(dtype=self.norm_f.weight.dtype))
             else:
                 # Set prenorm=False here since we don't need the residual
-                fused_add_norm_fn = rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
+                fused_add_norm_fn = (
+                    rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
+                )
                 x_branch = fused_add_norm_fn(
                     x_branch,
                     self.norm_f.weight,
@@ -710,7 +720,7 @@ class MambaTerrain(L.LightningModule):
                 F.one_hot(target, self.num_classes).to(torch.float),
                 alpha=self.focal_loss_alpha,
                 gamma=self.focal_loss_gamma,
-                reduction="mean"
+                reduction="mean",
             )
         return self.ce_loss(y, target)
 
@@ -872,7 +882,7 @@ def mamba_network(
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
-        focal_loss=focal_loss
+        focal_loss=focal_loss,
     )
 
     exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}'
@@ -911,14 +921,14 @@ def mamba_network(
 
 
 def convolutional_neural_network(
-        train_data: list[ExperimentData],
-        test_data: list[ExperimentData],
-        cnn_par: dict,
-        cnn_train_opt: dict,
-        description: dict,
-        custom_callbacks=None,
-        random_state: int | None = None,
-        test: bool = True,
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    cnn_par: dict,
+    cnn_train_opt: dict,
+    description: dict,
+    custom_callbacks=None,
+    random_state: int | None = None,
+    test: bool = True,
 ) -> dict:
     # Seed
     L.seed_everything(random_state)
@@ -1037,13 +1047,13 @@ def convolutional_neural_network(
 
 
 def long_short_term_memory(
-        train_data: list[ExperimentData],
-        test_data: list[ExperimentData],
-        lstm_par: dict,
-        lstm_train_opt: dict,
-        description: dict,
-        custom_callbacks=None,
-        test: bool = True,
+    train_data: list[ExperimentData],
+    test_data: list[ExperimentData],
+    lstm_par: dict,
+    lstm_train_opt: dict,
+    description: dict,
+    custom_callbacks=None,
+    test: bool = True,
 ) -> dict:
     if custom_callbacks is None:
         custom_callbacks = []
