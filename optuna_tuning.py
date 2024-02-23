@@ -293,6 +293,7 @@ if IMP_ANALYSIS:
 else:
     pruner = optuna.pruners.HyperbandPruner()
     study = optuna.create_study(
+        direction="maximize",
         study_name=study_name,
         storage=storage_name,
         load_if_exists=True,
