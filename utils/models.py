@@ -995,8 +995,9 @@ def convolutional_neural_network(
     train_data_augmentation = pp.Bifunctor(
         pp.Compose([
             # SpectralCutout(p_apply=0.5, num_mask=1, max_size=20),
-            SpectralAxialCutout(p_apply=0.5, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=2),
-            to_f32
+            # SpectralAxialCutout(p_apply=0.5, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=2),
+            # to_f32
+            pp.Identity()
         ]),
         pp.Identity()
     )

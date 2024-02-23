@@ -95,6 +95,7 @@ cnn_par = {
 }
 
 cnn_train_opt = {
+    "hamming": True,
     "valid_perc": 0.1,
     "init_learn_rate": 0.005,
     "learn_drop_factor": 0.1,
@@ -198,7 +199,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_augm1_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_hamming_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -217,7 +218,7 @@ for mw in MOVING_WINDOWS:
                 mw,
                 cnn_par["time_window"],
                 cnn_par["time_overlap"],
-                hamming=False,
+                hamming=cnn_train_opt["hamming"],
             )
             results_per_fold = []
             maxs = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').max(axis=0) for idx in range(N_FOLDS)]).max(axis=0)
