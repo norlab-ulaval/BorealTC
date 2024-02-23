@@ -28,7 +28,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from utils.augmentations import NormalizeMCS, SpectralCutout, SpectralAxialCutout
+from utils.augmentations import NormalizeMCS, SpectralCutout, SpectralAxialCutout, SpectralNoise
 from utils.constants import ch_cols
 from utils.datamodule import MCSDataModule, TemporalDataModule
 from utils.constants import ch_cols, imu_dim, pro_dim
@@ -974,6 +974,7 @@ def convolutional_neural_network(
     dropout = cnn_train_opt.get("dropout", 0.0)
     _, n_freq, n_wind, in_size = train_data["data"].shape
     scheduler = cnn_train_opt.get("scheduler", "plateau")
+    use_augmentation = cnn_train_opt.get("use_augmentation", False)
     num_workers = 0
     persistent_workers = False
     verbose = cnn_train_opt.get("verbose", True)
@@ -992,14 +993,21 @@ def convolutional_neural_network(
         pp.Compose([transpose, NormalizeMCS(mins, maxs), to_f32]),
         pp.Identity(),
     )
-    train_data_augmentation = pp.Bifunctor(
-        pp.Compose([
-            # SpectralCutout(p_apply=0.5, num_mask=1, max_size=20),
-            SpectralAxialCutout(p_apply=0.5, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=2),
-            to_f32
-        ]),
-        pp.Identity()
-    )
+    if use_augmentation:
+        train_data_augmentation = pp.Bifunctor(
+            pp.Compose([
+                SpectralNoise(p_apply=0.3, noise_level=0.05),
+                SpectralCutout(p_apply=0.25, num_mask=4, max_size=4),
+                SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=5),
+                SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.FREQUENCY, max_num_cut=5),
+                SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.TIME, max_num_cut=2),
+                to_f32
+            ]),
+            pp.Identity()
+        )
+    else:
+        train_data_augmentation = pp.Identity()
+
     datamodule = MCSDataModule(
         train_data,
         test_data,

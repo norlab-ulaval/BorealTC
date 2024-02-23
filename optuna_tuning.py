@@ -102,6 +102,8 @@ def objective_cnn(trial: optuna.Trial):
         "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
+        "dropout": trial.suggest_float("dropout", 0.0, 0.5),
+        "use_augmentation": trial.suggest_categorical("use_augmentation", [True, False])
     }
 
     (

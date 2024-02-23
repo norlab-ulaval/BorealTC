@@ -91,7 +91,7 @@ cnn_par = {
     "time_window": 0.4,
     "time_overlap": 0.2,
     "filter_size": [3, 3],
-    "num_filters": 16,
+    "num_filters": 16 * 2,
 }
 
 cnn_train_opt = {
@@ -110,6 +110,7 @@ cnn_train_opt = {
     "focal_loss_gamma": 2,
     "verbose": True,
     "dropout": 0.0,
+    "use_augmentation": False,
 }
 
 # LSTM parameters
@@ -198,7 +199,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_augm1_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_augm4_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
