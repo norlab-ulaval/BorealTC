@@ -974,9 +974,15 @@ def convolutional_neural_network(
     dropout = cnn_train_opt.get("dropout", 0.0)
     _, n_freq, n_wind, in_size = train_data["data"].shape
     scheduler = cnn_train_opt.get("scheduler", "plateau")
+
+    checkpoint_path = cnn_train_opt.get("checkpoint_path", None)
+    overwrite_final_layer_dim = cnn_train_opt.get("overwrite_final_layer_dim", None)
+
     num_workers = 0
     persistent_workers = False
     verbose = cnn_train_opt.get("verbose", True)
+
+
 
     def to_f32(x):
         return x.astype(np.float32)

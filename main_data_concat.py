@@ -1,21 +1,3 @@
-"""
-AUTHOR INFORMATION AND SCRIPT OVERVIEW, V1.0, 12/2020
-Author:________________________________________Fabio Vulpi (Github: Ph0bi0)
-
-                                 PhD student at Polytechnic of Bari (Italy)
-                     Researcher at National Research Council of Italy (CNR)
-
-This is the main script to train and test deep terrain classification
-models:
-- Convolutional Neural Network (CNN)
-- Long Short-Term Memory recurrent neural network (LSTM)
-- Convolutional Long Short-Term Memory recurrent neural network (CLSTM)
-
-The script also uses a state of the art Support Vector Machine (SVM) as
-benchmark
--------------------------------------------------------------------------
-"""
-
 import os
 from pathlib import Path
 
@@ -24,16 +6,14 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
+from utils.preprocessing import merge_terr_dfs
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
-if DATASET == "husky":
-    csv_dir = cwd / "norlab-data"
-elif DATASET == "vulpi":
-    csv_dir = cwd / "data"
+husky_csv_dir = cwd / "norlab-data"
+vulpi_csv_dir = cwd / "data"
 
 mat_dir = cwd / "datasets"
-results_dir = cwd / "results" / DATASET
+results_dir = cwd / "results" / "data_concat"
 results_dir.mkdir(parents=True, exist_ok=True)
 
 RANDOM_STATE = 21
@@ -55,10 +35,14 @@ columns = {
         "curR": True,
     },
 }
-summary = pd.DataFrame({"columns": pd.Series(columns)})
+summary_husky = pd.DataFrame({"columns": pd.Series(columns)})
+summary_vulpi = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+husky_terr_dfs = preprocessing.get_recordings(husky_csv_dir, summary_husky)
+vulpi_terr_dfs = preprocessing.get_recordings(vulpi_csv_dir, summary_vulpi)
+
+terr_dfs = merge_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi)
 
 # Set data partition parameters
 NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))

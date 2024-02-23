@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from scipy.interpolate import CubicSpline
+from sklearn.model_selection import StratifiedKFold
 
 from utils.transforms import merge_dfs
 
@@ -19,8 +20,8 @@ from utils.constants import ch_cols
 
 
 def get_recordings(
-    data_dir: Path,
-    summary: pd.DataFrame,
+        data_dir: Path,
+        summary: pd.DataFrame,
 ) -> ExperimentData:
     """Extract data from CSVs in data_dir and filter out the columns with `channels`
 
@@ -92,12 +93,75 @@ def get_recordings(
     return sensor_dfs
 
 
+def merge_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi):
+    h_imu = husky_terr_dfs['imu']
+    v_imu = vulpi_terr_dfs['imu']
+    h_pro = husky_terr_dfs['pro']
+    v_pro = vulpi_terr_dfs['pro']
+    h_terrains = sorted(h_imu.terrain.unique().tolist())
+    v_terrains = sorted(v_imu.terrain.unique().tolist())
+    all_terrain = h_terrains + v_terrains
+
+    # Downsample Husky IMU to 100Hz
+    imu_merged = []
+    summary_husky.loc['sampling_freq', 'imu'] = 50
+    for terr in h_terrains:
+        terrdat = {sens: sdata[sdata.terrain == terr] for sens, sdata in husky_terr_dfs.items()}
+
+        hf_terr = terrdat['imu']
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            exps = {
+                sens: sdata[sdata.run_idx == exp_idx].copy().reset_index(drop=True)
+                for sens, sdata in terrdat.items()
+            }
+
+            imu_merged.append(downsample_imu_husky(exps, husky_terr_dfs))
+    h_imu_downsampled = pd.concat(imu_merged, ignore_index=True)
+
+    # Downsample vulpi pro to 6.5Hz
+    pro_merged = []
+    summary_vulpi.loc['sampling_freq', 'pro'] = 6.5
+    for terr in v_terrains:
+        terrdat = {sens: sdata[sdata.terrain == terr] for sens, sdata in vulpi_terr_dfs.items()}
+
+        hf_terr = terrdat['pro']
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            exps = {
+                sens: sdata[sdata.run_idx == exp_idx].copy().reset_index(drop=True)
+                for sens, sdata in terrdat.items()
+            }
+
+            pro_merged.append(downsample_pro_vulpi(exps, vulpi_terr_dfs))
+
+    return
+
+
+def downsample_imu_husky(exps, hf_sensor):
+    return exps['imu'].loc[::2]
+
+
+def downsample_pro_vulpi(exps, hf_sensor):
+    pro = exps['pro']
+    t = pro['time']
+    cols = [c for c in pro.columns if c not in ['time', 'terrain', 'run_idx']]
+    fs = {c: CubicSpline(t, pro[c]) for c in cols}
+    inter_time = np.arange(t.min(), t.max() + 1, 1 / 6.5)
+
+    int_df = exps['pro'][['time']].copy()
+    for c, func in fs.items():
+        int_df[c] = func(int_df)
+    exps['pro'] = int_df
+    return exps['pro']
+
+
 def partition_data(
-    data: ExperimentData,
-    summary: pd.DataFrame,
-    partition_duration: float,
-    n_splits: int | None = 5,
-    random_state: int | None = None,
+        data: ExperimentData,
+        summary: pd.DataFrame,
+        partition_duration: float,
+        n_splits: int | None = 5,
+        random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
 
@@ -217,8 +281,8 @@ def partition_data(
 
 
 def prepare_data_ordering(
-    train_data: ExperimentData,
-    test_data: ExperimentData,
+        train_data: ExperimentData,
+        test_data: ExperimentData,
 ) -> Tuple[Dict[ExperimentData]]:
     train_labels = train_data['imu'][:, 0, ch_cols["terr_idx"]]
     test_labels = test_data['imu'][:, 0, ch_cols["terr_idx"]]
@@ -255,12 +319,12 @@ def prepare_data_ordering(
 
 
 def augment_data(
-    train_dat,
-    test_dat,
-    summary,
-    moving_window: float,
-    stride: float,
-    homogeneous: bool,
+        train_dat,
+        test_dat,
+        summary,
+        moving_window: float,
+        stride: float,
+        homogeneous: bool,
 ) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
@@ -367,7 +431,7 @@ def augment_data(
                 lf_time = lf_terr[0, :, ch_cols["time"]]
                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
                 lf_sli = [
-                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+                    lf_terr[:, lf_sli_idx: (lf_sli_idx + lf_win), :]
                     for lf_sli_idx in indices
                 ]
                 lf_sli = np.vstack(lf_sli)
@@ -387,13 +451,13 @@ def augment_data(
 
 
 def apply_multichannel_spectogram(
-    train_dat: List[ExperimentData],
-    test_dat: List[ExperimentData],
-    summary: pd.DataFrame,
-    moving_window: float,
-    time_window: float,
-    time_overlap: float,
-    hamming: bool = False,
+        train_dat: List[ExperimentData],
+        test_dat: List[ExperimentData],
+        summary: pd.DataFrame,
+        moving_window: float,
+        time_window: float,
+        time_overlap: float,
+        hamming: bool = False,
 ) -> Tuple[List[ExperimentData]]:
     tw = time_window
     to = time_overlap
@@ -426,9 +490,9 @@ def apply_multichannel_spectogram(
 
 
 def downsample_data(
-    train_dat: List[ExperimentData],
-    test_dat: List[ExperimentData],
-    summary: pd.DataFrame,
+        train_dat: List[ExperimentData],
+        test_dat: List[ExperimentData],
+        summary: pd.DataFrame,
 ) -> Tuple[List[ExperimentData]]:
     # Highest sampling frequency
     lf_sensor = summary["sampling_freq"].idxmin()
@@ -466,9 +530,9 @@ def downsample_data(
 
 
 def merge_upsample(
-    data: ExperimentData,
-    summary: pd.DataFrame,
-    mode: Literal["interpolation", "last"] = "interpolation",
+        data: ExperimentData,
+        summary: pd.DataFrame,
+        mode: Literal["interpolation", "last"] = "interpolation",
 ) -> pd.DataFrame:
     """Upsample and merge low frequency sensors
 
