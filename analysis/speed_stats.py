@@ -46,10 +46,10 @@ husk_metrics = {}
 for terr in husky_pro.terrain.unique():
     terr_dat = husky_pro[husky_pro.terrain == terr]
     terr_metrics = {
-        "iqr-wz": stats.iqr(terr_dat.wz),
-        "med-wz": np.median(terr_dat.wz),
-        "iqr-vx": stats.iqr(terr_dat.vx),
-        "med-vx": np.median(terr_dat.vx),
+        "iqr-wz": stats.iqr(terr_dat.wz.abs()),
+        "med-wz": np.median(terr_dat.wz.abs()),
+        "iqr-vx": stats.iqr(terr_dat.vx.abs()),
+        "med-vx": np.median(terr_dat.vx.abs()),
     }
     husk_metrics[terr] = terr_metrics
 
@@ -57,10 +57,10 @@ vulp_metrics = {}
 for terr in vulpi_pro.terrain.unique():
     terr_dat = vulpi_pro[vulpi_pro.terrain == terr]
     terr_metrics = {
-        "iqr-wz": stats.iqr(terr_dat.wz),
-        "med-wz": np.median(terr_dat.wz),
-        "iqr-vx": stats.iqr(terr_dat.vx),
-        "med-vx": np.median(terr_dat.vx),
+        "iqr-wz": stats.iqr(terr_dat.wz.abs()),
+        "med-wz": np.median(terr_dat.wz.abs()),
+        "iqr-vx": stats.iqr(terr_dat.vx.abs()),
+        "med-vx": np.median(terr_dat.vx.abs()),
     }
     vulp_metrics[terr] = terr_metrics
 
