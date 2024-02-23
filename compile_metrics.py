@@ -3,7 +3,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import scipy.io as scio
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    average_precision_score,
+)
 
 res_dir = Path("results")
 met_dir = Path("metrics")
@@ -16,6 +22,7 @@ def p(n: float, factor: int = 100) -> float:
 
 def process_results(res_path: Path):
     dataset = res_path.parent.stem
+    # TODO: Add augmented data
     _, model, _, mw, *_ = res_path.stem.split("_")
     win = int(p(float(mw), 1000))
 
@@ -32,6 +39,8 @@ def process_results(res_path: Path):
     else:
         ypred = idxpred
         ytest = idxtest
+
+    terr_idx = {t: i for i, t in enumerate(terrains)}
 
     acc = accuracy_score(
         ytest,
@@ -55,12 +64,18 @@ def process_results(res_path: Path):
         labels=terrains,
         average=None,
     )
+    ap = average_precision_score(
+        np.array([terr_idx[y] for y in ytest]).reshape(-1, 1),
+        np.array([terr_idx[y] for y in ypred]).reshape(-1, 1),
+        average=None,
+    ).item()
 
     metdat = met_dir / dataset
     metdat.mkdir(parents=True, exist_ok=True)
     fname = metdat / f"{model}-{win}.dat"
     with open(fname, "w", encoding="utf-8") as f:
         print(f"acc = {p(acc):.2f}", file=f)
+        print(f"ap = {p(ap):.2f}", file=f)
         for idx, terr in enumerate(terrains):
             t = terr[:3]
             print(f"p-{t} = {p(prec[idx]):.2f}", file=f)
