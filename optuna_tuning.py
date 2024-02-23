@@ -53,28 +53,10 @@ N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOW = 1.5
 
-# Data partition and sample extraction
-train_folds, test_folds = preprocessing.partition_data(
-    terr_dfs,
-    summary,
-    PART_WINDOW,
-    N_FOLDS,
-    random_state=RANDOM_STATE,
-)
-
 # merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
 STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
-
-aug_train_folds, aug_test_folds = preprocessing.augment_data(
-    train_folds,
-    test_folds,
-    summary,
-    moving_window=MOVING_WINDOW,
-    stride=STRIDE,
-    homogeneous=HOMOGENEOUS_AUGMENTATION,
-)
 
 
 def objective_cnn(trial: optuna.Trial):
@@ -167,6 +149,24 @@ def objective_mamba(trial: optuna.Trial):
         "num_classes": NUM_CLASSES,
         "out_method": trial.suggest_categorical("out_method", ["flatten", "max_pool", "last_state"])
     }
+
+    # Data partition and sample extraction
+    train_folds, test_folds = preprocessing.partition_data(
+        terr_dfs,
+        summary,
+        PART_WINDOW,
+        N_FOLDS,
+        random_state=RANDOM_STATE,
+    )
+
+    aug_train_folds, aug_test_folds = preprocessing.augment_data(
+        train_folds,
+        test_folds,
+        summary,
+        moving_window=MOVING_WINDOW,
+        stride=STRIDE,
+        homogeneous=HOMOGENEOUS_AUGMENTATION,
+    )
 
     k = 1
     aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
