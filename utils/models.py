@@ -834,11 +834,20 @@ def mamba_network(
     mamba_train_opt: dict,
     mamba_cfg: MambaConfig,
     description: dict,
+    custom_callbacks=None,
+    random_state: int | None = None,
+    test: bool = True,
 ) -> dict:
+    # Seed
+    L.seed_everything(random_state)
+
     # Mamba parameters
+    if custom_callbacks is None:
+        custom_callbacks = []
     in_size = len(train_data["order"][0])
     out_method = mamba_train_opt["out_method"]
     num_classes = mamba_train_opt["num_classes"]
+    dataset = description["dataset"]
     num_branches = mamba_par["num_branches"]
     norm_epsilon = mamba_par["norm_epsilon"]
     fused_add_norm = mamba_cfg.fused_add_norm
@@ -855,6 +864,8 @@ def mamba_network(
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
     focal_loss = mamba_train_opt["focal_loss"]
+    focal_loss_alpha = mamba_train_opt["focal_loss_alpha"]
+    focal_loss_gamma = mamba_train_opt["focal_loss_gamma"]
 
     num_workers = 8
     persistent_workers = True
@@ -883,9 +894,11 @@ def mamba_network(
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
         focal_loss=focal_loss,
+        focal_loss_alpha=focal_loss_alpha,
+        focal_loss_gamma=focal_loss_gamma
     )
 
-    exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}'
+    exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = pathlib.Path("checkpoints")
@@ -910,14 +923,21 @@ def mamba_network(
                 save_last=True,
                 mode="min",
             ),
+            *custom_callbacks,
         ],
     )
     # train
     trainer.fit(model, datamodule)
-    trainer.validate(model, datamodule)
-    trainer.test(model, datamodule)
+    loss = trainer.validate(model, datamodule)
 
-    return model.test_classification
+    if test:
+        trainer.test(model, datamodule)
+        out = model.test_classification
+    else:
+        out = model.val_classification
+
+    out["loss"] = loss
+    return out
 
 
 def convolutional_neural_network(

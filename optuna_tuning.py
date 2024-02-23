@@ -133,19 +133,19 @@ def objective_cnn(trial: optuna.Trial):
 
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
-        "num_branches": trial.suggest_int("num_branches", 1, 16),
+        "num_branches": trial.suggest_int("num_branches", 1, 8),
         "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
     }
 
     ssm_cfg = {
         "d_state": trial.suggest_int("d_state", 4, 128, step=4),
-        "d_conv": trial.suggest_int("d_conv", 2, 32, step=2),
-        "expand": trial.suggest_int("expand", 2, 16, step=2),
+        "d_conv": trial.suggest_int("d_conv", 2, 4),
+        "expand": trial.suggest_int("expand", 2, 4),
     }
 
     mamba_cfg = MambaConfig(
         d_model=trial.suggest_int("d_model", 4, 128, step=4),
-        n_layer=trial.suggest_int("num_layers", 1, 16),
+        n_layer=trial.suggest_int("num_layers", 1, 8),
         rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
         fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
         ssm_cfg=ssm_cfg
@@ -155,7 +155,7 @@ def objective_mamba(trial: optuna.Trial):
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
         "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 1.0),
-        "max_epochs": 150,
+        "max_epochs": 10,
         "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
@@ -168,26 +168,21 @@ def objective_mamba(trial: optuna.Trial):
         "out_method": trial.suggest_categorical("out_method", ["flatten", "max_pool", "last_state"])
     }
 
-    results = {}
-    results_per_fold = []
+    k = 1
+    aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
 
-    for k in range(3):
-        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
-
-        out = models.mamba_network(
-            aug_train_fold,
-            aug_test_fold,
-            mamba_par,
-            mamba_train_opt,
-            mamba_cfg,
-            dict(mw=MOVING_WINDOW, fold=k+1)
-        )
-        results_per_fold.append(out)
-    
-    results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-    results["true"] = np.hstack([r["true"] for r in results_per_fold])
-
-    return (results["pred"] == results["true"]).mean().item()
+    out = models.mamba_network(
+        aug_train_fold,
+        aug_test_fold,
+        mamba_par,
+        mamba_train_opt,
+        mamba_cfg,
+        dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
+        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
+        random_state=RANDOM_STATE,
+        test=False
+    )
+    return (out["pred"] == out["true"]).mean().item()
 
 
 def objective_lstm(trial: optuna.Trial):
