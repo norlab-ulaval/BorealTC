@@ -1,0 +1,7 @@
+font.family: serif
+font.serif: Times
+text.usetex: True
+xtick.labelsize: 20
+ytick.labelsize: 20
+axes.labelsize: 20
+legend.fontsize: 15
