@@ -226,29 +226,29 @@ def prepare_data_ordering(
     def _cleanup_data(data):
         return data[:, :, 4:].astype(np.float32)
 
-    train_data['imu'] = _cleanup_data(train_data['imu'])
-    train_data['pro'] = _cleanup_data(train_data['pro'])
-    test_data['imu'] = _cleanup_data(test_data['imu'])
-    test_data['pro'] = _cleanup_data(test_data['pro'])
+    train_data_imu = _cleanup_data(train_data['imu'])
+    train_data_pro = _cleanup_data(train_data['pro'])
+    test_data_imu = _cleanup_data(test_data['imu'])
+    test_data_pro = _cleanup_data(test_data['pro'])
 
-    def _order_data(data):
-        imu_time = data['imu'][:, :, 0]
-        pro_time = data['pro'][:, :, 0]
+    def _order_data(data_imu, data_pro):
+        imu_time = data_imu[:, :, 0]
+        pro_time = data_pro[:, :, 0]
         imu_pro_ordering = np.hstack([imu_time, pro_time])
 
         return imu_pro_ordering.argsort(axis=1)
 
-    train_order = _order_data(train_data)
-    test_order = _order_data(test_data)
+    train_order = _order_data(train_data_imu, train_data_pro)
+    test_order = _order_data(test_data_imu, test_data_pro)
 
     return dict(
-        imu=train_data['imu'][:, :, 1:],
-        pro=train_data['pro'][:, :, 1:],
+        imu=train_data_imu[:, :, 1:],
+        pro=train_data_pro[:, :, 1:],
         labels=train_labels,
         order=train_order,
     ), dict(
-        imu=test_data['imu'][:, :, 1:],
-        pro=test_data['pro'][:, :, 1:],
+        imu=test_data_imu[:, :, 1:],
+        pro=test_data_pro[:, :, 1:],
         labels=test_labels,
         order=test_order,
     )
