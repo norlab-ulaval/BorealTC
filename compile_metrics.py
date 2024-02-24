@@ -5,10 +5,10 @@ import pandas as pd
 import scipy.io as scio
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
     f1_score,
     precision_score,
     recall_score,
-    average_precision_score,
 )
 
 res_dir = Path("results")
@@ -83,16 +83,21 @@ def process_results(res_path: Path):
             print(f"f-{t} = {p(f1[idx]):.2f}", file=f)
 
 
-def baseline_export(cfmtx: np.ndarray, model: str, win: float, terrains: list[str]):
-    metbas = met_dir / "baseline"
-    metbas.mkdir(parents=True, exist_ok=True)
+def baseline_export(
+    cfmtx: np.ndarray,
+    model: str,
+    win: float,
+    terrains: list[str],
+    metrics_dir: Path,
+):
+    metrics_dir.mkdir(parents=True, exist_ok=True)
 
     acc = np.trace(cfmtx) / cfmtx.sum()
     prec = cfmtx.diagonal() / cfmtx.sum(axis=0)
     reca = cfmtx.diagonal() / cfmtx.sum(axis=1)
     f1 = 2 * prec * reca / (prec + reca)
 
-    fname = metbas / f"{model}-{win}.dat"
+    fname = metrics_dir / f"{model}-{win}.dat"
     with open(fname, "w", encoding="utf-8") as f:
         print(f"acc = {p(acc):.2f}", file=f)
         for idx, terr in enumerate(terrains):
@@ -106,8 +111,8 @@ def format_win(s: str) -> str:
     return s.split("_")[1][:-2]
 
 
-def process_baseline():
-    baseline = scio.loadmat(res_dir / "TDEEP.mat", matlab_compatible=True)["RES"]
+def process_baseline(res_fname: str, metrics_dir: Path):
+    baseline = scio.loadmat(res_dir / res_fname, matlab_compatible=True)["RES"]
 
     labels = baseline["TerLabls"].item()
     n_labels = labels.shape[1]
@@ -121,7 +126,7 @@ def process_baseline():
             modwin = modres[win].item()
             fwin = int(format_win(win))
             cfmtx = modwin["ConfusionMat"].item()
-            baseline_export(cfmtx, mod, fwin, terrains)
+            baseline_export(cfmtx, mod, fwin, terrains, metrics_dir)
 
 
 def main():
@@ -129,7 +134,8 @@ def main():
     for res in res_paths:
         process_results(res_path=res)
 
-    process_baseline()
+    process_baseline("TDEEP.mat", met_dir / "baseline-vulpi")
+    # process_baseline("TDEEP-norlab.mat", met_dir / "baseline-husky")
 
 
 if __name__ == "__main__":
