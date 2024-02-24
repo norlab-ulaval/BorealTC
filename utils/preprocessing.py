@@ -216,6 +216,38 @@ def partition_data(
     return train_data, test_data
 
 
+def normalize_ordered_data(
+    train_data: ExperimentData,
+    test_data: ExperimentData
+) -> Tuple[Dict[ExperimentData]]:
+    """
+    Normalizes with train data mean and std to avoid data leakage
+    """
+    train_imu_mean = np.mean(train_data["imu"], axis=(0,1))
+    train_imu_std = np.std(train_data["imu"], axis=(0,1))
+
+    train_pro_mean = np.mean(train_data["pro"], axis=(0,1))
+    train_pro_std = np.std(train_data["pro"], axis=(0,1))
+
+    train_imu_normalized = (train_data["imu"] - train_imu_mean) / train_imu_std
+    train_pro_normalized = (train_data["pro"] - train_pro_mean) / train_pro_std
+
+    test_imu_normalized = (test_data["imu"] - train_imu_mean) / train_imu_std
+    test_pro_normalized = (test_data["pro"] - train_pro_mean) / train_pro_std
+
+    return dict(
+        imu=train_imu_normalized,
+        pro=train_pro_normalized,
+        labels=train_data["labels"],
+        order=train_data["order"]
+    ), dict(
+        imu=test_imu_normalized,
+        pro=test_pro_normalized,
+        labels=test_data["labels"],
+        order=test_data["order"]
+    )
+
+
 def prepare_data_ordering(
     train_data: ExperimentData,
     test_data: ExperimentData,

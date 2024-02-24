@@ -519,8 +519,6 @@ class MambaTerrain(L.LightningModule):
         out_method: str,
         num_classes: int,
         lr: float,
-        mean: dict,
-        std: dict,
         learning_rate_factor: float = 0.1,
         reduce_lr_patience: int = 8,
         class_weights: list[float] | None = None,
@@ -536,8 +534,6 @@ class MambaTerrain(L.LightningModule):
         self.out_method = out_method
         self.num_classes = num_classes
         self.lr = lr
-        self.train_mean = mean
-        self.train_std = std
         self.learning_rate_factor = learning_rate_factor
         self.reduce_lr_patience = reduce_lr_patience
         self.class_weights = class_weights
@@ -641,49 +637,6 @@ class MambaTerrain(L.LightningModule):
             if len(self._test_classifications) > 1
             else {}
         )
-    
-    def _create_mean_tensor(self, x):
-        imu_mean_tensor = []
-        for _train_mean in self.train_mean['imu']:
-            imu_mean_tensor.append(torch.full((x['imu'].shape[1],), _train_mean))
-        imu_mean_tensor = torch.stack(imu_mean_tensor, dim=1)
-        
-        pro_mean_tensor = []
-        for _train_mean in self.train_mean['pro']:
-            pro_mean_tensor.append(torch.full((x['pro'].shape[1],), _train_mean))
-        pro_mean_tensor = torch.stack(pro_mean_tensor, dim=1)
-
-        self.mean_tensor = {
-            "imu": imu_mean_tensor.to('cuda'),
-            "pro": pro_mean_tensor.to('cuda')
-        }
-    
-    def _create_std_tensor(self, x):
-        imu_std_tensor = []
-        for _train_std in self.train_std['imu']:
-            imu_std_tensor.append(torch.full((x['imu'].shape[1],), _train_std))
-        imu_std_tensor = torch.stack(imu_std_tensor, dim=1)
-        
-        pro_std_tensor = []
-        for _train_std in self.train_std['pro']:
-            pro_std_tensor.append(torch.full((x['pro'].shape[1],), _train_std))
-        pro_std_tensor = torch.stack(pro_std_tensor, dim=1)
-
-        self.std_tensor = {
-            "imu": imu_std_tensor.to('cuda'),
-            "pro": pro_std_tensor.to('cuda')
-        }
-    
-    def _normalize(self, x):
-        if not hasattr(self, "mean_tensor"):
-            self._create_mean_tensor(x)
-        if not hasattr(self, "std_tensor"):
-            self._create_std_tensor(x)
-        
-        x["imu"] = (x["imu"] - self.mean_tensor["imu"]) / self.std_tensor["imu"]
-        x["pro"] = (x["pro"] - self.mean_tensor["pro"]) / self.std_tensor["pro"]
-
-        return x
 
     def in_layer(self, x):
         ordered_x = []
@@ -723,8 +676,6 @@ class MambaTerrain(L.LightningModule):
         return x
 
     def forward(self, x):
-        x = self._normalize(x)
-
         x = self.in_layer(x)
 
         x_branches = []
@@ -915,16 +866,7 @@ def mamba_network(
     focal_loss = mamba_train_opt["focal_loss"]
     focal_loss_alpha = mamba_train_opt["focal_loss_alpha"]
     focal_loss_gamma = mamba_train_opt["focal_loss_gamma"]
-
-    train_mean = {
-        'imu': np.mean(train_data['imu'], axis=(0,1)),
-        'pro': np.mean(train_data['pro'], axis=(0,1)),
-    }
-    train_std = {
-        'imu': np.std(train_data['imu'], axis=(0,1)),
-        'pro': np.std(train_data['pro'], axis=(0,1)),
-    }
-
+    
     num_workers = 8
     persistent_workers = True
 
@@ -949,8 +891,6 @@ def mamba_network(
         out_method=out_method,
         num_classes=num_classes,
         lr=init_learn_rate,
-        mean=train_mean,
-        std=train_std,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
         focal_loss=focal_loss,

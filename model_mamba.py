@@ -138,6 +138,8 @@ for mw in MOVING_WINDOWS:
     for k in range(N_FOLDS):
         aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
 
+        aug_train_fold, aug_test_fold = preprocessing.normalize_ordered_data(aug_train_fold, aug_test_fold)
+
         out = models.mamba_network(
             aug_train_fold,
             aug_test_fold,
