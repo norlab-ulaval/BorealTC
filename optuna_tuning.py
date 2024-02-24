@@ -115,8 +115,8 @@ def objective_cnn(trial: optuna.Trial):
 
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
-        "num_branches": trial.suggest_int("num_branches", 1, 8),
-        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
+        "num_branches": trial.suggest_int("num_branches", 1, 4),
+        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-2, log=True)
     }
 
     ssm_cfg = {
@@ -127,7 +127,7 @@ def objective_mamba(trial: optuna.Trial):
 
     mamba_cfg = MambaConfig(
         d_model=trial.suggest_int("d_model", 4, 128, step=4),
-        n_layer=trial.suggest_int("num_layers", 1, 8),
+        n_layer=trial.suggest_int("num_layers", 1, 4),
         rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
         fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
         ssm_cfg=ssm_cfg
@@ -143,7 +143,7 @@ def objective_mamba(trial: optuna.Trial):
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
         "valid_frequency": None,
         "gradient_treshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
-        "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
+        "focal_loss": True,
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,

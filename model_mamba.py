@@ -19,16 +19,20 @@ benchmark
 from mamba_ssm.models.config_mamba import MambaConfig
 from pathlib import Path
 
+import os
 import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-mat_dir = cwd / "datasets"
-csv_dir = cwd / "data"
+DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
+if DATASET == "husky":
+    csv_dir = cwd / "norlab-data"
+elif DATASET == "vulpi":
+    csv_dir = cwd / "data"
 results_dir = cwd / "results"
-# csv_dir = cwd / "norlab-data"
+mat_dir = cwd / "datasets"
 
 RANDOM_STATE = 21
 
@@ -79,34 +83,36 @@ HOMOGENEOUS_AUGMENTATION = True
 # Mamba parameters
 mamba_par = {
     "num_branches": 4,
-    "norm_epsilon": 1e-5
+    "norm_epsilon": 1e-2
 }
 
 ssm_cfg = {
-    "d_state": 16,
-    "d_conv": 4,
-    "expand": 2,
+    "d_state": 64,
+    "d_conv": 2,
+    "expand": 3,
 }
 
 mamba_cfg = MambaConfig(
-    d_model=16,
+    d_model=64,
     n_layer=4,
     ssm_cfg=ssm_cfg,
 )
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 0.0005,
-    "learn_drop_factor": 0.1,
+    "init_learn_rate": 1e-4,
+    "learn_drop_factor": 0.5,
     "max_epochs": 150,
-    "minibatch_size": 10,
+    "minibatch_size": 64,
     "valid_patience": 8,
     "reduce_lr_patience": 4,
-    "valid_frequency": 100,
-    "gradient_treshold": 6,  # None to disable
-    "focal_loss": True,
+    "valid_frequency": None,
+    "gradient_treshold": 1,  # None to disable
+    "focal_loss": False,
+    "focal_loss_alpha": 0.25,
+    "focal_loss_gamma": 2,
     "num_classes": len(terrains),
-    "out_method": "last_state" # "flatten", "max_pool", "last_state"
+    "out_method": "flatten" # "flatten", "max_pool", "last_state"
 }
 
 # Model settings
@@ -136,7 +142,7 @@ for mw in MOVING_WINDOWS:
             mamba_par,
             mamba_train_opt,
             mamba_cfg,
-            dict(mw=mw, fold=k+1)
+            dict(mw=mw, fold=k+1, dataset=DATASET)
         )
         results_per_fold.append(out)
 
