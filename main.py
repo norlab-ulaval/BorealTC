@@ -91,7 +91,7 @@ cnn_par = {
     "time_window": 0.4,
     "time_overlap": 0.2,
     "filter_size": [3, 3],
-    "num_filters": 16,
+    "num_filters": 16 * 2,
 }
 
 cnn_train_opt = {
@@ -113,6 +113,7 @@ cnn_train_opt = {
     "dropout": 0.0,
     "checkpoint_path": None,
     "overwrite_final_layer_dim": None,
+    "use_augmentation": False,
 }
 
 # LSTM parameters
