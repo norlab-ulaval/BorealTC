@@ -18,6 +18,17 @@ PLOTCOLORS = {
     "ploughed": "xkcd:grass green",
     "unploughed": "xkcd:denim blue",
 }
+# PLOTCOLORS = {
+#     "asphalt": "xkcd:dark grey",
+#     "flooring": "xkcd:bright lilac",
+#     "ice": "#067d77",
+#     "sandy loam": "red",
+#     "snow": "xkcd:cerulean",
+#     "concrete": "black",
+#     "dirt road": "xkcd:burnt sienna",
+#     "ploughed": "xkcd:grass green",
+#     "unploughed": "xkcd:denim blue",
+# }
 
 
 class HuskyConstants:
