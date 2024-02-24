@@ -83,36 +83,38 @@ HOMOGENEOUS_AUGMENTATION = True
 # Mamba parameters
 mamba_par = {
     "num_branches": 4,
-    "norm_epsilon": 1e-2
+    "norm_epsilon": 2.38e-7
 }
 
 ssm_cfg = {
-    "d_state": 64,
-    "d_conv": 2,
-    "expand": 3,
+    "d_state": 44,
+    "d_conv": 3,
+    "expand": 4,
 }
 
 mamba_cfg = MambaConfig(
-    d_model=64,
-    n_layer=4,
+    d_model=100,
+    n_layer=3,
     ssm_cfg=ssm_cfg,
+    rms_norm=True,
+    fused_add_norm=True
 )
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 1e-4,
-    "learn_drop_factor": 0.5,
+    "init_learn_rate": 6.33e-3,
+    "learn_drop_factor": 0.27,
     "max_epochs": 150,
-    "minibatch_size": 64,
-    "valid_patience": 8,
-    "reduce_lr_patience": 4,
+    "minibatch_size": 52,
+    "valid_patience": 10,
+    "reduce_lr_patience": 8,
     "valid_frequency": None,
     "gradient_treshold": 1,  # None to disable
-    "focal_loss": False,
-    "focal_loss_alpha": 0.25,
-    "focal_loss_gamma": 2,
+    "focal_loss": True,
+    "focal_loss_alpha": 0.29,
+    "focal_loss_gamma": 4.87,
     "num_classes": len(terrains),
-    "out_method": "flatten" # "flatten", "max_pool", "last_state"
+    "out_method": "max_pool" # "flatten", "max_pool", "last_state"
 }
 
 # Model settings
@@ -142,7 +144,9 @@ for mw in MOVING_WINDOWS:
             mamba_par,
             mamba_train_opt,
             mamba_cfg,
-            dict(mw=mw, fold=k+1, dataset=DATASET)
+            dict(mw=mw, fold=k+1, dataset=DATASET),
+            random_state=RANDOM_STATE,
+            test=True
         )
         results_per_fold.append(out)
 
