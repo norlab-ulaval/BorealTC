@@ -178,7 +178,7 @@ def objective_mamba(trial: optuna.Trial):
         mamba_train_opt,
         mamba_cfg,
         dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
-        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
+        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
         random_state=RANDOM_STATE,
         test=False
     )
