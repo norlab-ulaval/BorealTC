@@ -115,19 +115,19 @@ def objective_cnn(trial: optuna.Trial):
 
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
-        "num_branches": trial.suggest_int("num_branches", 1, 4),
-        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-2, log=True)
+        "num_branches": 1,
+        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
     }
 
     ssm_cfg = {
-        "d_state": trial.suggest_int("d_state", 4, 128, step=4),
+        "d_state": trial.suggest_int("d_state", 8, 64, step=8),
         "d_conv": trial.suggest_int("d_conv", 2, 4),
-        "expand": trial.suggest_int("expand", 2, 4),
+        "expand": trial.suggest_int("expand", 2, 8),
     }
 
     mamba_cfg = MambaConfig(
-        d_model=trial.suggest_int("d_model", 4, 128, step=4),
-        n_layer=trial.suggest_int("num_layers", 1, 4),
+        d_model=trial.suggest_int("d_model", 8, 64, step=8),
+        n_layer=1,
         rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
         fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
         ssm_cfg=ssm_cfg
@@ -136,18 +136,18 @@ def objective_mamba(trial: optuna.Trial):
     mamba_train_opt = {
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
-        "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 1.0),
-        "max_epochs": 10,
-        "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
-        "valid_patience": trial.suggest_int("valid_patience", 5, 15),
-        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
+        "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
+        "max_epochs": 20,
+        "minibatch_size": trial.suggest_int("minibatch_size", 8, 64, step=8),
+        "valid_patience": trial.suggest_int("valid_patience", 2, 10, step=2),
+        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10, step=2),
         "valid_frequency": None,
         "gradient_treshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
         "focal_loss": True,
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,
-        "out_method": trial.suggest_categorical("out_method", ["flatten", "max_pool", "last_state"])
+        "out_method": "max_pool"
     }
 
     # Data partition and sample extraction
@@ -178,7 +178,7 @@ def objective_mamba(trial: optuna.Trial):
         mamba_train_opt,
         mamba_cfg,
         dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
-        custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
+        # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
         random_state=RANDOM_STATE,
         test=False
     )
