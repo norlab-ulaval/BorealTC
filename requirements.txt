@@ -27,4 +27,5 @@ plotly
 black
 pylint
 ipykernel
+ipympl
 pre-commit
