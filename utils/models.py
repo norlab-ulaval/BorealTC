@@ -645,15 +645,15 @@ class MambaTerrain(L.LightningModule):
     def _create_mean_tensor(self, x):
         imu_mean_tensor = []
         for _train_mean in self.train_mean['imu']:
-            imu_mean_tensor.append(torch.full(x['imu'].shape[:-1], _train_mean))
-        imu_mean_tensor = torch.stack(imu_mean_tensor, dim=2)
+            imu_mean_tensor.append(torch.full((x['imu'].shape[1],), _train_mean))
+        imu_mean_tensor = torch.stack(imu_mean_tensor, dim=1)
         
         pro_mean_tensor = []
         for _train_mean in self.train_mean['pro']:
-            pro_mean_tensor.append(torch.full(x['pro'].shape[:-1], _train_mean))
-        pro_mean_tensor = torch.stack(pro_mean_tensor, dim=2)
+            pro_mean_tensor.append(torch.full((x['pro'].shape[1],), _train_mean))
+        pro_mean_tensor = torch.stack(pro_mean_tensor, dim=1)
 
-        return {
+        self.mean_tensor = {
             "imu": imu_mean_tensor.to('cuda'),
             "pro": pro_mean_tensor.to('cuda')
         }
@@ -661,18 +661,29 @@ class MambaTerrain(L.LightningModule):
     def _create_std_tensor(self, x):
         imu_std_tensor = []
         for _train_std in self.train_std['imu']:
-            imu_std_tensor.append(torch.full(x['imu'].shape[:-1], _train_std))
-        imu_std_tensor = torch.stack(imu_std_tensor, dim=2)
+            imu_std_tensor.append(torch.full((x['imu'].shape[1],), _train_std))
+        imu_std_tensor = torch.stack(imu_std_tensor, dim=1)
         
         pro_std_tensor = []
         for _train_std in self.train_std['pro']:
-            pro_std_tensor.append(torch.full(x['pro'].shape[:-1], _train_std))
-        pro_std_tensor = torch.stack(pro_std_tensor, dim=2)
+            pro_std_tensor.append(torch.full((x['pro'].shape[1],), _train_std))
+        pro_std_tensor = torch.stack(pro_std_tensor, dim=1)
 
-        return {
+        self.std_tensor = {
             "imu": imu_std_tensor.to('cuda'),
             "pro": pro_std_tensor.to('cuda')
         }
+    
+    def _normalize(self, x):
+        if not hasattr(self, "mean_tensor"):
+            self._create_mean_tensor(x)
+        if not hasattr(self, "std_tensor"):
+            self._create_std_tensor(x)
+        
+        x["imu"] = (x["imu"] - self.mean_tensor["imu"]) / self.std_tensor["imu"]
+        x["pro"] = (x["pro"] - self.mean_tensor["pro"]) / self.std_tensor["pro"]
+
+        return x
 
     def in_layer(self, x):
         ordered_x = []
@@ -712,6 +723,8 @@ class MambaTerrain(L.LightningModule):
         return x
 
     def forward(self, x):
+        x = self._normalize(x)
+
         x = self.in_layer(x)
 
         x_branches = []
@@ -762,13 +775,6 @@ class MambaTerrain(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, target = batch
-
-        if not hasattr(self, "train_mean_tensor"):
-            self.train_mean_tensor = self._create_mean_tensor(x)
-            self.train_std_tensor = self._create_std_tensor(x)
-        x["imu"] = (x["imu"] - self.train_mean_tensor["imu"]) / self.train_std_tensor["imu"]
-        x["pro"] = (x["pro"] - self.train_mean_tensor["pro"]) / self.train_std_tensor["pro"]
-
         pred = self(x)
         loss = self.loss(pred, target)
         acc = self._train_accuracy(pred, target)
@@ -789,13 +795,6 @@ class MambaTerrain(L.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
-
-        if not hasattr(self, "val_mean_tensor"):
-            self.val_mean_tensor = self._create_mean_tensor(x)
-            self.val_std_tensor = self._create_std_tensor(x)
-        x["imu"] = (x["imu"] - self.val_mean_tensor["imu"]) / self.val_std_tensor["imu"]
-        x["pro"] = (x["pro"] - self.val_mean_tensor["pro"]) / self.val_std_tensor["pro"]
-            
         pred = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
@@ -837,13 +836,6 @@ class MambaTerrain(L.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
-
-        if not hasattr(self, "test_mean_tensor"):
-            self.test_mean_tensor = self._create_mean_tensor(x)
-            self.test_std_tensor = self._create_std_tensor(x)
-        x["imu"] = (x["imu"] - self.test_mean_tensor["imu"]) / self.test_std_tensor["imu"]
-        x["pro"] = (x["pro"] - self.test_mean_tensor["pro"]) / self.test_std_tensor["pro"]
-
         pred = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
