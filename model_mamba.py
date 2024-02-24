@@ -83,13 +83,13 @@ HOMOGENEOUS_AUGMENTATION = True
 # Mamba parameters
 mamba_par = {
     "num_branches": 1,
-    "norm_epsilon": 1e-4
+    "norm_epsilon": 1e-6
 }
 
 ssm_cfg = {
-    "d_state": 16,
-    "d_conv": 2,
-    "expand": 2,
+    "d_state": 32,
+    "d_conv": 4,
+    "expand": 4,
 }
 
 mamba_cfg = MambaConfig(
@@ -103,16 +103,16 @@ mamba_cfg = MambaConfig(
 mamba_train_opt = {
     "valid_perc": 0.1,
     "init_learn_rate": 1e-3,
-    "learn_drop_factor": 0.1,
+    "learn_drop_factor": 0.2,
     "max_epochs": 20,
-    "minibatch_size": 32,
-    "valid_patience": 4,
-    "reduce_lr_patience": 2,
+    "minibatch_size": 24,
+    "valid_patience": 8,
+    "reduce_lr_patience": 4,
     "valid_frequency": None,
-    "gradient_treshold": 1,  # None to disable
+    "gradient_treshold": 2,  # None to disable
     "focal_loss": True,
-    "focal_loss_alpha": 0.25,
-    "focal_loss_gamma": 2,
+    "focal_loss_alpha": 0.5,
+    "focal_loss_gamma": 5,
     "num_classes": len(terrains),
     "out_method": "max_pool" # "flatten", "max_pool", "last_state"
 }
