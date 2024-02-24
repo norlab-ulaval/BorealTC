@@ -653,7 +653,7 @@ class MambaTerrain(L.LightningModule):
             pro_mean_tensor.append(torch.full(x['pro'].shape[:-1], _train_mean))
         pro_mean_tensor = torch.stack(pro_mean_tensor, dim=2)
 
-        self.mean_tensor = {
+        return {
             "imu": imu_mean_tensor.to('cuda'),
             "pro": pro_mean_tensor.to('cuda')
         }
@@ -669,21 +669,10 @@ class MambaTerrain(L.LightningModule):
             pro_std_tensor.append(torch.full(x['pro'].shape[:-1], _train_std))
         pro_std_tensor = torch.stack(pro_std_tensor, dim=2)
 
-        self.std_tensor = {
+        return {
             "imu": imu_std_tensor.to('cuda'),
             "pro": pro_std_tensor.to('cuda')
         }
-    
-    def _normalize(self, x):
-        if not hasattr(self, "mean_tensor"):
-            self._create_mean_tensor(x)
-        if not hasattr(self, "std_tensor"):
-            self._create_std_tensor(x)
-        
-        x["imu"] = (x["imu"] - self.mean_tensor["imu"]) / self.std_tensor["imu"]
-        x["pro"] = (x["pro"] - self.mean_tensor["pro"]) / self.std_tensor["pro"]
-
-        return x
 
     def in_layer(self, x):
         ordered_x = []
@@ -723,8 +712,6 @@ class MambaTerrain(L.LightningModule):
         return x
 
     def forward(self, x):
-        x = self._normalize(x)
-
         x = self.in_layer(x)
 
         x_branches = []
@@ -775,6 +762,13 @@ class MambaTerrain(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, target = batch
+
+        if not hasattr(self, "train_mean_tensor"):
+            self.train_mean_tensor = self._create_mean_tensor(x)
+            self.train_std_tensor = self._create_std_tensor(x)
+        x["imu"] = (x["imu"] - self.train_mean_tensor["imu"]) / self.train_std_tensor["imu"]
+        x["pro"] = (x["pro"] - self.train_mean_tensor["pro"]) / self.train_std_tensor["pro"]
+
         pred = self(x)
         loss = self.loss(pred, target)
         acc = self._train_accuracy(pred, target)
@@ -795,6 +789,13 @@ class MambaTerrain(L.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
+
+        if not hasattr(self, "val_mean_tensor"):
+            self.val_mean_tensor = self._create_mean_tensor(x)
+            self.val_std_tensor = self._create_std_tensor(x)
+        x["imu"] = (x["imu"] - self.val_mean_tensor["imu"]) / self.val_std_tensor["imu"]
+        x["pro"] = (x["pro"] - self.val_mean_tensor["pro"]) / self.val_std_tensor["pro"]
+            
         pred = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
@@ -836,6 +837,13 @@ class MambaTerrain(L.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
+
+        if not hasattr(self, "test_mean_tensor"):
+            self.test_mean_tensor = self._create_mean_tensor(x)
+            self.test_std_tensor = self._create_std_tensor(x)
+        x["imu"] = (x["imu"] - self.test_mean_tensor["imu"]) / self.test_std_tensor["imu"]
+        x["pro"] = (x["pro"] - self.test_mean_tensor["pro"]) / self.test_std_tensor["pro"]
+
         pred = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
