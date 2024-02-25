@@ -38,8 +38,6 @@ except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
 if TYPE_CHECKING:
-    from mamba_ssm.models.config_mamba import MambaConfig
-
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 

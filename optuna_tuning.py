@@ -9,11 +9,6 @@ from optuna.integration import PyTorchLightningPruningCallback
 
 from utils import models, preprocessing
 
-try:
-    from mamba_ssm.models.config_mamba import MambaConfig
-except ImportError:
-    MambaConfig = None
-
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
