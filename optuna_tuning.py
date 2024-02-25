@@ -122,7 +122,7 @@ def objective_mamba(trial: optuna.Trial):
     ssm_cfg = {
         "d_state": trial.suggest_int("d_state", 8, 64, step=8),
         "d_conv": trial.suggest_int("d_conv", 2, 4),
-        "expand": trial.suggest_int("expand", 2, 8),
+        "expand": trial.suggest_int("expand", 2, 4),
     }
 
     mamba_cfg = MambaConfig(
@@ -137,7 +137,7 @@ def objective_mamba(trial: optuna.Trial):
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
         "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
-        "max_epochs": 20,
+        "max_epochs": 30,
         "minibatch_size": trial.suggest_int("minibatch_size", 8, 64, step=8),
         "valid_patience": trial.suggest_int("valid_patience", 2, 10, step=2),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10, step=2),
@@ -147,7 +147,7 @@ def objective_mamba(trial: optuna.Trial):
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,
-        "out_method": "max_pool"
+        "out_method": "last_state"
     }
 
     # Data partition and sample extraction
