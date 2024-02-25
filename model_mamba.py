@@ -104,7 +104,7 @@ mamba_train_opt = {
     "valid_perc": 0.1,
     "init_learn_rate": 1e-3,
     "learn_drop_factor": 0.2,
-    "max_epochs": 20,
+    "max_epochs": 10,
     "minibatch_size": 24,
     "valid_patience": 8,
     "reduce_lr_patience": 4,
