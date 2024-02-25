@@ -16,7 +16,6 @@ benchmark
 -------------------------------------------------------------------------
 """
 
-from mamba_ssm.models.config_mamba import MambaConfig
 from pathlib import Path
 
 import os
