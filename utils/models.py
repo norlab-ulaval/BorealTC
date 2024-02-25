@@ -507,335 +507,15 @@ class CNNTerrain(L.LightningModule):
         )
 
 
-# class MambaTerrain(L.LightningModule):
-#     def __init__(
-#         self,
-#         mamba_cfg: MambaConfig,
-#         num_branches: int,
-#         norm_epsilon: float,
-#         fused_add_norm: bool,
-#         residual_in_fp32: bool,
-#         in_size: int,
-#         out_method: str,
-#         num_classes: int,
-#         lr: float,
-#         learning_rate_factor: float = 0.1,
-#         reduce_lr_patience: int = 8,
-#         class_weights: list[float] | None = None,
-#         focal_loss: bool = False,
-#         focal_loss_alpha: float = 0.25,
-#         focal_loss_gamma: float = 2,
-#     ):
-#         super().__init__()
-#         self.save_hyperparameters()
-
-#         self.num_branches = num_branches
-#         self.num_layers = mamba_cfg.n_layer
-#         self.out_method = out_method
-#         self.num_classes = num_classes
-#         self.lr = lr
-#         self.learning_rate_factor = learning_rate_factor
-#         self.reduce_lr_patience = reduce_lr_patience
-#         self.class_weights = class_weights
-#         self.focal_loss = focal_loss
-#         self.focal_loss_alpha = focal_loss_alpha
-#         self.focal_loss_gamma = focal_loss_gamma
-
-#         self.fused_add_norm = fused_add_norm
-#         self.residual_in_fp32 = residual_in_fp32
-
-#         if self.fused_add_norm:
-#             if layer_norm_fn is None or rms_norm_fn is None:
-#                 raise ImportError("Failed to import Triton LayerNorm / RMSNorm kernels")
-
-#         self.imu_in_layer = nn.Linear(imu_dim, mamba_cfg.d_model)
-#         self.pro_in_layer = nn.Linear(pro_dim, mamba_cfg.d_model)
-
-#         self.mamba_blocks = nn.ModuleList(
-#             [
-#                 create_block(
-#                     d_model=mamba_cfg.d_model,
-#                     ssm_cfg=mamba_cfg.ssm_cfg,
-#                     norm_epsilon=norm_epsilon,
-#                     rms_norm=mamba_cfg.rms_norm,
-#                     residual_in_fp32=mamba_cfg.residual_in_fp32,
-#                     fused_add_norm=mamba_cfg.fused_add_norm,
-#                     layer_idx=idx,
-#                 )
-#                 for idx in range(mamba_cfg.n_layer * num_branches)
-#             ]
-#         )
-
-#         self.norm_f = (nn.LayerNorm if not mamba_cfg.rms_norm else RMSNorm)(
-#             mamba_cfg.d_model,
-#             eps=norm_epsilon,
-#         )
-
-#         if out_method == "flatten":
-#             self.flatten = nn.Flatten()
-#             self.fc = nn.Linear(in_size * mamba_cfg.d_model * num_branches, num_classes)
-#             self.out_layer = self._out_layer_flatten
-
-#         elif out_method == "max_pool":
-#             self.max_pool = nn.MaxPool1d(kernel_size=in_size)
-#             self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
-#             self.out_layer = self._out_layer_max_pool
-
-#         elif out_method == "last_state":
-#             self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
-#             self.out_layer = self._out_layer_last_state
-
-#         self.softmax = nn.Softmax(dim=1)
-
-#         self.ce_loss = nn.CrossEntropyLoss(
-#             weight=torch.tensor(class_weights) if class_weights else None
-#         )
-
-#         self._train_accuracy = torchmetrics.classification.Accuracy(
-#             task="multiclass", num_classes=num_classes
-#         )
-#         self._val_accuracy = torchmetrics.classification.Accuracy(
-#             task="multiclass", num_classes=num_classes
-#         )
-#         self._test_accuracy = torchmetrics.classification.Accuracy(
-#             task="multiclass", num_classes=num_classes
-#         )
-
-#         self._val_classifications = [
-#             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
-#         ]
-#         self._test_classifications = [
-#             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
-#         ]
-
-#     def configure_optimizers(self):
-#         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-#         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-#             optimizer,
-#             patience=self.reduce_lr_patience,
-#             factor=self.learning_rate_factor,
-#             verbose=True,
-#         )
-#         return dict(
-#             optimizer=optimizer,
-#             lr_scheduler=dict(
-#                 scheduler=scheduler,
-#                 monitor="val_loss",
-#             ),
-#         )
-
-#     @property
-#     def val_classification(self):
-#         return (
-#             self._val_classifications[-2] if len(self._val_classifications) > 1 else {}
-#         )
-
-#     @property
-#     def test_classification(self):
-#         return (
-#             self._test_classifications[-2]
-#             if len(self._test_classifications) > 1
-#             else {}
-#         )
-
-#     def in_layer(self, x):
-#         ordered_x = []
-
-#         for idx in range(len(x["imu"])):
-#             _ordered_x = []
-
-#             _x_imu = self.imu_in_layer(x["imu"][idx])
-#             _x_pro = self.pro_in_layer(x["pro"][idx])
-
-#             for _idx in x["order"][idx]:
-#                 if _idx < len(_x_imu):
-#                     _ordered_x.append(_x_imu[_idx])
-#                 else:
-#                     _idx -= len(_x_imu)
-#                     _ordered_x.append(_x_pro[_idx])
-
-#             ordered_x.append(torch.stack(_ordered_x))
-
-#         return torch.stack(ordered_x)
-
-#     def _out_layer_flatten(self, x):
-#         x = self.flatten(x)
-#         x = self.fc(x)
-#         return x
-
-#     def _out_layer_max_pool(self, x):
-#         x = x.transpose(1, 2)
-#         x = self.max_pool(x)
-#         x = x.squeeze(dim=2)
-#         x = self.fc(x)
-#         return x
-
-#     def _out_layer_last_state(self, x):
-#         x = x[:, -1]
-#         x = self.fc(x)
-#         return x
-
-#     def forward(self, x):
-#         x = self.in_layer(x)
-
-#         x_branches = []
-
-#         for branch_idx in range(self.num_branches):
-#             x_branch, r_branch = x.clone(), None
-
-#             for layer_idx in range(self.num_layers):
-#                 x_branch, r_branch = self.mamba_blocks[
-#                     branch_idx * self.num_layers + layer_idx
-#                 ](x_branch, r_branch)
-
-#             if not self.fused_add_norm:
-#                 r_branch = (x_branch + r_branch) if r_branch is not None else x_branch
-#                 x_branch = self.norm_f(r_branch.to(dtype=self.norm_f.weight.dtype))
-#             else:
-#                 # Set prenorm=False here since we don't need the residual
-#                 fused_add_norm_fn = (
-#                     rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
-#                 )
-#                 x_branch = fused_add_norm_fn(
-#                     x_branch,
-#                     self.norm_f.weight,
-#                     self.norm_f.bias,
-#                     eps=self.norm_f.eps,
-#                     residual=r_branch,
-#                     prenorm=False,
-#                     residual_in_fp32=self.residual_in_fp32,
-#                 )
-
-#             x_branches.append(x_branch)
-
-#         x = torch.cat(x_branches, dim=2)
-#         x = self.out_layer(x)
-
-#         return x
-
-#     def loss(self, y, target):
-#         if self.focal_loss:
-#             return tv.ops.sigmoid_focal_loss(
-#                 y,
-#                 F.one_hot(target, self.num_classes).to(torch.float),
-#                 alpha=self.focal_loss_alpha,
-#                 gamma=self.focal_loss_gamma,
-#                 reduction="mean",
-#             )
-#         return self.ce_loss(y, target)
-
-#     def training_step(self, batch, batch_idx):
-#         x, target = batch
-#         pred = self(x)
-#         loss = self.loss(pred, target)
-#         acc = self._train_accuracy(pred, target)
-
-#         self.log("train_loss", loss, prog_bar=True, on_step=True)
-#         self.log("train_accuracy", acc, on_step=True)
-
-#         return loss
-
-#     def on_train_epoch_end(self):
-#         self.log(
-#             "train_accuracy_epoch",
-#             self._train_accuracy.compute(),
-#             prog_bar=True,
-#             on_epoch=True,
-#         )
-#         self._train_accuracy.reset()
-
-#     def validation_step(self, val_batch, batch_idx):
-#         x, target = val_batch
-#         pred = self(x)
-#         y = self.softmax(pred)
-#         loss = self.loss(pred, target)
-#         acc = self._val_accuracy(pred, target)
-
-#         self.log("val_loss", loss, on_step=True)
-#         self.log("val_accuracy", acc, on_step=True)
-
-#         pred_classes = torch.argmax(y, dim=1)
-#         self._val_classifications[-1]["pred"].append(
-#             pred_classes.detach().cpu().numpy()
-#         )
-#         self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
-#         self._val_classifications[-1]["conf"].append(y.detach().cpu().numpy())
-
-#         return loss
-
-#     def on_validation_epoch_end(self):
-#         self.log(
-#             "val_accuracy_epoch",
-#             self._val_accuracy.compute(),
-#             prog_bar=True,
-#             on_epoch=True,
-#         )
-#         self._val_accuracy.reset()
-
-#         self._val_classifications[-1]["pred"] = np.hstack(
-#             self._val_classifications[-1]["pred"]
-#         )
-#         self._val_classifications[-1]["true"] = np.hstack(
-#             self._val_classifications[-1]["true"]
-#         )
-#         self._val_classifications[-1]["conf"] = np.vstack(
-#             self._val_classifications[-1]["conf"]
-#         )
-#         self._val_classifications.append(
-#             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
-#         )
-
-#     def test_step(self, test_batch, batch_idx):
-#         x, target = test_batch
-#         pred = self(x)
-#         y = self.softmax(pred)
-#         loss = self.loss(pred, target)
-#         acc = self._test_accuracy(pred, target)
-
-#         self.log("test_loss", loss, on_step=True)
-#         self.log("test_accuracy", acc, on_step=True)
-
-#         pred_classes = torch.argmax(y, dim=1)
-#         self._test_classifications[-1]["pred"].append(
-#             pred_classes.detach().cpu().numpy()
-#         )
-#         self._test_classifications[-1]["true"].append(target.detach().cpu().numpy())
-#         self._test_classifications[-1]["conf"].append(y.detach().cpu().numpy())
-
-#         return loss
-
-#     def on_test_epoch_end(self):
-#         self.log(
-#             "test_accuracy_epoch",
-#             self._test_accuracy.compute(),
-#             prog_bar=True,
-#             on_epoch=True,
-#         )
-#         self._test_accuracy.reset()
-
-#         self._test_classifications[-1]["pred"] = np.hstack(
-#             self._test_classifications[-1]["pred"]
-#         )
-#         self._test_classifications[-1]["true"] = np.hstack(
-#             self._test_classifications[-1]["true"]
-#         )
-#         self._test_classifications[-1]["conf"] = np.vstack(
-#             self._test_classifications[-1]["conf"]
-#         )
-#         self._test_classifications.append(
-#             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
-#         )
-
-
-class MambaTerrainUnordered(L.LightningModule):
+class MambaTerrain(L.LightningModule):
     def __init__(
         self,
-        mamba_cfg: MambaConfig,
-        num_branches: int,
+        d_model_imu: int,
+        d_model_pro: int,
         norm_epsilon: float,
-        fused_add_norm: bool,
-        residual_in_fp32: bool,
-        in_size: int,
+        ssm_cfg: dict,
+        in_size_imu: int,
+        in_size_pro: int,
         out_method: str,
         num_classes: int,
         lr: float,
@@ -849,8 +529,6 @@ class MambaTerrainUnordered(L.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.num_branches = num_branches
-        self.num_layers = mamba_cfg.n_layer
         self.out_method = out_method
         self.num_classes = num_classes
         self.lr = lr
@@ -861,49 +539,28 @@ class MambaTerrainUnordered(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
 
-        self.fused_add_norm = fused_add_norm
-        self.residual_in_fp32 = residual_in_fp32
-
-        if self.fused_add_norm:
-            if layer_norm_fn is None or rms_norm_fn is None:
-                raise ImportError("Failed to import Triton LayerNorm / RMSNorm kernels")
-
-        self.imu_in_layer = nn.Linear(imu_dim, mamba_cfg.d_model)
-        self.pro_in_layer = nn.Linear(pro_dim, mamba_cfg.d_model)
+        self.imu_in_layer = nn.Linear(imu_dim, d_model_imu)
+        self.pro_in_layer = nn.Linear(pro_dim, d_model_pro)
 
         self.mamba_block_imu = create_block(
-            d_model=mamba_cfg.d_model,
-            ssm_cfg=mamba_cfg.ssm_cfg,
-            norm_epsilon=norm_epsilon,
-            rms_norm=mamba_cfg.rms_norm,
-            residual_in_fp32=mamba_cfg.residual_in_fp32,
-            fused_add_norm=mamba_cfg.fused_add_norm
+            d_model=d_model_imu,
+            ssm_cfg=ssm_cfg,
+            norm_epsilon=norm_epsilon
         )
 
         self.mamba_block_pro = create_block(
-            d_model=mamba_cfg.d_model,
-            ssm_cfg=mamba_cfg.ssm_cfg,
-            norm_epsilon=norm_epsilon,
-            rms_norm=mamba_cfg.rms_norm,
-            residual_in_fp32=mamba_cfg.residual_in_fp32,
-            fused_add_norm=mamba_cfg.fused_add_norm
+            d_model=d_model_pro,
+            ssm_cfg=ssm_cfg,
+            norm_epsilon=norm_epsilon
         )
 
-        self.norm_f = (nn.LayerNorm if not mamba_cfg.rms_norm else RMSNorm)(
-            mamba_cfg.d_model,
-            eps=norm_epsilon,
-        )
-
-        if out_method == "flatten":
-            self.flatten = nn.Flatten()
-            self.fc = nn.Linear(in_size * mamba_cfg.d_model * num_branches, num_classes)
-
-        elif out_method == "max_pool":
-            self.max_pool = nn.MaxPool1d(kernel_size=in_size)
-            self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
+        if out_method == "max_pool":
+            self.max_pool_imu = nn.MaxPool1d(kernel_size=in_size_imu)
+            self.max_pool_pro = nn.MaxPool1d(kernel_size=in_size_pro)
+            self.fc = nn.Linear(d_model_imu + d_model_pro, num_classes)
 
         elif out_method == "last_state":
-            self.fc = nn.Linear(2 * mamba_cfg.d_model * num_branches, num_classes)
+            self.fc = nn.Linear(d_model_imu + d_model_pro, num_classes)
 
         self.softmax = nn.Softmax(dim=1)
 
@@ -967,16 +624,15 @@ class MambaTerrainUnordered(L.LightningModule):
         x_pro = self.pro_in_layer(x_pro)
         x_pro, _ = self.mamba_block_pro(x_pro, None)
         return x_pro
-    
-    def _out_layer_flatten(self, x):
-        x = self.flatten(x)
-        x = self.fc(x)
-        return x
 
-    def _out_layer_max_pool(self, x):
-        x = x.transpose(1, 2)
-        x = self.max_pool(x)
-        x = x.squeeze(dim=2)
+    def _out_layer_max_pool(self, x_imu, x_pro):
+        x_imu = x_imu.transpose(1, 2)
+        x_imu = self.max_pool_imu(x_imu)
+        x_imu = x_imu.squeeze(dim=2)
+        x_pro = x_pro.transpose(1, 2)
+        x_pro = self.max_pool_pro(x_pro)
+        x_pro = x_pro.squeeze(dim=2)
+        x = torch.cat([x_imu, x_pro], dim=1)
         x = self.fc(x)
         return x
 
@@ -991,11 +647,8 @@ class MambaTerrainUnordered(L.LightningModule):
         x_imu = self._forward_imu(x["imu"])
         x_pro = self._forward_pro(x["pro"])
 
-        if self.out_method == "flatten":
-            x = torch.cat([x_imu, x_pro], dim=1)
-            x = self._out_layer_flatten(x)
-        elif self.out_method == "max_pool":
-            x = self._out_layer_max_pool(x)
+        if self.out_method == "max_pool":
+            x = self._out_layer_max_pool(x_imu, x_pro)
         elif self.out_method == "last_state":
             x = self._out_layer_last_state(x_imu, x_pro)
 
@@ -1120,7 +773,7 @@ def mamba_network(
     test_data: list[ExperimentData],
     mamba_par: dict,
     mamba_train_opt: dict,
-    mamba_cfg: MambaConfig,
+    ssm_cfg: dict,
     description: dict,
     custom_callbacks=None,
     random_state: int | None = None,
@@ -1132,14 +785,14 @@ def mamba_network(
     # Mamba parameters
     if custom_callbacks is None:
         custom_callbacks = []
-    in_size = len(train_data["order"][0])
+    d_model_imu = mamba_par["d_model_imu"]
+    d_model_pro = mamba_par["d_model_pro"]
+    norm_epsilon = mamba_par["norm_epsilon"]
+    in_size_imu = len(train_data["imu"][0])
+    in_size_pro = len(train_data["pro"][0])
     out_method = mamba_train_opt["out_method"]
     num_classes = mamba_train_opt["num_classes"]
     dataset = description["dataset"]
-    num_branches = mamba_par["num_branches"]
-    norm_epsilon = mamba_par["norm_epsilon"]
-    fused_add_norm = mamba_cfg.fused_add_norm
-    residual_in_fp32 = mamba_cfg.residual_in_fp32
 
     # Training parameters
     valid_perc = mamba_train_opt["valid_perc"]
@@ -1169,18 +822,19 @@ def mamba_network(
         persistent_workers=persistent_workers,
     )
 
-    model = MambaTerrainUnordered(
-        mamba_cfg=mamba_cfg,
-        num_branches=num_branches,
+    model = MambaTerrain(
+        d_model_imu=d_model_imu,
+        d_model_pro=d_model_pro,
         norm_epsilon=norm_epsilon,
-        fused_add_norm=fused_add_norm,
-        residual_in_fp32=residual_in_fp32,
-        in_size=in_size,
+        ssm_cfg=ssm_cfg,
+        in_size_imu=in_size_imu,
+        in_size_pro=in_size_pro,
         out_method=out_method,
         num_classes=num_classes,
         lr=init_learn_rate,
         learning_rate_factor=learn_drop_factor,
         reduce_lr_patience=reduce_lr_patience,
+        class_weights=None,
         focal_loss=focal_loss,
         focal_loss_alpha=focal_loss_alpha,
         focal_loss_gamma=focal_loss_gamma

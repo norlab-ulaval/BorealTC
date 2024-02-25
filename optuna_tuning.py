@@ -115,7 +115,8 @@ def objective_cnn(trial: optuna.Trial):
 
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
-        "num_branches": 1,
+        "d_model_imu": trial.suggest_int("d_model_imu", 8, 64, step=8),
+        "d_model_pro": trial.suggest_int("d_model_pro", 8, 64, step=8),
         "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
     }
 
@@ -124,14 +125,6 @@ def objective_mamba(trial: optuna.Trial):
         "d_conv": trial.suggest_int("d_conv", 2, 4),
         "expand": trial.suggest_int("expand", 2, 4),
     }
-
-    mamba_cfg = MambaConfig(
-        d_model=trial.suggest_int("d_model", 8, 64, step=8),
-        n_layer=1,
-        rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
-        fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
-        ssm_cfg=ssm_cfg
-    )
 
     mamba_train_opt = {
         "valid_perc": 0.1,
@@ -147,7 +140,7 @@ def objective_mamba(trial: optuna.Trial):
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,
-        "out_method": "last_state"
+        "out_method": trial.suggest_categorical("out_method", ["max_pool", "last_state"])
     }
 
     # Data partition and sample extraction
@@ -169,16 +162,16 @@ def objective_mamba(trial: optuna.Trial):
     )
 
     k = 0
-    aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
+    aug_train_fold, aug_test_fold = preprocessing.cleanup_data(aug_train_folds[k], aug_test_folds[k])
 
-    aug_train_fold, aug_test_fold = preprocessing.normalize_ordered_data(aug_train_fold, aug_test_fold)
+    aug_train_fold, aug_test_fold = preprocessing.normalize_data(aug_train_fold, aug_test_fold)
 
     out = models.mamba_network(
         aug_train_fold,
         aug_test_fold,
         mamba_par,
         mamba_train_opt,
-        mamba_cfg,
+        ssm_cfg,
         dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
         # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
         random_state=RANDOM_STATE,

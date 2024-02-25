@@ -62,7 +62,8 @@ terrains = sorted(terr_dfs["imu"].terrain.unique())
 # Set data partition parameters
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
-MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
+# MOVING_WINDOWS = [1.5, 1.6, 1.7, 1.8]  # seconds
+MOVING_WINDOWS = [1.7]  # seconds
 
 # Data partition and sample extraction
 train_folds, test_folds = preprocessing.partition_data(
@@ -82,39 +83,32 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
-    "num_branches": 1,
-    "norm_epsilon": 1e-6
+    "d_model_imu": 32,
+    "d_model_pro": 16,
+    "norm_epsilon": 5e-3
 }
 
 ssm_cfg = {
-    "d_state": 32,
-    "d_conv": 4,
-    "expand": 4,
+    "d_state": 16,
+    "d_conv": 3,
+    "expand": 3,
 }
-
-mamba_cfg = MambaConfig(
-    d_model=32,
-    n_layer=1,
-    ssm_cfg=ssm_cfg,
-    rms_norm=True,
-    fused_add_norm=True
-)
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 1e-3,
-    "learn_drop_factor": 0.2,
-    "max_epochs": 10,
-    "minibatch_size": 24,
-    "valid_patience": 8,
+    "init_learn_rate": 1e-2,
+    "learn_drop_factor": 0.15,
+    "max_epochs": 30,
+    "minibatch_size": 64,
+    "valid_patience": 6,
     "reduce_lr_patience": 4,
     "valid_frequency": None,
-    "gradient_treshold": 2,  # None to disable
+    "gradient_treshold": 6,  # None to disable
     "focal_loss": True,
-    "focal_loss_alpha": 0.5,
-    "focal_loss_gamma": 5,
+    "focal_loss_alpha": 0.8,
+    "focal_loss_gamma": 3,
     "num_classes": len(terrains),
-    "out_method": "max_pool" # "flatten", "max_pool", "last_state"
+    "out_method": "max_pool" # "max_pool", "last_state"
 }
 
 # Model settings
@@ -136,16 +130,16 @@ for mw in MOVING_WINDOWS:
 
     results_per_fold = []
     for k in range(N_FOLDS):
-        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
+        aug_train_fold, aug_test_fold = preprocessing.cleanup_data(aug_train_folds[k], aug_test_folds[k])
 
-        aug_train_fold, aug_test_fold = preprocessing.normalize_ordered_data(aug_train_fold, aug_test_fold)
+        aug_train_fold, aug_test_fold = preprocessing.normalize_data(aug_train_fold, aug_test_fold)
 
         out = models.mamba_network(
             aug_train_fold,
             aug_test_fold,
             mamba_par,
             mamba_train_opt,
-            mamba_cfg,
+            ssm_cfg,
             dict(mw=mw, fold=k+1, dataset=DATASET),
             random_state=RANDOM_STATE,
             test=True

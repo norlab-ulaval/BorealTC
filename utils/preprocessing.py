@@ -216,7 +216,7 @@ def partition_data(
     return train_data, test_data
 
 
-def normalize_ordered_data(
+def normalize_data(
     train_data: ExperimentData,
     test_data: ExperimentData
 ) -> Tuple[Dict[ExperimentData]]:
@@ -238,17 +238,15 @@ def normalize_ordered_data(
     return dict(
         imu=train_imu_normalized,
         pro=train_pro_normalized,
-        labels=train_data["labels"],
-        order=train_data["order"]
+        labels=train_data["labels"]
     ), dict(
         imu=test_imu_normalized,
         pro=test_pro_normalized,
-        labels=test_data["labels"],
-        order=test_data["order"]
+        labels=test_data["labels"]
     )
 
 
-def prepare_data_ordering(
+def cleanup_data(
     train_data: ExperimentData,
     test_data: ExperimentData,
 ) -> Tuple[Dict[ExperimentData]]:
@@ -256,33 +254,21 @@ def prepare_data_ordering(
     test_labels = test_data['imu'][:, 0, ch_cols["terr_idx"]]
 
     def _cleanup_data(data):
-        return data[:, :, 4:].astype(np.float32)
+        return data[:, :, 5:].astype(np.float32)
 
     train_data_imu = _cleanup_data(train_data['imu'])
     train_data_pro = _cleanup_data(train_data['pro'])
     test_data_imu = _cleanup_data(test_data['imu'])
     test_data_pro = _cleanup_data(test_data['pro'])
 
-    def _order_data(data_imu, data_pro):
-        imu_time = data_imu[:, :, 0]
-        pro_time = data_pro[:, :, 0]
-        imu_pro_ordering = np.hstack([imu_time, pro_time])
-
-        return imu_pro_ordering.argsort(axis=1)
-
-    train_order = _order_data(train_data_imu, train_data_pro)
-    test_order = _order_data(test_data_imu, test_data_pro)
-
     return dict(
-        imu=train_data_imu[:, :, 1:],
-        pro=train_data_pro[:, :, 1:],
-        labels=train_labels,
-        order=train_order,
+        imu=train_data_imu,
+        pro=train_data_pro,
+        labels=train_labels
     ), dict(
-        imu=test_data_imu[:, :, 1:],
-        pro=test_data_pro[:, :, 1:],
-        labels=test_labels,
-        order=test_order,
+        imu=test_data_imu,
+        pro=test_data_pro,
+        labels=test_labels
     )
 
 
