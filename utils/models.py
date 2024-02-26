@@ -581,12 +581,13 @@ class MambaTerrain(L.LightningModule):
             patience=self.reduce_lr_patience,
             factor=self.learning_rate_factor,
             verbose=True,
+            mode="max",
         )
         return dict(
             optimizer=optimizer,
             lr_scheduler=dict(
                 scheduler=scheduler,
-                monitor="val_loss",
+                monitor="val_accuracy_epoch",
             ),
         )
 
@@ -664,7 +665,7 @@ class MambaTerrain(L.LightningModule):
 
         return pred, target
 
-    def training_step(self, batch, batch_idx, dataloader_idx=0):
+    def training_step(self, batch, batch_idx):
         if isinstance(batch, list):
             pred, target = self._combined_batch_step(batch)
         else:
@@ -689,11 +690,8 @@ class MambaTerrain(L.LightningModule):
         self._train_accuracy.reset()
 
     def validation_step(self, val_batch, batch_idx, dataloader_idx=0):
-        if isinstance(val_batch, list):
-            pred, target = self._combined_batch_step(val_batch)
-        else:
-            x, target = val_batch
-            pred = self(x)
+        x, target = val_batch
+        pred = self(x)
 
         y = self.softmax(pred)
         loss = self.loss(pred, target)
@@ -734,11 +732,8 @@ class MambaTerrain(L.LightningModule):
         )
 
     def test_step(self, test_batch, batch_idx, dataloader_idx=0):
-        if isinstance(test_batch, list):
-            pred, target = self._combined_batch_step(test_batch)
-        else:
-            x, target = test_batch
-            pred = self(x)
+        x, target = test_batch
+        pred = self(x)
 
         y = self.softmax(pred)
         loss = self.loss(pred, target)
@@ -875,16 +870,16 @@ def mamba_network(
         gradient_clip_val=gradient_treshold,
         val_check_interval=valid_frequency,
         callbacks=[
-            EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
+            EarlyStopping(monitor="val_accuracy_epoch", patience=valid_patience, mode="max"),
             DeviceStatsMonitor(),
             LearningRateMonitor(),
             ModelCheckpoint(
-                monitor="val_loss",
+                monitor="val_accuracy_epoch",
                 dirpath=str(checkpoint_folder_path),
                 filename=f"{exp_name}-" + "{epoch:02d}-{val_loss:.6f}",
                 save_top_k=1,
                 save_last=True,
-                mode="min",
+                mode="max",
             ),
             *custom_callbacks,
         ],

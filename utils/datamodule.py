@@ -260,7 +260,7 @@ class MambaDataModuleCombined(L.LightningDataModule):
                     drop_last=False,
                     persistent_workers=self.persistent_workers,
                 )
-            ], mode="min_size" # mode="sequential"
+            ], mode="sequential"
         )
 
     def test_dataloader(self):
@@ -283,5 +283,5 @@ class MambaDataModuleCombined(L.LightningDataModule):
                     drop_last=False,
                     persistent_workers=self.persistent_workers,
                 )
-            ], mode="min_size" # mode="sequential"
+            ], mode="sequential"
         )
