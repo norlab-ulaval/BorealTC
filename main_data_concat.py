@@ -44,7 +44,7 @@ vulpi_terr_dfs = preprocessing.get_recordings(vulpi_csv_dir, summary_vulpi)
 husky_terr_dfs, vulpi_terr_dfs = downsample_terr_dfs(
     husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi
 )
-terr_dfs, summary = preprocessing.merge_terr_df(
+terr_dfs, summary = preprocessing.merge_terr_dfs(
     husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi
 )
 

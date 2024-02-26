@@ -43,7 +43,7 @@ class SpectralCutout:
         for i in range(3):
             end[i] = min(end[i], size[i])
         for i in range(3):
-            mask[start[i]:end[i]] = 0
+            mask[start[i] : end[i]] = 0
         return mask
 
     def _apply_mask(self, spec, mask):
@@ -66,10 +66,12 @@ class SpectralAxialCutout:
         if npr.uniform(0, 1) > self.p_apply:
             return spec
         n_cut = npr.randint(1, self.max_num_cut + 1)
-        channel_cut = npr.choice(np.arange(spec.shape[int(self.dim_to_cut)]), size=n_cut, replace=False)
+        channel_cut = npr.choice(
+            np.arange(spec.shape[int(self.dim_to_cut)]), size=n_cut, replace=False
+        )
         idx = [slice(None)] * len(spec.shape)
         idx[int(self.dim_to_cut)] = channel_cut
-        spec[*idx] = 0
+        spec[idx] = 0
         return spec
 
 

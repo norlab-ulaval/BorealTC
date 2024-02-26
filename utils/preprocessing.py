@@ -100,7 +100,7 @@ def downsample_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_v
     v_pro = vulpi_terr_dfs["pro"]
     h_terrains = sorted(h_imu.terrain.unique().tolist())
     v_terrains = sorted(v_imu.terrain.unique().tolist())
-    all_terrain = h_terrains + v_terrains
+    all_terrains = h_terrains + v_terrains
 
     # Downsample Husky IMU to 100Hz
     imu_merged = []
@@ -118,7 +118,7 @@ def downsample_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_v
                 for sens, sdata in terrdat.items()
             }
 
-            imu_merged.append(downsample_imu_husky(exps, husky_terr_dfs))
+            imu_merged.append(downsample_imu_husky(exps))
     h_imu_downsampled = pd.concat(imu_merged, ignore_index=True)
 
     # Downsample vulpi pro to 6.5Hz
@@ -137,7 +137,7 @@ def downsample_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_v
                 for sens, sdata in terrdat.items()
             }
 
-            pro_merged.append(downsample_pro_vulpi(exps, vulpi_terr_dfs))
+            pro_merged.append(downsample_pro_vulpi(exps))
     v_pro_downsampled = pd.concat(pro_merged, ignore_index=True)
 
     # h_imu_downsampled['src'] = 'husky'
@@ -151,28 +151,29 @@ def downsample_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_v
     return new_husky, new_vulpi
 
 
-def downsample_imu_husky(exps, hf_sensor):
+def downsample_imu_husky(exps):
     return exps["imu"].loc[::2]
 
 
-def downsample_pro_vulpi(exps, hf_sensor):
+def downsample_pro_vulpi(exps):
     pro = exps["pro"]
     t = pro["time"]
     cols = [c for c in pro.columns if c not in ["time", "terrain", "run_idx"]]
     fs = {c: CubicSpline(t, pro[c]) for c in cols}
-    inter_time = np.arange(t.min(), t.max() + 1, 1 / 6.5)
+    T = 1 / 6.5
+    inter_time = np.arange(0, t.max() + T, T)
 
     # Create a new pandas df with the interpolated values
-    int_df = exps["pro"][["time"]].copy()
+    int_df = pd.DataFrame.from_dict({"time": inter_time})
     for c, func in fs.items():
-        int_df[c] = func(int_df["time"])
+        int_df[c] = func(inter_time)
     int_df["terrain"] = exps["pro"]["terrain"].iloc[0]
     int_df["run_idx"] = exps["pro"]["run_idx"].iloc[0]
     exps["pro"] = int_df
     return exps["pro"]
 
 
-def merge_terr_df(husky_terr_dfs, husky_summary, vulpi_terr_dfs, vulpi_summary):
+def merge_terr_dfs(husky_terr_dfs, husky_summary, vulpi_terr_dfs, vulpi_summary):
     v_imu = vulpi_terr_dfs["imu"]
     v_pro = vulpi_terr_dfs["pro"]
     # Add terrain_idx to vulpi data, by merging on run_idx
