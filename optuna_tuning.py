@@ -71,7 +71,7 @@ else:
     terrains = sorted(terr_dfs["imu"].terrain.unique())
 
 # Set data partition parameters
-NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
+NUM_CLASSES = len(terrains)
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
 MOVING_WINDOW = 1.5
