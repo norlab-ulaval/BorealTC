@@ -143,7 +143,13 @@ def objective_mamba(trial: optuna.Trial):
         "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
     }
 
-    ssm_cfg = {
+    ssm_cfg_imu = {
+        "d_state": trial.suggest_int("d_state", 8, 64, step=8),
+        "d_conv": trial.suggest_int("d_conv", 2, 4),
+        "expand": trial.suggest_int("expand", 2, 4),
+    }
+
+    ssm_cfg_pro = {
         "d_state": trial.suggest_int("d_state", 8, 64, step=8),
         "d_conv": trial.suggest_int("d_conv", 2, 4),
         "expand": trial.suggest_int("expand", 2, 4),
@@ -245,7 +251,8 @@ def objective_mamba(trial: optuna.Trial):
         aug_test_fold,
         mamba_par,
         mamba_train_opt,
-        ssm_cfg,
+        ssm_cfg_imu,
+        ssm_cfg_pro,
         dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
         # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
         random_state=RANDOM_STATE,

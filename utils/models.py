@@ -507,7 +507,8 @@ class MambaTerrain(L.LightningModule):
         d_model_imu: int,
         d_model_pro: int,
         norm_epsilon: float,
-        ssm_cfg: dict,
+        ssm_cfg_imu: dict,
+        ssm_cfg_pro: dict,
         out_method: str,
         num_classes: int,
         lr: float,
@@ -536,13 +537,13 @@ class MambaTerrain(L.LightningModule):
 
         self.mamba_block_imu = create_block(
             d_model=d_model_imu,
-            ssm_cfg=ssm_cfg,
+            ssm_cfg=ssm_cfg_imu,
             norm_epsilon=norm_epsilon
         )
 
         self.mamba_block_pro = create_block(
             d_model=d_model_pro,
-            ssm_cfg=ssm_cfg,
+            ssm_cfg=ssm_cfg_pro,
             norm_epsilon=norm_epsilon
         )
 
@@ -666,7 +667,7 @@ class MambaTerrain(L.LightningModule):
         return pred, target
 
     def training_step(self, batch, batch_idx):
-        if isinstance(batch, list):
+        if isinstance(batch[0], list):
             pred, target = self._combined_batch_step(batch)
         else:
             x, target = batch
@@ -779,7 +780,8 @@ def mamba_network(
     test_data: list[ExperimentData],
     mamba_par: dict,
     mamba_train_opt: dict,
-    ssm_cfg: dict,
+    ssm_cfg_imu: dict,
+    ssm_cfg_pro: dict,
     description: dict,
     custom_callbacks=None,
     random_state: int | None = None,
@@ -844,7 +846,8 @@ def mamba_network(
         d_model_imu=d_model_imu,
         d_model_pro=d_model_pro,
         norm_epsilon=norm_epsilon,
-        ssm_cfg=ssm_cfg,
+        ssm_cfg_imu=ssm_cfg_imu,
+        ssm_cfg_pro=ssm_cfg_pro,
         out_method=out_method,
         num_classes=num_classes,
         lr=init_learn_rate,

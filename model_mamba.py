@@ -125,32 +125,38 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
-    "d_model_imu": 32,
-    "d_model_pro": 16,
-    "norm_epsilon": 5e-3
+    "d_model_imu": 48,
+    "d_model_pro": 24,
+    "norm_epsilon": 1e-4
 }
 
-ssm_cfg = {
-    "d_state": 16,
+ssm_cfg_imu = {
+    "d_state": 64,
+    "d_conv": 3,
+    "expand": 3,
+}
+
+ssm_cfg_pro = {
+    "d_state": 32,
     "d_conv": 3,
     "expand": 3,
 }
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 1e-2,
-    "learn_drop_factor": 0.15,
+    "init_learn_rate": 1e-3,
+    "learn_drop_factor": 0.1,
     "max_epochs": 30,
-    "minibatch_size": 64,
-    "valid_patience": 6,
+    "minibatch_size": 40,
+    "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": None,
     "gradient_treshold": 6,  # None to disable
     "focal_loss": True,
-    "focal_loss_alpha": 0.8,
-    "focal_loss_gamma": 3,
+    "focal_loss_alpha": 0.55,
+    "focal_loss_gamma": 1.25,
     "num_classes": len(terrains),
-    "out_method": "max_pool" # "max_pool", "last_state"
+    "out_method": "last_state" # "max_pool", "last_state"
 }
 
 # Model settings
@@ -217,7 +223,8 @@ for mw in MOVING_WINDOWS:
             aug_test_fold,
             mamba_par,
             mamba_train_opt,
-            ssm_cfg,
+            ssm_cfg_imu,
+            ssm_cfg_pro,
             dict(mw=mw, fold=k+1, dataset=DATASET),
             random_state=RANDOM_STATE,
             test=True
