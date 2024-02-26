@@ -25,11 +25,20 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
+
+DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi' or 'combined'
+COMBINED_PRED = os.environ.get("COMBINED_PRED_TYPE", "class")  # 'class' or 'dataset'
+
 if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
 elif DATASET == "vulpi":
     csv_dir = cwd / "data"
+elif DATASET == "combined":
+    csv_dir = dict(
+        vulpi=cwd / "data",
+        husky=cwd / "norlab-data"
+    )
+
 results_dir = cwd / "results"
 mat_dir = cwd / "datasets"
 
@@ -52,11 +61,30 @@ columns = {
         "curR": True,
     },
 }
-summary = pd.DataFrame({"columns": pd.Series(columns)})
+if DATASET == "combined":
+    summary = {}
+
+    for key in csv_dir.keys():
+        summary[key] = pd.DataFrame({"columns": pd.Series(columns)})
+else:
+    summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings(csv_dir, summary)
-terrains = sorted(terr_dfs["imu"].terrain.unique())
+if DATASET == "combined":
+    terr_dfs = {}
+    terrains = []
+
+    for key in csv_dir.keys():
+        terr_dfs[key] = preprocessing.get_recordings(csv_dir[key], summary[key])
+
+    if COMBINED_PRED == "class":
+        for key in csv_dir.keys():
+            terrains += sorted(terr_dfs[key]["imu"].terrain.unique())
+    elif COMBINED_PRED == "dataset":
+        terrains = list(csv_dir.keys())
+else:
+    terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+    terrains = sorted(terr_dfs["imu"].terrain.unique())
 
 # Set data partition parameters
 N_FOLDS = 5
@@ -65,13 +93,28 @@ PART_WINDOW = 5  # seconds
 MOVING_WINDOWS = [1.7]  # seconds
 
 # Data partition and sample extraction
-train_folds, test_folds = preprocessing.partition_data(
-    terr_dfs,
-    summary,
-    PART_WINDOW,
-    N_FOLDS,
-    random_state=RANDOM_STATE,
-)
+if DATASET == "combined":
+    train_folds = {}
+    test_folds = {}
+
+    for key in csv_dir.keys():
+        _train_folds, _test_folds = preprocessing.partition_data(
+            terr_dfs[key],
+            summary[key],
+            PART_WINDOW,
+            N_FOLDS,
+            random_state=RANDOM_STATE,
+        )
+        train_folds[key] = _train_folds
+        test_folds[key] = _test_folds
+else:
+    train_folds, test_folds = preprocessing.partition_data(
+        terr_dfs,
+        summary,
+        PART_WINDOW,
+        N_FOLDS,
+        random_state=RANDOM_STATE,
+    )
 
 # Data augmentation parameters
 # 0 < STRIDE < MOVING_WINDOWS
@@ -115,23 +158,59 @@ MODEL = "mamba"
 results = {}
 
 for mw in MOVING_WINDOWS:
-    aug_train_folds, aug_test_folds = preprocessing.augment_data(
-        train_folds,
-        test_folds,
-        summary,
-        moving_window=mw,
-        stride=STRIDE,
-        homogeneous=HOMOGENEOUS_AUGMENTATION,
-    )
+    if DATASET == "combined":
+        aug_train_folds = {}
+        aug_test_folds = {}
+
+        for key in csv_dir.keys():
+            _aug_train_folds, _aug_test_folds = preprocessing.augment_data(
+                train_folds[key],
+                test_folds[key],
+                summary[key],
+                moving_window=mw,
+                stride=STRIDE,
+                homogeneous=HOMOGENEOUS_AUGMENTATION,
+            )
+            aug_train_folds[key] = _aug_train_folds
+            aug_test_folds[key] = _aug_test_folds
+    else:
+        aug_train_folds, aug_test_folds = preprocessing.augment_data(
+            train_folds,
+            test_folds,
+            summary,
+            moving_window=mw,
+            stride=STRIDE,
+            homogeneous=HOMOGENEOUS_AUGMENTATION,
+        )
 
     print(f"Training models for a sampling window of {mw} seconds")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
     results_per_fold = []
     for k in range(N_FOLDS):
-        aug_train_fold, aug_test_fold = preprocessing.cleanup_data(aug_train_folds[k], aug_test_folds[k])
+        if DATASET == "combined":
+            aug_train_fold = {}
+            aug_test_fold = {}
 
-        aug_train_fold, aug_test_fold = preprocessing.normalize_data(aug_train_fold, aug_test_fold)
+            for key in csv_dir.keys():
+                _aug_train_fold, _aug_test_fold = preprocessing.cleanup_data(aug_train_folds[key][k], aug_test_folds[key][k])
+                _aug_train_fold, _aug_test_fold = preprocessing.normalize_data(_aug_train_fold, _aug_test_fold)
+
+                aug_train_fold[key] = _aug_train_fold
+                aug_test_fold[key] = _aug_test_fold
+            
+            if COMBINED_PRED == "class":
+                num_classes_vulpi = len(np.unique(aug_train_fold["vulpi"]["labels"]))
+                aug_train_fold["husky"]["labels"] += num_classes_vulpi
+                aug_test_fold["husky"]["labels"] += num_classes_vulpi
+            elif COMBINED_PRED == "dataset":
+                aug_train_fold["vulpi"]["labels"] = np.full_like(aug_train_fold["vulpi"]["labels"], 0)
+                aug_test_fold["vulpi"]["labels"] = np.full_like(aug_test_fold["vulpi"]["labels"], 0)
+                aug_train_fold["husky"]["labels"] = np.full_like(aug_train_fold["husky"]["labels"], 1)
+                aug_test_fold["husky"]["labels"] = np.full_like(aug_test_fold["husky"]["labels"], 1)
+        else:
+            aug_train_fold, aug_test_fold = preprocessing.cleanup_data(aug_train_folds[k], aug_test_folds[k])
+            aug_train_fold, aug_test_fold = preprocessing.normalize_data(aug_train_fold, aug_test_fold)
 
         out = models.mamba_network(
             aug_train_fold,

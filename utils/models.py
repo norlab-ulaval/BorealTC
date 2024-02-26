@@ -29,13 +29,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from utils.constants import ch_cols, imu_dim, pro_dim
-from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
+from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule, MambaDataModuleCombined
 
-try:
-    from mamba_ssm.models.mixer_seq_simple import create_block
-    from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
-except ImportError:
-    RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
+from mamba_ssm.models.mixer_seq_simple import create_block
 
 if TYPE_CHECKING:
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
@@ -512,8 +508,6 @@ class MambaTerrain(L.LightningModule):
         d_model_pro: int,
         norm_epsilon: float,
         ssm_cfg: dict,
-        in_size_imu: int,
-        in_size_pro: int,
         out_method: str,
         num_classes: int,
         lr: float,
@@ -553,10 +547,7 @@ class MambaTerrain(L.LightningModule):
         )
 
         if out_method == "max_pool":
-            self.max_pool_imu = nn.MaxPool1d(kernel_size=in_size_imu)
-            self.max_pool_pro = nn.MaxPool1d(kernel_size=in_size_pro)
             self.fc = nn.Linear(d_model_imu + d_model_pro, num_classes)
-
         elif out_method == "last_state":
             self.fc = nn.Linear(d_model_imu + d_model_pro, num_classes)
 
@@ -625,13 +616,17 @@ class MambaTerrain(L.LightningModule):
 
     def _out_layer_max_pool(self, x_imu, x_pro):
         x_imu = x_imu.transpose(1, 2)
-        x_imu = self.max_pool_imu(x_imu)
-        x_imu = x_imu.squeeze(dim=2)
         x_pro = x_pro.transpose(1, 2)
-        x_pro = self.max_pool_pro(x_pro)
+
+        x_imu = F.max_pool1d(x_imu, kernel_size=x_imu.shape[2])
+        x_pro = F.max_pool1d(x_pro, kernel_size=x_pro.shape[2])
+
+        x_imu = x_imu.squeeze(dim=2)
         x_pro = x_pro.squeeze(dim=2)
+
         x = torch.cat([x_imu, x_pro], dim=1)
         x = self.fc(x)
+
         return x
 
     def _out_layer_last_state(self, x_imu, x_pro):
@@ -663,14 +658,24 @@ class MambaTerrain(L.LightningModule):
             )
         return self.ce_loss(y, target)
 
-    def training_step(self, batch, batch_idx):
-        x, target = batch
-        pred = self(x)
+    def _combined_batch_step(self, batch):
+        pred = torch.cat([self(_batch[0]) for _batch in batch])
+        target = torch.cat([_batch[1] for _batch in batch])
+
+        return pred, target
+
+    def training_step(self, batch, batch_idx, dataloader_idx=0):
+        if isinstance(batch, list):
+            pred, target = self._combined_batch_step(batch)
+        else:
+            x, target = batch
+            pred = self(x)
+        
         loss = self.loss(pred, target)
         acc = self._train_accuracy(pred, target)
 
-        self.log("train_loss", loss, prog_bar=True, on_step=True)
-        self.log("train_accuracy", acc, on_step=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, batch_size=len(pred))
+        self.log("train_accuracy", acc, on_step=True, batch_size=len(pred))
 
         return loss
 
@@ -683,15 +688,19 @@ class MambaTerrain(L.LightningModule):
         )
         self._train_accuracy.reset()
 
-    def validation_step(self, val_batch, batch_idx):
-        x, target = val_batch
-        pred = self(x)
+    def validation_step(self, val_batch, batch_idx, dataloader_idx=0):
+        if isinstance(val_batch, list):
+            pred, target = self._combined_batch_step(val_batch)
+        else:
+            x, target = val_batch
+            pred = self(x)
+
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._val_accuracy(pred, target)
 
-        self.log("val_loss", loss, on_step=True)
-        self.log("val_accuracy", acc, on_step=True)
+        self.log("val_loss", loss, on_step=True, batch_size=len(pred))
+        self.log("val_accuracy", acc, on_step=True, batch_size=len(pred))
 
         pred_classes = torch.argmax(y, dim=1)
         self._val_classifications[-1]["pred"].append(
@@ -724,15 +733,19 @@ class MambaTerrain(L.LightningModule):
             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         )
 
-    def test_step(self, test_batch, batch_idx):
-        x, target = test_batch
-        pred = self(x)
+    def test_step(self, test_batch, batch_idx, dataloader_idx=0):
+        if isinstance(test_batch, list):
+            pred, target = self._combined_batch_step(test_batch)
+        else:
+            x, target = test_batch
+            pred = self(x)
+
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._test_accuracy(pred, target)
 
-        self.log("test_loss", loss, on_step=True)
-        self.log("test_accuracy", acc, on_step=True)
+        self.log("test_loss", loss, on_step=True, batch_size=len(pred))
+        self.log("test_accuracy", acc, on_step=True, batch_size=len(pred))
 
         pred_classes = torch.argmax(y, dim=1)
         self._test_classifications[-1]["pred"].append(
@@ -786,8 +799,6 @@ def mamba_network(
     d_model_imu = mamba_par["d_model_imu"]
     d_model_pro = mamba_par["d_model_pro"]
     norm_epsilon = mamba_par["norm_epsilon"]
-    in_size_imu = len(train_data["imu"][0])
-    in_size_pro = len(train_data["pro"][0])
     out_method = mamba_train_opt["out_method"]
     num_classes = mamba_train_opt["num_classes"]
     dataset = description["dataset"]
@@ -809,24 +820,36 @@ def mamba_network(
     num_workers = 8
     persistent_workers = True
 
-    datamodule = MambaDataModule(
-        train_data,
-        test_data,
-        train_transform=None,
-        test_transform=None,
-        valid_percent=valid_perc,
-        batch_size=minibatch_size,
-        num_workers=num_workers,
-        persistent_workers=persistent_workers,
-    )
+    if "vulpi" in train_data and "husky" in train_data:
+        datamodule = MambaDataModuleCombined(
+            train_temporal_vulpi=train_data["vulpi"],
+            test_temporal_vulpi=test_data["vulpi"],
+            train_temporal_husky=train_data["husky"],
+            test_temporal_husky=test_data["husky"],
+            train_transform=None,
+            test_transform=None,
+            valid_percent=valid_perc,
+            batch_size=minibatch_size,
+            num_workers=num_workers,
+            persistent_workers=persistent_workers
+        )
+    else:
+        datamodule = MambaDataModule(
+            train_data,
+            test_data,
+            train_transform=None,
+            test_transform=None,
+            valid_percent=valid_perc,
+            batch_size=minibatch_size,
+            num_workers=num_workers,
+            persistent_workers=persistent_workers,
+        )
 
     model = MambaTerrain(
         d_model_imu=d_model_imu,
         d_model_pro=d_model_pro,
         norm_epsilon=norm_epsilon,
         ssm_cfg=ssm_cfg,
-        in_size_imu=in_size_imu,
-        in_size_pro=in_size_pro,
         out_method=out_method,
         num_classes=num_classes,
         lr=init_learn_rate,
