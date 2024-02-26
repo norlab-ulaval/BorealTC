@@ -26,7 +26,7 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
+DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
 elif DATASET == "vulpi":
@@ -224,8 +224,22 @@ for mw in MOVING_WINDOWS:
                 hamming=cnn_train_opt["hamming"],
             )
             results_per_fold = []
-            maxs = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').max(axis=0) for idx in range(N_FOLDS)]).max(axis=0)
-            mins = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').min(axis=0) for idx in range(N_FOLDS)]).min(axis=0)
+            maxs = np.stack(
+                [
+                    ein.rearrange(
+                        train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
+                    ).max(axis=0)
+                    for idx in range(N_FOLDS)
+                ]
+            ).max(axis=0)
+            mins = np.stack(
+                [
+                    ein.rearrange(
+                        train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
+                    ).min(axis=0)
+                    for idx in range(N_FOLDS)
+                ]
+            ).min(axis=0)
             for k in range(N_FOLDS):
                 train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
                 out = models.convolutional_neural_network(

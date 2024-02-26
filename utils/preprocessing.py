@@ -20,8 +20,8 @@ from utils.constants import ch_cols
 
 
 def get_recordings(
-        data_dir: Path,
-        summary: pd.DataFrame,
+    data_dir: Path,
+    summary: pd.DataFrame,
 ) -> ExperimentData:
     """Extract data from CSVs in data_dir and filter out the columns with `channels`
 
@@ -93,22 +93,24 @@ def get_recordings(
     return sensor_dfs
 
 
-def merge_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi):
-    h_imu = husky_terr_dfs['imu']
-    v_imu = vulpi_terr_dfs['imu']
-    h_pro = husky_terr_dfs['pro']
-    v_pro = vulpi_terr_dfs['pro']
+def downsample_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi):
+    h_imu = husky_terr_dfs["imu"]
+    v_imu = vulpi_terr_dfs["imu"]
+    h_pro = husky_terr_dfs["pro"]
+    v_pro = vulpi_terr_dfs["pro"]
     h_terrains = sorted(h_imu.terrain.unique().tolist())
     v_terrains = sorted(v_imu.terrain.unique().tolist())
     all_terrain = h_terrains + v_terrains
 
     # Downsample Husky IMU to 100Hz
     imu_merged = []
-    summary_husky.loc['sampling_freq', 'imu'] = 50
+    summary_husky.loc["imu", "sampling_freq"] = 50
     for terr in h_terrains:
-        terrdat = {sens: sdata[sdata.terrain == terr] for sens, sdata in husky_terr_dfs.items()}
+        terrdat = {
+            sens: sdata[sdata.terrain == terr] for sens, sdata in husky_terr_dfs.items()
+        }
 
-        hf_terr = terrdat['imu']
+        hf_terr = terrdat["imu"]
         exp_idxs = sorted(hf_terr.run_idx.unique())
         for exp_idx in exp_idxs:
             exps = {
@@ -121,11 +123,13 @@ def merge_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi)
 
     # Downsample vulpi pro to 6.5Hz
     pro_merged = []
-    summary_vulpi.loc['sampling_freq', 'pro'] = 6.5
+    summary_vulpi.loc["pro", "sampling_freq"] = 6.5
     for terr in v_terrains:
-        terrdat = {sens: sdata[sdata.terrain == terr] for sens, sdata in vulpi_terr_dfs.items()}
+        terrdat = {
+            sens: sdata[sdata.terrain == terr] for sens, sdata in vulpi_terr_dfs.items()
+        }
 
-        hf_terr = terrdat['pro']
+        hf_terr = terrdat["pro"]
         exp_idxs = sorted(hf_terr.run_idx.unique())
         for exp_idx in exp_idxs:
             exps = {
@@ -134,34 +138,60 @@ def merge_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi)
             }
 
             pro_merged.append(downsample_pro_vulpi(exps, vulpi_terr_dfs))
+    v_pro_downsampled = pd.concat(pro_merged, ignore_index=True)
 
-    return
+    # h_imu_downsampled['src'] = 'husky'
+    # h_pro['src'] = 'husky'
+    # v_pro_downsampled['src'] = 'vulpi'
+    # v_imu['src'] = 'vulpi'
+
+    new_husky = dict(imu=h_imu_downsampled, pro=h_pro)
+    new_vulpi = dict(imu=v_imu, pro=v_pro_downsampled)
+
+    return new_husky, new_vulpi
 
 
 def downsample_imu_husky(exps, hf_sensor):
-    return exps['imu'].loc[::2]
+    return exps["imu"].loc[::2]
 
 
 def downsample_pro_vulpi(exps, hf_sensor):
-    pro = exps['pro']
-    t = pro['time']
-    cols = [c for c in pro.columns if c not in ['time', 'terrain', 'run_idx']]
+    pro = exps["pro"]
+    t = pro["time"]
+    cols = [c for c in pro.columns if c not in ["time", "terrain", "run_idx"]]
     fs = {c: CubicSpline(t, pro[c]) for c in cols}
     inter_time = np.arange(t.min(), t.max() + 1, 1 / 6.5)
 
-    int_df = exps['pro'][['time']].copy()
+    # Create a new pandas df with the interpolated values
+    int_df = exps["pro"][["time"]].copy()
     for c, func in fs.items():
-        int_df[c] = func(int_df)
-    exps['pro'] = int_df
-    return exps['pro']
+        int_df[c] = func(int_df["time"])
+    int_df["terrain"] = exps["pro"]["terrain"].iloc[0]
+    int_df["run_idx"] = exps["pro"]["run_idx"].iloc[0]
+    exps["pro"] = int_df
+    return exps["pro"]
+
+
+def merge_terr_df(husky_terr_dfs, husky_summary, vulpi_terr_dfs, vulpi_summary):
+    v_imu = vulpi_terr_dfs["imu"]
+    v_pro = vulpi_terr_dfs["pro"]
+    # Add terrain_idx to vulpi data, by merging on run_idx
+
+    husky_terr_dfs["imu"].run_idx += vulpi_terr_dfs["imu"].run_idx.max() + 1
+    husky_terr_dfs["pro"].run_idx += vulpi_terr_dfs["imu"].run_idx.max() + 1
+    imu = pd.concat([husky_terr_dfs["imu"], vulpi_terr_dfs["imu"]], ignore_index=True)
+    pro = pd.concat([husky_terr_dfs["pro"], vulpi_terr_dfs["pro"]], ignore_index=True)
+    terr_dfs = dict(imu=imu, pro=pro)
+    # summary = pd.concat([husky_summary, vulpi_summary])
+    return terr_dfs, husky_summary
 
 
 def partition_data(
-        data: ExperimentData,
-        summary: pd.DataFrame,
-        partition_duration: float,
-        n_splits: int | None = 5,
-        random_state: int | None = None,
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    partition_duration: float,
+    n_splits: int | None = 5,
+    random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
 
@@ -281,23 +311,23 @@ def partition_data(
 
 
 def prepare_data_ordering(
-        train_data: ExperimentData,
-        test_data: ExperimentData,
+    train_data: ExperimentData,
+    test_data: ExperimentData,
 ) -> Tuple[Dict[ExperimentData]]:
-    train_labels = train_data['imu'][:, 0, ch_cols["terr_idx"]]
-    test_labels = test_data['imu'][:, 0, ch_cols["terr_idx"]]
+    train_labels = train_data["imu"][:, 0, ch_cols["terr_idx"]]
+    test_labels = test_data["imu"][:, 0, ch_cols["terr_idx"]]
 
     def _cleanup_data(data):
         return data[:, :, 4:].astype(np.float32)
 
-    train_data['imu'] = _cleanup_data(train_data['imu'])
-    train_data['pro'] = _cleanup_data(train_data['pro'])
-    test_data['imu'] = _cleanup_data(test_data['imu'])
-    test_data['pro'] = _cleanup_data(test_data['pro'])
+    train_data["imu"] = _cleanup_data(train_data["imu"])
+    train_data["pro"] = _cleanup_data(train_data["pro"])
+    test_data["imu"] = _cleanup_data(test_data["imu"])
+    test_data["pro"] = _cleanup_data(test_data["pro"])
 
     def _order_data(data):
-        imu_time = data['imu'][:, :, 0]
-        pro_time = data['pro'][:, :, 0]
+        imu_time = data["imu"][:, :, 0]
+        pro_time = data["pro"][:, :, 0]
         imu_pro_ordering = np.hstack([imu_time, pro_time])
 
         return imu_pro_ordering.argsort(axis=1)
@@ -306,25 +336,25 @@ def prepare_data_ordering(
     test_order = _order_data(test_data)
 
     return dict(
-        imu=train_data['imu'][:, :, 1:],
-        pro=train_data['pro'][:, :, 1:],
+        imu=train_data["imu"][:, :, 1:],
+        pro=train_data["pro"][:, :, 1:],
         labels=train_labels,
         order=train_order,
     ), dict(
-        imu=test_data['imu'][:, :, 1:],
-        pro=test_data['pro'][:, :, 1:],
+        imu=test_data["imu"][:, :, 1:],
+        pro=test_data["pro"][:, :, 1:],
         labels=test_labels,
         order=test_order,
     )
 
 
 def augment_data(
-        train_dat,
-        test_dat,
-        summary,
-        moving_window: float,
-        stride: float,
-        homogeneous: bool,
+    train_dat,
+    test_dat,
+    summary,
+    moving_window: float,
+    stride: float,
+    homogeneous: bool,
 ) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
@@ -431,7 +461,7 @@ def augment_data(
                 lf_time = lf_terr[0, :, ch_cols["time"]]
                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
                 lf_sli = [
-                    lf_terr[:, lf_sli_idx: (lf_sli_idx + lf_win), :]
+                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
                     for lf_sli_idx in indices
                 ]
                 lf_sli = np.vstack(lf_sli)
@@ -451,13 +481,13 @@ def augment_data(
 
 
 def apply_multichannel_spectogram(
-        train_dat: List[ExperimentData],
-        test_dat: List[ExperimentData],
-        summary: pd.DataFrame,
-        moving_window: float,
-        time_window: float,
-        time_overlap: float,
-        hamming: bool = False,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
+    moving_window: float,
+    time_window: float,
+    time_overlap: float,
+    hamming: bool = False,
 ) -> Tuple[List[ExperimentData]]:
     tw = time_window
     to = time_overlap
@@ -490,9 +520,9 @@ def apply_multichannel_spectogram(
 
 
 def downsample_data(
-        train_dat: List[ExperimentData],
-        test_dat: List[ExperimentData],
-        summary: pd.DataFrame,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
 ) -> Tuple[List[ExperimentData]]:
     # Highest sampling frequency
     lf_sensor = summary["sampling_freq"].idxmin()
@@ -530,9 +560,9 @@ def downsample_data(
 
 
 def merge_upsample(
-        data: ExperimentData,
-        summary: pd.DataFrame,
-        mode: Literal["interpolation", "last"] = "interpolation",
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    mode: Literal["interpolation", "last"] = "interpolation",
 ) -> pd.DataFrame:
     """Upsample and merge low frequency sensors
 

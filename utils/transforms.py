@@ -35,7 +35,7 @@ def merge_dfs(
         pd.DataFrame: Merged DataFrame
     """
     # Unmerged columns
-    unmerged = ["terrain", "run_idx"]
+    unmerged = ["terrain", "run_idx", "src"]
 
     # Highest sampling frequency
     hf_data = data[hf_sensor]

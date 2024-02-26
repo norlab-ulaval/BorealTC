@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import einops as ein
@@ -6,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
-from utils.preprocessing import merge_terr_dfs
+from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
 husky_csv_dir = cwd / "norlab-data"
@@ -42,7 +41,12 @@ summary_vulpi = pd.DataFrame({"columns": pd.Series(columns)})
 husky_terr_dfs = preprocessing.get_recordings(husky_csv_dir, summary_husky)
 vulpi_terr_dfs = preprocessing.get_recordings(vulpi_csv_dir, summary_vulpi)
 
-terr_dfs = merge_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi)
+husky_terr_dfs, vulpi_terr_dfs = downsample_terr_dfs(
+    husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi
+)
+terr_dfs, summary = preprocessing.merge_terr_df(
+    husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi
+)
 
 # Set data partition parameters
 NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
@@ -168,7 +172,7 @@ svm_train_opt = {
 # BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
 BASE_MODELS = ["CNN"]
 
-print(f"Training on {DATASET} with {BASE_MODELS}...")
+print(f"Training on CONCAT with {BASE_MODELS}...")
 for mw in MOVING_WINDOWS:
     aug_train, aug_test = preprocessing.augment_data(
         train,
@@ -207,8 +211,22 @@ for mw in MOVING_WINDOWS:
                 hamming=cnn_train_opt["hamming"],
             )
             results_per_fold = []
-            maxs = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').max(axis=0) for idx in range(N_FOLDS)]).max(axis=0)
-            mins = np.stack([ein.rearrange(train_mcs_folds[idx]['data'], 'a b c d -> (a b c) d').min(axis=0) for idx in range(N_FOLDS)]).min(axis=0)
+            maxs = np.stack(
+                [
+                    ein.rearrange(
+                        train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
+                    ).max(axis=0)
+                    for idx in range(N_FOLDS)
+                ]
+            ).max(axis=0)
+            mins = np.stack(
+                [
+                    ein.rearrange(
+                        train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
+                    ).min(axis=0)
+                    for idx in range(N_FOLDS)
+                ]
+            ).min(axis=0)
             for k in range(N_FOLDS):
                 train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
                 out = models.convolutional_neural_network(
