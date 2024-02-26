@@ -47,6 +47,7 @@ husky_terr_dfs, vulpi_terr_dfs = downsample_terr_dfs(
 terr_dfs, summary = preprocessing.merge_terr_dfs(
     husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi
 )
+DATASET = "CONCAT"
 
 # Set data partition parameters
 NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
@@ -310,7 +311,7 @@ for mw in MOVING_WINDOWS:
         results["channels"] = columns
 
         # Store terrain labels
-        terrains = sorted([f.stem for f in csv_dir.iterdir() if f.is_dir()])
+        terrains = sorted(np.unique(terr_dfs["imu"].terrain))
         results["terrains"] = terrains
 
         np.save(result_path, results)
