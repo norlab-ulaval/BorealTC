@@ -23,7 +23,8 @@ def p(n: float, factor: int = 100) -> float:
 def process_results(res_path: Path):
     dataset = res_path.parent.stem
     # TODO: Add augmented data
-    _, model, _, mw, *_ = res_path.stem.split("_")
+    elems = res_path.stem.split("_")
+    _, model, desc, _, mw, *_ = elems
     win = int(p(float(mw), 1000))
 
     values = np.load(res_path, allow_pickle=True).item()
@@ -72,7 +73,7 @@ def process_results(res_path: Path):
 
     metdat = met_dir / dataset
     metdat.mkdir(parents=True, exist_ok=True)
-    fname = metdat / f"{model}-{win}.dat"
+    fname = metdat / f"{model}-{win}-{desc}.dat"
     with open(fname, "w", encoding="utf-8") as f:
         print(f"acc = {p(acc):.2f}", file=f)
         print(f"ap = {p(ap):.2f}", file=f)
