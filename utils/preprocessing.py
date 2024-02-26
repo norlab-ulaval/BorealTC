@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from scipy.interpolate import CubicSpline
+from sklearn.model_selection import StratifiedKFold
 
 from utils.transforms import merge_dfs
 
@@ -90,6 +91,86 @@ def get_recordings(
     summary["sampling_freq"] = pd.Series(sampling_freq)
 
     return sensor_dfs
+
+
+def downsample_terr_dfs(husky_terr_dfs, summary_husky, vulpi_terr_dfs, summary_vulpi):
+    h_imu = husky_terr_dfs["imu"]
+    v_imu = vulpi_terr_dfs["imu"]
+    h_pro = husky_terr_dfs["pro"]
+    v_pro = vulpi_terr_dfs["pro"]
+    h_terrains = sorted(h_imu.terrain.unique().tolist())
+    v_terrains = sorted(v_imu.terrain.unique().tolist())
+    all_terrains = h_terrains + v_terrains
+
+    # Downsample Husky IMU to 100Hz
+    imu_merged = []
+    summary_husky.loc["imu", "sampling_freq"] = 50
+    for terr in h_terrains:
+        terrdat = {
+            sens: sdata[sdata.terrain == terr] for sens, sdata in husky_terr_dfs.items()
+        }
+
+        hf_terr = terrdat["imu"]
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            exps = {
+                sens: sdata[sdata.run_idx == exp_idx].copy().reset_index(drop=True)
+                for sens, sdata in terrdat.items()
+            }
+
+            imu_merged.append(downsample_imu_husky(exps))
+    h_imu_downsampled = pd.concat(imu_merged, ignore_index=True)
+
+    # Downsample vulpi pro to 6.5Hz
+    pro_merged = []
+    summary_vulpi.loc["pro", "sampling_freq"] = 6.5
+    for terr in v_terrains:
+        terrdat = {
+            sens: sdata[sdata.terrain == terr] for sens, sdata in vulpi_terr_dfs.items()
+        }
+
+        hf_terr = terrdat["pro"]
+        exp_idxs = sorted(hf_terr.run_idx.unique())
+        for exp_idx in exp_idxs:
+            exps = {
+                sens: sdata[sdata.run_idx == exp_idx].copy().reset_index(drop=True)
+                for sens, sdata in terrdat.items()
+            }
+
+            pro_merged.append(downsample_pro_vulpi(exps))
+    v_pro_downsampled = pd.concat(pro_merged, ignore_index=True)
+
+    # h_imu_downsampled['src'] = 'husky'
+    # h_pro['src'] = 'husky'
+    # v_pro_downsampled['src'] = 'vulpi'
+    # v_imu['src'] = 'vulpi'
+
+    new_husky = dict(imu=h_imu_downsampled, pro=h_pro)
+    new_vulpi = dict(imu=v_imu, pro=v_pro_downsampled)
+
+    return new_husky, new_vulpi
+
+
+def downsample_imu_husky(exps):
+    return exps["imu"].loc[::2]
+
+
+def downsample_pro_vulpi(exps):
+    pro = exps["pro"]
+    t = pro["time"]
+    cols = [c for c in pro.columns if c not in ["time", "terrain", "run_idx"]]
+    fs = {c: CubicSpline(t, pro[c]) for c in cols}
+    T = 1 / 6.5
+    inter_time = np.arange(0, t.max() + T, T)
+
+    # Create a new pandas df with the interpolated values
+    int_df = pd.DataFrame.from_dict({"time": inter_time})
+    for c, func in fs.items():
+        int_df[c] = func(inter_time)
+    int_df["terrain"] = exps["pro"]["terrain"].iloc[0]
+    int_df["run_idx"] = exps["pro"]["run_idx"].iloc[0]
+    exps["pro"] = int_df
+    return exps["pro"]
 
 
 def partition_data(

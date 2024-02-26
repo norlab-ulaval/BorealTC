@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
+from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
 
@@ -74,8 +75,15 @@ if DATASET == "combined":
     terr_dfs = {}
     terrains = []
 
-    for key in csv_dir.keys():
-        terr_dfs[key] = preprocessing.get_recordings(csv_dir[key], summary[key])
+    terr_df_husky = preprocessing.get_recordings(csv_dir["husky"], summary["husky"])
+    terr_df_vulpi = preprocessing.get_recordings(csv_dir["vulpi"], summary["vulpi"])
+    
+    terr_df_husky, terr_df_vulpi = downsample_terr_dfs(
+        terr_df_husky, summary["husky"], terr_df_vulpi, summary["vulpi"]
+    )
+
+    terr_dfs["husky"] = terr_df_husky
+    terr_dfs["vulpi"] = terr_df_vulpi
 
     if COMBINED_PRED == "class":
         for key in csv_dir.keys():
