@@ -28,7 +28,8 @@ from utils.preprocessing import downsample_terr_dfs
 cwd = Path.cwd()
 
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi' or 'combined'
-COMBINED_PRED = os.environ.get("COMBINED_PRED_TYPE", "class")  # 'class' or 'dataset'
+COMBINED_PRED_TYPE = os.environ.get("COMBINED_PRED_TYPE", "class")  # 'class' or 'dataset'
+CHECKPOINT = os.environ.get("CHECKPOINT", None)
 
 if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
@@ -42,6 +43,9 @@ elif DATASET == "combined":
 
 results_dir = cwd / "results"
 mat_dir = cwd / "datasets"
+
+if CHECKPOINT is not None:
+    CHECKPOINT = cwd / "checkpoints" / CHECKPOINT
 
 RANDOM_STATE = 21
 
@@ -85,10 +89,10 @@ if DATASET == "combined":
     terr_dfs["husky"] = terr_df_husky
     terr_dfs["vulpi"] = terr_df_vulpi
 
-    if COMBINED_PRED == "class":
+    if COMBINED_PRED_TYPE == "class":
         for key in csv_dir.keys():
             terrains += sorted(terr_dfs[key]["imu"].terrain.unique())
-    elif COMBINED_PRED == "dataset":
+    elif COMBINED_PRED_TYPE == "dataset":
         terrains = list(csv_dir.keys())
 else:
     terr_dfs = preprocessing.get_recordings(csv_dir, summary)
@@ -133,36 +137,39 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
-    "d_model_imu": 48,
+    "d_model_imu": 56,
     "d_model_pro": 24,
-    "norm_epsilon": 1e-4
+    "norm_epsilon": 1e-5
 }
 
+d_conv = 3
+expand = 4
+
 ssm_cfg_imu = {
-    "d_state": 64,
-    "d_conv": 3,
-    "expand": 3,
+    "d_state": 56,
+    "d_conv": d_conv,
+    "expand": expand,
 }
 
 ssm_cfg_pro = {
-    "d_state": 32,
-    "d_conv": 3,
-    "expand": 3,
+    "d_state": 24,
+    "d_conv": d_conv,
+    "expand": expand,
 }
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 1e-3,
+    "init_learn_rate": 1e-2,
     "learn_drop_factor": 0.1,
     "max_epochs": 30,
     "minibatch_size": 40,
     "valid_patience": 8,
-    "reduce_lr_patience": 4,
+    "reduce_lr_patience": 2,
     "valid_frequency": None,
-    "gradient_treshold": 6,  # None to disable
+    "gradient_treshold": 0.1,  # None to disable
     "focal_loss": True,
-    "focal_loss_alpha": 0.55,
-    "focal_loss_gamma": 1.25,
+    "focal_loss_alpha": 0.75,
+    "focal_loss_gamma": 1.5,
     "num_classes": len(terrains),
     "out_method": "last_state" # "max_pool", "last_state"
 }
@@ -213,11 +220,11 @@ for mw in MOVING_WINDOWS:
                 aug_train_fold[key] = _aug_train_fold
                 aug_test_fold[key] = _aug_test_fold
             
-            if COMBINED_PRED == "class":
+            if COMBINED_PRED_TYPE == "class":
                 num_classes_vulpi = len(np.unique(aug_train_fold["vulpi"]["labels"]))
                 aug_train_fold["husky"]["labels"] += num_classes_vulpi
                 aug_test_fold["husky"]["labels"] += num_classes_vulpi
-            elif COMBINED_PRED == "dataset":
+            elif COMBINED_PRED_TYPE == "dataset":
                 aug_train_fold["vulpi"]["labels"] = np.full_like(aug_train_fold["vulpi"]["labels"], 0)
                 aug_test_fold["vulpi"]["labels"] = np.full_like(aug_test_fold["vulpi"]["labels"], 0)
                 aug_train_fold["husky"]["labels"] = np.full_like(aug_train_fold["husky"]["labels"], 1)
@@ -235,7 +242,8 @@ for mw in MOVING_WINDOWS:
             ssm_cfg_pro,
             dict(mw=mw, fold=k+1, dataset=DATASET),
             random_state=RANDOM_STATE,
-            test=True
+            test=True,
+            checkpoint=CHECKPOINT
         )
         results_per_fold.append(out)
 

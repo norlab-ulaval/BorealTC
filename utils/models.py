@@ -23,6 +23,8 @@ from lightning.pytorch.callbacks import (
 )
 from lightning.pytorch.loggers import TensorBoardLogger
 
+from pathlib import Path
+
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -531,6 +533,9 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss = focal_loss
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
+        
+        self.d_model_imu = d_model_imu
+        self.d_model_pro = d_model_pro
 
         self.imu_in_layer = nn.Linear(imu_dim, d_model_imu)
         self.pro_in_layer = nn.Linear(pro_dim, d_model_pro)
@@ -547,10 +552,7 @@ class MambaTerrain(L.LightningModule):
             norm_epsilon=norm_epsilon
         )
 
-        if out_method == "max_pool":
-            self.fc = nn.Linear(d_model_imu + d_model_pro, num_classes)
-        elif out_method == "last_state":
-            self.fc = nn.Linear(d_model_imu + d_model_pro, num_classes)
+        self.out_layer = nn.Linear(d_model_imu + d_model_pro, num_classes)
 
         self.softmax = nn.Softmax(dim=1)
 
@@ -605,6 +607,21 @@ class MambaTerrain(L.LightningModule):
             if len(self._test_classifications) > 1
             else {}
         )
+    
+    def load_from_checkpoint_transfer_learning(checkpoint_path, num_classes, **kwargs):
+        self = MambaTerrain.load_from_checkpoint(checkpoint_path, **kwargs)
+
+        for param in self.parameters():
+            param.requires_grad = False
+
+        self.out_layer = nn.Linear(self.d_model_imu + self.d_model_pro, num_classes)
+        self.num_classes = num_classes
+
+        self._train_accuracy = torchmetrics.classification.Accuracy(task="multiclass", num_classes=num_classes)
+        self._val_accuracy = torchmetrics.classification.Accuracy(task="multiclass", num_classes=num_classes)
+        self._test_accuracy = torchmetrics.classification.Accuracy(task="multiclass", num_classes=num_classes)
+        
+        return self
 
     def _forward_imu(self, x_imu):
         x_imu = self.imu_in_layer(x_imu)
@@ -627,7 +644,7 @@ class MambaTerrain(L.LightningModule):
         x_pro = x_pro.squeeze(dim=2)
 
         x = torch.cat([x_imu, x_pro], dim=1)
-        x = self.fc(x)
+        x = self.out_layer(x)
 
         return x
 
@@ -635,7 +652,7 @@ class MambaTerrain(L.LightningModule):
         x_imu = x_imu[:, -1]
         x_pro = x_pro[:, -1]
         x = torch.cat([x_imu, x_pro], dim=1)
-        x = self.fc(x)
+        x = self.out_layer(x)
         return x
 
     def forward(self, x):
@@ -786,6 +803,7 @@ def mamba_network(
     custom_callbacks=None,
     random_state: int | None = None,
     test: bool = True,
+    checkpoint: Path | None = None
 ) -> dict:
     # Seed
     L.seed_everything(random_state)
@@ -842,22 +860,36 @@ def mamba_network(
             persistent_workers=persistent_workers,
         )
 
-    model = MambaTerrain(
-        d_model_imu=d_model_imu,
-        d_model_pro=d_model_pro,
-        norm_epsilon=norm_epsilon,
-        ssm_cfg_imu=ssm_cfg_imu,
-        ssm_cfg_pro=ssm_cfg_pro,
-        out_method=out_method,
-        num_classes=num_classes,
-        lr=init_learn_rate,
-        learning_rate_factor=learn_drop_factor,
-        reduce_lr_patience=reduce_lr_patience,
-        class_weights=None,
-        focal_loss=focal_loss,
-        focal_loss_alpha=focal_loss_alpha,
-        focal_loss_gamma=focal_loss_gamma
-    )
+    if checkpoint is not None:
+        model = MambaTerrain.load_from_checkpoint_transfer_learning(
+            checkpoint_path=checkpoint,
+            num_classes=num_classes,
+            norm_epsilon=norm_epsilon,
+            lr=init_learn_rate,
+            learning_rate_factor=learn_drop_factor,
+            reduce_lr_patience=reduce_lr_patience,
+            class_weights=None,
+            focal_loss=focal_loss,
+            focal_loss_alpha=focal_loss_alpha,
+            focal_loss_gamma=focal_loss_gamma
+        )
+    else:
+        model = MambaTerrain(
+            d_model_imu=d_model_imu,
+            d_model_pro=d_model_pro,
+            norm_epsilon=norm_epsilon,
+            ssm_cfg_imu=ssm_cfg_imu,
+            ssm_cfg_pro=ssm_cfg_pro,
+            out_method=out_method,
+            num_classes=num_classes,
+            lr=init_learn_rate,
+            learning_rate_factor=learn_drop_factor,
+            reduce_lr_patience=reduce_lr_patience,
+            class_weights=None,
+            focal_loss=focal_loss,
+            focal_loss_alpha=focal_loss_alpha,
+            focal_loss_gamma=focal_loss_gamma
+        )
 
     exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
