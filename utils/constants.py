@@ -14,9 +14,9 @@ PLOTCOLORS = {
     "sandy loam": "xkcd:dark orange",
     "snow": "xkcd:cerulean",
     "concrete": "#4248ad",
-    "dirt road": "xkcd:burnt sienna",
+    "dirt road": "xkcd:coral",
     "ploughed": "xkcd:grass green",
-    "unploughed": "xkcd:denim blue",
+    "unploughed": "xkcd:strawberry",
 }
 # PLOTCOLORS = {
 #     "asphalt": "xkcd:dark grey",
