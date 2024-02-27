@@ -22,6 +22,7 @@ mamba-ssm
 git+https://github.com/willGuimont/pipeline
 optuna
 plotly
+tsnecuda
 
 # Dev
 black

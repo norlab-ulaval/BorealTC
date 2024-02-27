@@ -2,7 +2,7 @@ import optuna
 from optuna.visualization import plot_optimization_history, plot_intermediate_values
 
 if __name__ == "__main__":
-    model = "CNN"
+    model = "SVM"
     dataset = "vulpi"
     name = f"{model}_{dataset}"
     storage_name = f"sqlite:///results/{dataset}/optuna/{name}.db"

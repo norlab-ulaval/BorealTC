@@ -28,7 +28,12 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from utils.augmentations import NormalizeMCS, SpectralCutout, SpectralAxialCutout, SpectralNoise
+from utils.augmentations import (
+    NormalizeMCS,
+    SpectralCutout,
+    SpectralAxialCutout,
+    SpectralNoise,
+)
 from utils.constants import ch_cols
 from utils.datamodule import MCSDataModule, TemporalDataModule
 from utils.constants import ch_cols, imu_dim, pro_dim
@@ -292,22 +297,22 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-            self,
-            in_size: int,
-            num_filters: int,
-            filter_size: int | (int, int),
-            num_classes: int,
-            n_wind: int,
-            n_freq: int,
-            lr: float,
-            learning_rate_factor: float = 0.1,
-            reduce_lr_patience: int = 8,
-            class_weights: list[float] | None = None,
-            focal_loss: bool = False,
-            focal_loss_alpha: float = 0.25,
-            focal_loss_gamma: float = 2,
-            scheduler: str = "plateau",
-            dropout: float = 0.0,
+        self,
+        in_size: int,
+        num_filters: int,
+        filter_size: int | (int, int),
+        num_classes: int,
+        n_wind: int,
+        n_freq: int,
+        lr: float,
+        learning_rate_factor: float = 0.1,
+        reduce_lr_patience: int = 8,
+        class_weights: list[float] | None = None,
+        focal_loss: bool = False,
+        focal_loss_alpha: float = 0.25,
+        focal_loss_gamma: float = 2,
+        scheduler: str = "plateau",
+        dropout: float = 0.0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -355,20 +360,22 @@ class CNNTerrain(L.LightningModule):
             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         ]
         self._test_classifications = [
-            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
         ]
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        if self.scheduler == 'plateau':
+        if self.scheduler == "plateau":
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer,
                 patience=self.reduce_lr_patience,
                 factor=self.learning_rate_factor,
                 verbose=True,
             )
-        elif self.scheduler == 'linear':
-            scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=self.learning_rate_factor)
+        elif self.scheduler == "linear":
+            scheduler = torch.optim.lr_scheduler.StepLR(
+                optimizer, step_size=10, gamma=self.learning_rate_factor
+            )
         # scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer,
         #                                                       lr_lambda=lambda epoch: self.learning_rate_factor,
         #                                                       verbose=True)
@@ -404,10 +411,10 @@ class CNNTerrain(L.LightningModule):
         x = F.relu(x)
         x = self.drop2(x)
 
-        x = self.flatten(x)
-        x = self.fc(x)
+        embed = self.flatten(x)
+        x = self.fc(embed)
 
-        return x
+        return x, embed
 
     def loss(self, y, target):
         if self.focal_loss:
@@ -421,7 +428,7 @@ class CNNTerrain(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, target = batch
-        pred = self(x)
+        pred, embed = self(x)
         loss = self.loss(pred, target)
         acc = self._train_accuracy(pred, target)
 
@@ -441,7 +448,7 @@ class CNNTerrain(L.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
-        pred = self(x)
+        pred, embed = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._val_accuracy(pred, target)
@@ -482,7 +489,7 @@ class CNNTerrain(L.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
-        pred = self(x)
+        pred, embed = self(x)
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._test_accuracy(pred, target)
@@ -496,6 +503,7 @@ class CNNTerrain(L.LightningModule):
         )
         self._test_classifications[-1]["true"].append(target.detach().cpu().numpy())
         self._test_classifications[-1]["conf"].append(y.detach().cpu().numpy())
+        self._test_classifications[-1]["repr"].append(embed.detach().cpu().numpy())
 
         return loss
 
@@ -517,8 +525,11 @@ class CNNTerrain(L.LightningModule):
         self._test_classifications[-1]["conf"] = np.vstack(
             self._test_classifications[-1]["conf"]
         )
+        self._test_classifications[-1]["repr"] = np.vstack(
+            self._test_classifications[-1]["repr"]
+        )
         self._test_classifications.append(
-            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
         )
 
 
@@ -982,8 +993,6 @@ def convolutional_neural_network(
     persistent_workers = False
     verbose = cnn_train_opt.get("verbose", True)
 
-
-
     def to_f32(x):
         return x.astype(np.float32)
 
@@ -1000,15 +1009,17 @@ def convolutional_neural_network(
     )
     if use_augmentation:
         train_data_augmentation = pp.Bifunctor(
-            pp.Compose([
-                SpectralNoise(p_apply=0.3, noise_level=0.05),
-                SpectralCutout(p_apply=0.25, num_mask=4, max_size=4),
-                SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=5),
-                SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.FREQUENCY, max_num_cut=5),
-                SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.TIME, max_num_cut=2),
-                to_f32
-            ]),
-            pp.Identity()
+            pp.Compose(
+                [
+                    SpectralNoise(p_apply=0.3, noise_level=0.05),
+                    SpectralCutout(p_apply=0.25, num_mask=5, max_size=4),
+                    # SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.CHANNEL, max_num_cut=5),
+                    # SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.FREQUENCY, max_num_cut=5),
+                    # SpectralAxialCutout(p_apply=0.25, dim_to_cut=SpectralAxialCutout.CutoutType.TIME, max_num_cut=5),
+                    to_f32,
+                ]
+            ),
+            pp.Identity(),
         )
     else:
         train_data_augmentation = pp.Identity()
@@ -1039,7 +1050,7 @@ def convolutional_neural_network(
         focal_loss_alpha=focal_loss_alpha,
         focal_loss_gamma=focal_loss_gamma,
         scheduler=scheduler,
-        dropout=dropout
+        dropout=dropout,
     )
 
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'

@@ -26,7 +26,7 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
+DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
 if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
 elif DATASET == "vulpi":
@@ -202,7 +202,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_hamming_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_tsne_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -257,6 +257,7 @@ for mw in MOVING_WINDOWS:
             results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
             results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
             results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
+            results["repr"] = np.vstack([r["repr"] for r in results_per_fold])
 
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(
