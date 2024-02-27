@@ -22,7 +22,7 @@ def p(n: float, factor: int = 100) -> float:
 
 def process_results(res_path: Path):
     dataset = res_path.parent.stem
-    if dataset not in ["baseline", "husky", "vulpi"]:
+    if dataset not in ["baseline", "husky", "vulpi", "combined"]:
         return
     # TODO: Add augmented data
     elems = res_path.stem.split("_")
