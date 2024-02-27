@@ -611,8 +611,8 @@ class MambaTerrain(L.LightningModule):
     def load_from_checkpoint_transfer_learning(checkpoint_path, num_classes, **kwargs):
         self = MambaTerrain.load_from_checkpoint(checkpoint_path, **kwargs)
 
-        for param in self.parameters():
-            param.requires_grad = False
+        # for param in self.parameters():
+        #     param.requires_grad = False
 
         self.out_layer = nn.Linear(self.d_model_imu + self.d_model_pro, num_classes)
         self.num_classes = num_classes
