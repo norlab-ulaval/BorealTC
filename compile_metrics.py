@@ -10,6 +10,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
+from tqdm import tqdm
 
 res_dir = Path("results")
 met_dir = Path("metrics")
@@ -134,7 +135,7 @@ def process_baseline(res_fname: str, metrics_dir: Path):
 
 def main():
     res_paths = filter(lambda x: len(x.parents) > 2, res_dir.rglob("**/*.npy"))
-    for res in res_paths:
+    for res in tqdm(res_paths):
         process_results(res_path=res)
 
     process_baseline("TDEEP.mat", met_dir / "baseline-vulpi")
