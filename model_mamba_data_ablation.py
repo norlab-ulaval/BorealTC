@@ -116,6 +116,7 @@ if DATASET == "combined":
             PART_WINDOW,
             N_FOLDS,
             random_state=RANDOM_STATE,
+            ablation=True
         )
         train_folds[key] = _train_folds
         test_folds[key] = _test_folds
@@ -126,6 +127,7 @@ else:
         PART_WINDOW,
         N_FOLDS,
         random_state=RANDOM_STATE,
+        ablation=True
     )
 
 # Data augmentation parameters
@@ -139,11 +141,11 @@ HOMOGENEOUS_AUGMENTATION = True
 mamba_par = {
     "d_model_imu": 56,
     "d_model_pro": 56,
-    "norm_epsilon": 1e-4
+    "norm_epsilon": 5e-3
 }
 
 d_conv = 3
-expand = 3
+expand = 4
 
 ssm_cfg_imu = {
     "d_state": 56,
@@ -159,17 +161,17 @@ ssm_cfg_pro = {
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 5e-5,
+    "init_learn_rate": 5e-3,
     "learn_drop_factor": 0.33,
     "max_epochs": 60,
-    "minibatch_size": 16,
+    "minibatch_size": 64,
     "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": None,
     "gradient_treshold": 2,  # None to disable
     "focal_loss": True,
-    "focal_loss_alpha": 0.66,
-    "focal_loss_gamma": 3,
+    "focal_loss_alpha": 0.75,
+    "focal_loss_gamma": 2,
     "num_classes": len(terrains),
     "out_method": "last_state" # "max_pool", "last_state"
 }
@@ -184,7 +186,7 @@ for mw in MOVING_WINDOWS:
         aug_test_folds = {}
 
         for key in csv_dir.keys():
-            _aug_train_folds, _aug_test_folds = preprocessing.augment_data(
+            _aug_train_folds, _aug_test_folds = preprocessing.augment_data_ablation(
                 train_folds[key],
                 test_folds[key],
                 summary[key],
@@ -195,7 +197,7 @@ for mw in MOVING_WINDOWS:
             aug_train_folds[key] = _aug_train_folds
             aug_test_folds[key] = _aug_test_folds
     else:
-        aug_train_folds, aug_test_folds = preprocessing.augment_data(
+        aug_train_folds, aug_test_folds = preprocessing.augment_data_ablation(
             train_folds,
             test_folds,
             summary,

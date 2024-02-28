@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy.interpolate import CubicSpline
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 
 from utils.transforms import merge_dfs
 
@@ -173,12 +173,77 @@ def downsample_pro_vulpi(exps):
     return exps["pro"]
 
 
+def kfold_splits(
+    unified: Tuple[List[ExperimentData]] | ExperimentData,
+    labels: np.ndarray,
+    n_splits: int | None = 5,
+    random_state: int | None = None,
+    ablation: bool = False
+) -> Tuple[List[ExperimentData]] | ExperimentData:
+    if n_splits is None:
+        return unified
+
+    rng = np.random.RandomState(random_state)
+    skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
+
+    train_data, test_data = [], []
+
+    if ablation:
+        sss = StratifiedShuffleSplit(n_splits=1, train_size=0.5, random_state=rng)
+
+        for fold_train_idx, fold_test_idx in skf.split(np.zeros(len(labels)), labels):
+            train_data_subsamples = [
+                {
+                    sens: sens_data[fold_train_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            ]
+            test_data.append(
+                {
+                    sens: sens_data[fold_test_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            )
+
+            for k in range(n_splits - 1):
+                _unified = train_data_subsamples[-1]
+                _labels = _unified["imu"][:, 0, 0]
+
+                fold_train_idx, fold_test_idx = next(sss.split(np.zeros(len(_labels)), _labels))
+
+                train_data_subsamples.append(
+                    {
+                        sens: sens_data[fold_train_idx, :, :]
+                        for sens, sens_data in _unified.items()
+                    }
+                )
+
+            train_data.append(train_data_subsamples)
+    else:
+        for fold_train_idx, fold_test_idx in skf.split(np.zeros(len(labels)), labels):
+            train_data.append(
+                {
+                    sens: sens_data[fold_train_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            )
+            test_data.append(
+                {
+                    sens: sens_data[fold_test_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            )
+    
+    return train_data, test_data
+
+
 def partition_data(
     data: ExperimentData,
     summary: pd.DataFrame,
     partition_duration: float,
     n_splits: int | None = 5,
     random_state: int | None = None,
+    ablation: bool = False
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
 
@@ -269,32 +334,7 @@ def partition_data(
     # for sens, sens_data in unified.items():
     #     print(sens, sens_data.shape, (sens_data[:, 0, :][:, 0] == labels).all())
 
-    if n_splits is None:
-        return unified
-
-    # TODO: split elsewhere ?
-
-    # Split data with K folds
-    rng = np.random.RandomState(random_state)
-    skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
-
-    train_data, test_data = [], []
-
-    for fold_train_idx, fold_test_idx in skf.split(np.zeros(len(labels)), labels):
-        train_data.append(
-            {
-                sens: sens_data[fold_train_idx, :, :]
-                for sens, sens_data in unified.items()
-            }
-        )
-        test_data.append(
-            {
-                sens: sens_data[fold_test_idx, :, :]
-                for sens, sens_data in unified.items()
-            }
-        )
-
-    return train_data, test_data
+    return kfold_splits(unified, labels, n_splits, random_state, ablation)
 
 
 def normalize_data(
@@ -483,6 +523,138 @@ def augment_data(
         aug_test.append(data_augmentation(K_test))
 
     return aug_train, aug_test
+
+
+# def augment_data_ablation(
+#     train_dat,
+#     test_dat,
+#     summary,
+#     moving_window: float,
+#     stride: float,
+#     homogeneous: bool,
+# ) -> Tuple[List[ExperimentData]]:
+#     # Find the channel "c" providing data at higher frequency "sf" to be used
+#     # as a reference for windowing operation
+
+#     # Highest sampling frequency
+#     hf_sensor = summary["sampling_freq"].idxmax()
+#     hf = summary["sampling_freq"].max()
+#     # Other sensors are low frequency
+#     lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
+
+#     # Time (s) / window * Sampling freq = samples / window
+#     MW_len = int(moving_window * hf)
+#     ST_len = int(stride * hf)
+#     PW_len = train_dat[0][0][hf_sensor].shape[1]
+
+#     # Number of folds
+#     num_folds = len(train_dat)
+#     all_labels = np.hstack(
+#         [
+#             train_dat[0][0][hf_sensor][:, 0, 0],
+#             test_dat[0][0][hf_sensor][:, 0, 0],
+#         ]
+#     )
+#     terrains = np.sort(np.unique(all_labels))
+#     num_terrains = terrains.shape[0]
+
+#     # How many samples are generated for one partition window
+#     n_strides_part = (PW_len - MW_len) // ST_len
+
+#     if homogeneous:
+#         # Get number of windows per terrain
+#         terr_counts = pd.Series(all_labels).value_counts(sort=False).sort_index()
+#         min_count = terr_counts.min()
+
+#         # Maximum amount of samples / slides for the class with less partitions
+#         # strides_min = n_strides/part * n_partitions(small class)
+#         strides_min = n_strides_part * min_count
+
+#         # Number of slides for each terrain so that all terrains have strides_min slides
+#         n_slides_terr = (strides_min / terr_counts).astype(int)
+
+#         # Length of slide for each terrain to respect the number of slides/terr
+#         aug_strides_all = (PW_len - MW_len) // (n_slides_terr)
+#         aug_windows = aug_strides_all.to_numpy()
+
+#     else:
+#         # Use ST for all terrains
+#         aug_windows = np.full_like(terrains, int(stride * hf))
+#         # Number of slides is given by the number of strides per partition
+#         n_slides_terr = np.full_like(terrains, n_strides_part)
+
+#     aug_train, aug_test = [], []
+
+#     def data_augmentation(data: ExperimentData) -> ExperimentData:
+#         # Augment the data using the appropriate sliding window for different
+#         # terrains or the same for every terrain depending on homogeneous
+
+#         # For every terrain
+#         Kterr = {}
+
+#         hf_data = data[hf_sensor]
+
+#         for terr_idx, terr in enumerate(terrains):
+#             # Get partitions for label terrain
+#             terr_mask = hf_data[:, 0, ch_cols["terrain"]] == terr
+#             hf_terr = hf_data[terr_mask]
+
+#             # Sliding window for the terrain class
+#             sli_len = aug_windows[terr_idx]
+#             n_slides = n_slides_terr[terr]
+
+#             # Slice the array based on the slide length
+#             starts = sli_len * np.arange(n_slides)
+#             # starts = np.arange(0, PW_len - MW_len, sli_len)
+#             # starts = starts[(starts + MW_len) < PW_len]
+#             limits = np.vstack([starts, starts + MW_len]).T
+#             # TODO: Check number of strides per partition
+#             # if K_idx == 4:
+#             #     print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
+#             # print(strides_min, n_slides, limits.shape[0])
+
+#             # Get slices for each limit
+#             hf_sli = [hf_terr[:, slice(*lim), :] for lim in limits]
+
+#             # Get time values
+#             hf_tlim = hf_terr[0, limits, ch_cols["time"]]
+
+#             # Stack all slices together
+#             hf_sli = np.vstack(hf_sli)
+
+#             Kterr.setdefault(hf_sensor, []).append(hf_sli)
+
+#             for lf_sens in lf_sensors:
+#                 lf_data = data[lf_sens]
+
+#                 # Sampling frequency
+#                 sf = summary.sampling_freq.loc[lf_sens]
+#                 lf_win = int(moving_window * sf)
+
+#                 # Select partitions based on terrain
+#                 terr_mask = lf_data[:, 0, ch_cols["terrain"]] == terr
+#                 lf_terr = lf_data[terr_mask]
+
+#                 lf_time = lf_terr[0, :, ch_cols["time"]]
+#                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
+#                 lf_sli = [
+#                     lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+#                     for lf_sli_idx in indices
+#                 ]
+#                 lf_sli = np.vstack(lf_sli)
+
+#                 Kterr.setdefault(lf_sens, []).append(lf_sli)
+
+#         K_sli = {sens: np.vstack(sens_data) for sens, sens_data in Kterr.items()}
+
+#         return K_sli
+
+#     # For every fold
+#     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
+#         aug_train.append(data_augmentation(K_train))
+#         aug_test.append(data_augmentation(K_test))
+
+#     return aug_train, aug_test
 
 
 def apply_multichannel_spectogram(
