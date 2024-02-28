@@ -22,7 +22,6 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
-
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -31,11 +30,8 @@ from sklearn.svm import SVC
 from utils.augmentations import (
     NormalizeMCS,
     SpectralCutout,
-    SpectralAxialCutout,
     SpectralNoise,
 )
-from utils.constants import ch_cols
-from utils.datamodule import MCSDataModule, TemporalDataModule
 from utils.constants import ch_cols, imu_dim, pro_dim
 from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
 
@@ -53,22 +49,22 @@ if TYPE_CHECKING:
 
 class LSTMTerrain(L.LightningModule):
     def __init__(
-        self,
-        input_size: int,
-        hidden_size: int,
-        num_layers: int,
-        dropout: float,
-        bidirectional: bool,
-        convolutional: bool,
-        num_classes: int,
-        lr: float,
-        conv_num_filters: int = 5,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
+            self,
+            input_size: int,
+            hidden_size: int,
+            num_layers: int,
+            dropout: float,
+            bidirectional: bool,
+            convolutional: bool,
+            num_classes: int,
+            lr: float,
+            conv_num_filters: int = 5,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -297,22 +293,22 @@ class LSTMTerrain(L.LightningModule):
 
 class CNNTerrain(L.LightningModule):
     def __init__(
-        self,
-        in_size: int,
-        num_filters: int,
-        filter_size: int | (int, int),
-        num_classes: int,
-        n_wind: int,
-        n_freq: int,
-        lr: float,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
-        scheduler: str = "plateau",
-        dropout: float = 0.0,
+            self,
+            in_size: int,
+            num_filters: int,
+            filter_size: int | (int, int),
+            num_classes: int,
+            n_wind: int,
+            n_freq: int,
+            lr: float,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
+            scheduler: str = "plateau",
+            dropout: float = 0.0,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -535,22 +531,22 @@ class CNNTerrain(L.LightningModule):
 
 class MambaTerrain(L.LightningModule):
     def __init__(
-        self,
-        mamba_cfg: MambaConfig,
-        num_branches: int,
-        norm_epsilon: float,
-        fused_add_norm: bool,
-        residual_in_fp32: bool,
-        in_size: int,
-        out_method: str,
-        num_classes: int,
-        lr: float,
-        learning_rate_factor: float = 0.1,
-        reduce_lr_patience: int = 8,
-        class_weights: list[float] | None = None,
-        focal_loss: bool = False,
-        focal_loss_alpha: float = 0.25,
-        focal_loss_gamma: float = 2,
+            self,
+            mamba_cfg: MambaConfig,
+            num_branches: int,
+            norm_epsilon: float,
+            fused_add_norm: bool,
+            residual_in_fp32: bool,
+            in_size: int,
+            out_method: str,
+            num_classes: int,
+            lr: float,
+            learning_rate_factor: float = 0.1,
+            reduce_lr_patience: int = 8,
+            class_weights: list[float] | None = None,
+            focal_loss: bool = False,
+            focal_loss_alpha: float = 0.25,
+            focal_loss_gamma: float = 2,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -712,7 +708,7 @@ class MambaTerrain(L.LightningModule):
             for layer_idx in range(self.num_layers):
                 x_branch, r_branch = self.mamba_blocks[
                     branch_idx * self.num_layers + layer_idx
-                ](x_branch, r_branch)
+                    ](x_branch, r_branch)
 
             if not self.fused_add_norm:
                 r_branch = (x_branch + r_branch) if r_branch is not None else x_branch
@@ -854,12 +850,12 @@ class MambaTerrain(L.LightningModule):
 
 
 def mamba_network(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    mamba_par: dict,
-    mamba_train_opt: dict,
-    mamba_cfg: MambaConfig,
-    description: dict,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        mamba_par: dict,
+        mamba_train_opt: dict,
+        mamba_cfg: MambaConfig,
+        description: dict,
 ) -> dict:
     # Mamba parameters
     in_size = len(train_data["order"][0])
@@ -947,14 +943,14 @@ def mamba_network(
 
 
 def convolutional_neural_network(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    cnn_par: dict,
-    cnn_train_opt: dict,
-    description: dict,
-    custom_callbacks=None,
-    random_state: int | None = None,
-    test: bool = True,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        cnn_par: dict,
+        cnn_train_opt: dict,
+        description: dict,
+        custom_callbacks=None,
+        random_state: int | None = None,
+        test: bool = True,
 ) -> dict:
     # Seed
     L.seed_everything(random_state)
@@ -1053,6 +1049,11 @@ def convolutional_neural_network(
         dropout=dropout,
     )
 
+    if checkpoint_path is not None:
+        model = CNNTerrain.load_from_checkpoint(checkpoint_path, model=model)
+        if overwrite_final_layer_dim is not None:
+            model.fc = nn.Linear(model.fc.in_features, overwrite_final_layer_dim)
+
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
@@ -1084,27 +1085,28 @@ def convolutional_neural_network(
         ],
     )
     # train
-    trainer.fit(model, datamodule)
-    loss = trainer.validate(model, datamodule)
+    # trainer.fit(model, datamodule)
+    # loss = trainer.validate(model, datamodule)
 
     if test:
-        trainer.test(model, datamodule)
-        out = model.test_classification
+        # trainer.test(model, datamodule)
+        import timeit
+        print(timeit.timeit(lambda: trainer.test(model, datamodule), number=10))
     else:
         out = model.val_classification
 
-    out["loss"] = loss
+    # out["loss"] = loss
     return out
 
 
 def long_short_term_memory(
-    train_data: list[ExperimentData],
-    test_data: list[ExperimentData],
-    lstm_par: dict,
-    lstm_train_opt: dict,
-    description: dict,
-    custom_callbacks=None,
-    test: bool = True,
+        train_data: list[ExperimentData],
+        test_data: list[ExperimentData],
+        lstm_par: dict,
+        lstm_train_opt: dict,
+        description: dict,
+        custom_callbacks=None,
+        test: bool = True,
 ) -> dict:
     if custom_callbacks is None:
         custom_callbacks = []
@@ -1227,12 +1229,12 @@ def long_short_term_memory(
 
 
 def support_vector_machine(
-    train_dat: list[ExperimentData],
-    test_dat: list[ExperimentData],
-    summary: pd.DataFrame,
-    n_stat_mom: int,
-    svm_train_opt: dict,
-    random_state: int | None = None,
+        train_dat: list[ExperimentData],
+        test_dat: list[ExperimentData],
+        summary: pd.DataFrame,
+        n_stat_mom: int,
+        svm_train_opt: dict,
+        random_state: int | None = None,
 ) -> dict:
     """Support vector
 
@@ -1304,7 +1306,7 @@ def support_vector_machine(
         for i in range(n_stat_mom):
             idx = i * n_channels
             assert (
-                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
+                    stat_moms[:, :, i] == X[:, idx: idx + n_channels]
             ).all(), "Unconsistent number of channels"
 
         return X, y

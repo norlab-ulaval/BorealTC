@@ -100,7 +100,7 @@ cnn_train_opt = {
     "init_learn_rate": 0.005,
     "learn_drop_factor": 0.1,
     "max_epochs": 150,
-    "minibatch_size": 10,
+    "minibatch_size": 1,
     "valid_patience": 8,
     "scheduler": "plateau",  # "plateau" or "reduce_lr_on_plateau
     "reduce_lr_patience": 4,
@@ -111,8 +111,8 @@ cnn_train_opt = {
     "focal_loss_gamma": 2,
     "verbose": True,
     "dropout": 0.0,
-    "checkpoint_path": None,
-    "overwrite_final_layer_dim": None,
+    "checkpoint_path": 'checkpoints/terrain_classification_cnn_mw_1.7_fold_3_dataset_husky-epoch=23-val_loss=0.022643.ckpt',
+    # "overwrite_final_layer_dim": 4,
     "use_augmentation": False,
 }
 
@@ -202,7 +202,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_tsne_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_tinf_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
