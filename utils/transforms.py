@@ -129,6 +129,20 @@ def unicycle_model(df: pd.DataFrame) -> Tuple[pd.Series]:
     return vx, wz
 
 
+def rotationnality(df: pd.DataFrame) -> pd.Series:
+    """Compute rotationnality model
+
+    Args:
+        df (pd.DataFrame): Proprioceptive DataFrame
+
+    Returns:
+        pd.Series: Rho
+    """
+    Bs = HuskyConstants.ugv_Bs
+    vx, wz = df.vx, df.wz
+    return Bs * wz.abs() / (vx.abs() + wz.abs())
+
+
 def ssmr_power_model(df: pd.DataFrame) -> Tuple[pd.Series]:
     """Apply SSMR power model
 
