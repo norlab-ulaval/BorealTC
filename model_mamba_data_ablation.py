@@ -216,49 +216,70 @@ for mw in MOVING_WINDOWS:
             aug_test_fold = {}
 
             for key in csv_dir.keys():
-                _aug_train_fold, _aug_test_fold = preprocessing.cleanup_data(aug_train_folds[key][k], aug_test_folds[key][k])
-                _aug_train_fold, _aug_test_fold = preprocessing.normalize_data(_aug_train_fold, _aug_test_fold)
+                _aug_train_fold, _aug_test_fold = preprocessing.cleanup_data_ablation(aug_train_folds[key][k], aug_test_folds[key][k])
+                _aug_train_fold, _aug_test_fold = preprocessing.normalize_data_ablation(_aug_train_fold, _aug_test_fold)
 
                 aug_train_fold[key] = _aug_train_fold
                 aug_test_fold[key] = _aug_test_fold
             
             if COMBINED_PRED_TYPE == "class":
-                num_classes_vulpi = len(np.unique(aug_train_fold["vulpi"]["labels"]))
-                aug_train_fold["husky"]["labels"] += num_classes_vulpi
+                num_classes_vulpi = len(np.unique(aug_train_fold["vulpi"][0]["labels"]))
+
+                for _k in range(N_FOLDS):
+                    aug_train_fold["husky"][_k]["labels"] += num_classes_vulpi
                 aug_test_fold["husky"]["labels"] += num_classes_vulpi
             elif COMBINED_PRED_TYPE == "dataset":
-                aug_train_fold["vulpi"]["labels"] = np.full_like(aug_train_fold["vulpi"]["labels"], 0)
+                for _k in range(N_FOLDS):
+                    aug_train_fold["vulpi"][_k]["labels"] = np.full_like(aug_train_fold["vulpi"][_k]["labels"], 0)
+                    aug_train_fold["husky"][_k]["labels"] = np.full_like(aug_train_fold["husky"][_k]["labels"], 1)
+
                 aug_test_fold["vulpi"]["labels"] = np.full_like(aug_test_fold["vulpi"]["labels"], 0)
-                aug_train_fold["husky"]["labels"] = np.full_like(aug_train_fold["husky"]["labels"], 1)
                 aug_test_fold["husky"]["labels"] = np.full_like(aug_test_fold["husky"]["labels"], 1)
         else:
-            aug_train_fold, aug_test_fold = preprocessing.cleanup_data(aug_train_folds[k], aug_test_folds[k])
-            aug_train_fold, aug_test_fold = preprocessing.normalize_data(aug_train_fold, aug_test_fold)
+            aug_train_fold, aug_test_fold = preprocessing.cleanup_data_ablation(aug_train_folds[k], aug_test_folds[k])
+            aug_train_fold, aug_test_fold = preprocessing.normalize_data_ablation(aug_train_fold, aug_test_fold)
+    
+        aug_train_folds["vulpi"][k] = aug_train_fold["vulpi"]
+        aug_train_folds["husky"][k] = aug_train_fold["husky"]
+        aug_test_folds["vulpi"][k] = aug_test_fold["vulpi"]
+        aug_test_folds["husky"][k] = aug_test_fold["husky"]
 
-        out = models.mamba_network(
-            aug_train_fold,
-            aug_test_fold,
-            mamba_par,
-            mamba_train_opt,
-            ssm_cfg_imu,
-            ssm_cfg_pro,
-            dict(mw=mw, fold=k+1, dataset=DATASET),
-            random_state=RANDOM_STATE,
-            test=True,
-            checkpoint=CHECKPOINT
-        )
-        results_per_fold.append(out)
+for mw in MOVING_WINDOWS:
+    for _k in range(N_FOLDS): # subsample sizes
+        for k in range(N_FOLDS): # kfolds
+            aug_train_fold = dict(
+                vulpi=aug_train_folds["vulpi"][k][_k],
+                husky=aug_train_folds["husky"][k][_k]
+            )
+            aug_test_fold = dict(
+                vulpi=aug_test_folds["vulpi"][k],
+                husky=aug_test_folds["husky"][k]
+            )
 
-    results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-    results["true"] = np.hstack([r["true"] for r in results_per_fold])
-    # results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
-    results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
-    results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
+            out = models.mamba_network(
+                aug_train_fold,
+                aug_test_fold,
+                mamba_par,
+                mamba_train_opt,
+                ssm_cfg_imu,
+                ssm_cfg_pro,
+                dict(mw=mw, fold=k+1, dataset=DATASET),
+                random_state=RANDOM_STATE,
+                test=True,
+                checkpoint=CHECKPOINT
+            )
+            results_per_fold.append(out)
 
-    # Store channels settings
-    results["channels"] = columns
+        results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+        results["true"] = np.hstack([r["true"] for r in results_per_fold])
+        # results["conf"] = np.hstack([r["conf"] for r in results_per_fold])
+        results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
+        results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
 
-    # Store terrain labels
-    results["terrains"] = terrains
+        # Store channels settings
+        results["channels"] = columns
 
-    np.save(results_dir / f"results_{MODEL}_mw_{mw}.npy", results)
+        # Store terrain labels
+        results["terrains"] = terrains
+
+        np.save(results_dir / f"results_split_{_k+1}_{MODEL}_mw_{mw}.npy", results)
