@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
-#SBATCH --time=4-00:00
+#SBATCH --time=14-00:00
 #SBATCH --job-name=TuneMambaVulpi
 #SBATCH --output=%x-%j.out
 
@@ -14,11 +14,11 @@ container_id=$(
     terrain-gpu python3 optuna_tuning.py
 )
 
-stop_container() {
-  docker container stop $container_id
-  docker logs $container_id
-}
+# stop_container() {
+#   docker container stop $container_id
+#   docker logs $container_id
+# }
 
-trap stop_container EXIT
-echo "Container ID: $container_id"
-docker wait $container_id
+# trap stop_container EXIT
+# echo "Container ID: $container_id"
+# docker wait $container_id

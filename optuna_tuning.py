@@ -257,7 +257,7 @@ def objective_mamba(trial: optuna.Trial):
     results = {}
     results_per_fold = []
 
-    for k in range(3):
+    for k in range(N_FOLDS):
         out = models.mamba_network(
             aug_train_fold,
             aug_test_fold,
