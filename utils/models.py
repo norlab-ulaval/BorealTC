@@ -895,7 +895,6 @@ def mamba_network(
     exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
 
     logger = TensorBoardLogger("tb_logs", name=exp_name) if logging else False
-    checkpoint_folder_path = pathlib.Path("checkpoints")
     callbacks = [
         EarlyStopping(
             monitor="val_accuracy_epoch",
@@ -905,6 +904,8 @@ def mamba_network(
         *custom_callbacks,
     ]
     if logging:
+        checkpoint_folder_path = pathlib.Path("checkpoints")
+
         callbacks += [
             DeviceStatsMonitor(),
             LearningRateMonitor(),
@@ -927,7 +928,8 @@ def mamba_network(
         max_epochs=max_epochs,
         gradient_clip_val=gradient_treshold,
         val_check_interval=valid_frequency,
-        callbacks=callbacks
+        callbacks=callbacks,
+        enable_checkpointing=logging
     )
 
     trainer.fit(model, datamodule)
