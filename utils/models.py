@@ -803,7 +803,8 @@ def mamba_network(
     custom_callbacks=None,
     random_state: int | None = None,
     test: bool = True,
-    checkpoint: Path | None = None
+    checkpoint: Path | None = None,
+    logging: bool = True
 ) -> dict:
     # Seed
     L.seed_everything(random_state)
@@ -892,20 +893,19 @@ def mamba_network(
         )
 
     exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
-    logger = TensorBoardLogger("tb_logs", name=exp_name)
 
+    logger = TensorBoardLogger("tb_logs", name=exp_name) if logging else False
     checkpoint_folder_path = pathlib.Path("checkpoints")
-    trainer = L.Trainer(
-        accelerator="gpu",
-        precision=32,
-        logger=logger,
-        log_every_n_steps=1,
-        min_epochs=0,
-        max_epochs=max_epochs,
-        gradient_clip_val=gradient_treshold,
-        val_check_interval=valid_frequency,
-        callbacks=[
-            EarlyStopping(monitor="val_accuracy_epoch", patience=valid_patience, mode="max"),
+    callbacks = [
+        EarlyStopping(
+            monitor="val_accuracy_epoch",
+            patience=valid_patience,
+            mode="max"
+        ),
+        *custom_callbacks,
+    ]
+    if logging:
+        callbacks += [
             DeviceStatsMonitor(),
             LearningRateMonitor(),
             ModelCheckpoint(
@@ -915,11 +915,21 @@ def mamba_network(
                 save_top_k=1,
                 save_last=True,
                 mode="max",
-            ),
-            *custom_callbacks,
-        ],
+            )
+        ]
+
+    trainer = L.Trainer(
+        accelerator="gpu",
+        precision=32,
+        logger=logger,
+        log_every_n_steps=1,
+        min_epochs=0,
+        max_epochs=max_epochs,
+        gradient_clip_val=gradient_treshold,
+        val_check_interval=valid_frequency,
+        callbacks=callbacks
     )
-    # train
+
     trainer.fit(model, datamodule)
     loss = trainer.validate(model, datamodule)
 
@@ -930,6 +940,8 @@ def mamba_network(
         out = model.val_classification
 
     out["loss"] = loss
+    out["num_params"] = sum(param.numel() for param in model.parameters())
+
     return out
 
 

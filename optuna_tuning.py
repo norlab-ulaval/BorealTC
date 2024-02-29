@@ -82,7 +82,7 @@ else:
 NUM_CLASSES = len(terrains)
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
-MOVING_WINDOW = 1.5
+MOVING_WINDOW = 1.7
 
 # merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
@@ -151,29 +151,26 @@ def objective_mamba(trial: optuna.Trial):
         "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
     }
 
-    d_conv = trial.suggest_int("d_conv", 2, 4)
-    expand = trial.suggest_int("expand", 2, 4)
-
     ssm_cfg_imu = {
         "d_state": trial.suggest_int("d_state_imu", 8, 64, step=8),
-        "d_conv": d_conv,
-        "expand": expand,
+        "d_conv": trial.suggest_int("d_conv_imu", 2, 4),
+        "expand": trial.suggest_int("expand_imu", 2, 16)
     }
 
     ssm_cfg_pro = {
         "d_state": trial.suggest_int("d_state_pro", 8, 64, step=8),
-        "d_conv": d_conv,
-        "expand": expand,
+        "d_conv": trial.suggest_int("d_conv_pro", 2, 4),
+        "expand": trial.suggest_int("expand_pro", 2, 16, step=2)
     }
 
     mamba_train_opt = {
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
         "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
-        "max_epochs": trial.suggest_int("max_epochs", 5, 30, step=5),
-        "minibatch_size": trial.suggest_int("minibatch_size", 8, 64, step=8),
-        "valid_patience": trial.suggest_int("valid_patience", 2, 10, step=2),
-        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10, step=2),
+        "max_epochs": trial.suggest_int("max_epochs", 10, 60, step=10),
+        "minibatch_size": trial.suggest_int("minibatch_size", 16, 128, step=16),
+        "valid_patience": trial.suggest_int("valid_patience", 4, 16, step=4),
+        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 8, step=2),
         "valid_frequency": None,
         "gradient_treshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
         "focal_loss": True,
@@ -267,9 +264,14 @@ def objective_mamba(trial: optuna.Trial):
         dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
         # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
         random_state=RANDOM_STATE,
-        test=False
+        test=False,
+        logging=False
     )
-    return (out["pred"] == out["true"]).mean().item()
+
+    val_acc = (out["pred"] == out["true"]).mean().item()
+    num_params = out["num_params"]
+
+    return val_acc, num_params
 
 
 def objective_lstm(trial: optuna.Trial):
@@ -380,13 +382,13 @@ if IMP_ANALYSIS:
 else:
     pruner = optuna.pruners.HyperbandPruner()
     study = optuna.create_study(
-        direction="maximize",
+        directions=["maximize", "minimize"],
         study_name=study_name,
         storage=storage_name,
         load_if_exists=True,
         pruner=pruner,
     )
-    study.optimize(OBJECTIVE, n_trials=500, catch=(RuntimeError,))
+    study.optimize(OBJECTIVE, n_trials=None, catch=(RuntimeError,), n_jobs=8)
 
     print("Number of finished trials: {}".format(len(study.trials)))
 
