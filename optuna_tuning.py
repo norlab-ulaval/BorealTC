@@ -254,21 +254,29 @@ def objective_mamba(trial: optuna.Trial):
         aug_train_fold, aug_test_fold = preprocessing.cleanup_data(aug_train_folds[k], aug_test_folds[k])
         aug_train_fold, aug_test_fold = preprocessing.normalize_data(aug_train_fold, aug_test_fold)
 
-    out = models.mamba_network(
-        aug_train_fold,
-        aug_test_fold,
-        mamba_par,
-        mamba_train_opt,
-        ssm_cfg_imu,
-        ssm_cfg_pro,
-        dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
-        # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
-        random_state=RANDOM_STATE,
-        test=False,
-        logging=False
-    )
+    results = {}
+    results_per_fold = []
 
-    val_acc = (out["pred"] == out["true"]).mean().item()
+    for k in range(3):
+        out = models.mamba_network(
+            aug_train_fold,
+            aug_test_fold,
+            mamba_par,
+            mamba_train_opt,
+            ssm_cfg_imu,
+            ssm_cfg_pro,
+            dict(mw=MOVING_WINDOW, fold=k+1, dataset=DATASET),
+            # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
+            random_state=RANDOM_STATE,
+            test=False,
+            logging=False
+        )
+        results_per_fold.append(out)
+    
+    results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+    results["true"] = np.hstack([r["true"] for r in results_per_fold])
+
+    val_acc = (results["pred"] == results["true"]).mean().item()**10
     num_params = out["num_params"]
 
     return val_acc, num_params
@@ -388,7 +396,7 @@ else:
         load_if_exists=True,
         pruner=pruner,
     )
-    study.optimize(OBJECTIVE, n_trials=None, catch=(RuntimeError,), n_jobs=8)
+    study.optimize(OBJECTIVE, n_trials=None, catch=(RuntimeError,), n_jobs=4)
 
     print("Number of finished trials: {}".format(len(study.trials)))
 
