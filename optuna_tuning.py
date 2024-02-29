@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import optuna
 import pandas as pd
+import torch
+
 from optuna.integration import PyTorchLightningPruningCallback
 
 from utils import models, preprocessing
@@ -272,6 +274,8 @@ def objective_mamba(trial: optuna.Trial):
             logging=False
         )
         results_per_fold.append(out)
+
+        torch.cuda.empty_cache()
     
     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
     results["true"] = np.hstack([r["true"] for r in results_per_fold])
