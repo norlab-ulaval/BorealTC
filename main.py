@@ -111,7 +111,7 @@ cnn_train_opt = {
     "focal_loss_gamma": 2,
     "verbose": True,
     "dropout": 0.0,
-    "checkpoint_path": 'checkpoints/terrain_classification_cnn_mw_1.7_fold_3_dataset_husky-epoch=23-val_loss=0.022643.ckpt',
+    # "checkpoint_path": 'checkpoints/terrain_classification_cnn_mw_1.7_fold_3_dataset_husky-epoch=23-val_loss=0.022643.ckpt',
     # "overwrite_final_layer_dim": 4,
     "use_augmentation": False,
 }

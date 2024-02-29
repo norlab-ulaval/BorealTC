@@ -11,10 +11,10 @@ PLOTCOLORS = {
     "asphalt": "xkcd:dark grey",
     "flooring": "xkcd:bright lilac",
     "ice": "#067d77",
-    "sandy loam": "xkcd:dark orange",
+    "sandy loam": "plum",
     "snow": "xkcd:cerulean",
     "concrete": "#4248ad",
-    "dirt road": "xkcd:coral",
+    "dirt road": "orange",
     "ploughed": "xkcd:grass green",
     "unploughed": "xkcd:strawberry",
 }

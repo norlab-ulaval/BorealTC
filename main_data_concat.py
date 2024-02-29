@@ -1,3 +1,4 @@
+import itertools
 from pathlib import Path
 
 import einops as ein
@@ -12,7 +13,7 @@ husky_csv_dir = cwd / "norlab-data"
 vulpi_csv_dir = cwd / "data"
 
 mat_dir = cwd / "datasets"
-results_dir = cwd / "results" / "data_concat"
+results_dir = cwd / "results" / "split"
 results_dir.mkdir(parents=True, exist_ok=True)
 
 RANDOM_STATE = 21
@@ -63,6 +64,7 @@ train, test = preprocessing.partition_data(
     PART_WINDOW,
     N_FOLDS,
     random_state=RANDOM_STATE,
+    ablation=True
 )
 
 merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
@@ -172,11 +174,14 @@ svm_train_opt = {
 
 # Model settings
 # BASE_MODELS = ["SVM", "CNN", "LSTM", "CLSTM"]
-BASE_MODELS = ["CNN"]
+train = list(map(list, itertools.zip_longest(*train, fillvalue=None)))
 
-print(f"Training on CONCAT with {BASE_MODELS}...")
+print(f"Training on CONCAT...")
 for mw in MOVING_WINDOWS:
-    aug_train, aug_test = preprocessing.augment_data(
+    print(f"Training models for a sampling window of {mw} seconds")
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+    aug_train, aug_test = preprocessing.augment_data_ablation(
         train,
         test,
         summary,
@@ -184,132 +189,65 @@ for mw in MOVING_WINDOWS:
         stride=STRIDE,
         homogeneous=HOMOGENEOUS_AUGMENTATION,
     )
-
-    print(f"Training models for a sampling window of {mw} seconds")
-    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-    for model in BASE_MODELS:
+    results = {}
+    for j in range(5)[::-1]:
+        model = 'CNN'
+        result_path = results_dir / f"results_split3_{j}_{model}_mw_{mw}.npy"
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_tsne_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             continue
-
-        results = {}
-
-        if model == "CNN":
-            (
-                train_mcs_folds,
-                test_mcs_folds,
-            ) = preprocessing.apply_multichannel_spectogram(
-                aug_train,
-                aug_test,
-                summary,
-                mw,
-                cnn_par["time_window"],
-                cnn_par["time_overlap"],
-                hamming=cnn_train_opt["hamming"],
-            )
-            results_per_fold = []
-            maxs = np.stack(
-                [
-                    ein.rearrange(
-                        train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
-                    ).max(axis=0)
-                    for idx in range(N_FOLDS)
-                ]
-            ).max(axis=0)
-            mins = np.stack(
-                [
-                    ein.rearrange(
-                        train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
-                    ).min(axis=0)
-                    for idx in range(N_FOLDS)
-                ]
-            ).min(axis=0)
-            for k in range(N_FOLDS):
-                train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
-                out = models.convolutional_neural_network(
-                    train_mcs,
-                    test_mcs,
-                    cnn_par,
-                    cnn_train_opt,
-                    dict(mw=mw, fold=k + 1, dataset=DATASET, mins=mins, maxs=maxs),
-                    random_state=RANDOM_STATE,
-                )
-                results_per_fold.append(out)
-
-            results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-            results["true"] = np.hstack([r["true"] for r in results_per_fold])
-            results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
-            results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
-            results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
-            results["repr"] = np.vstack([r["repr"] for r in results_per_fold])
-
-            # results[model] = {
-            #     f"{samp_window * 1000}ms": Conv_NeuralNet(
-            #         train_mcs, test_mcs, cnn_par, cnn_train_opt
-            #     )
-            # }
-        elif model == "LSTM":
-            train_ds_folds, test_ds_folds = preprocessing.downsample_data(
-                aug_train,
-                aug_test,
-                summary,
-            )
-            results_per_fold = []
-            for k in range(N_FOLDS):
-                train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
-                out = models.long_short_term_memory(
-                    train_ds,
-                    test_ds,
-                    lstm_par,
-                    lstm_train_opt,
-                    dict(mw=mw, fold=k + 1, dataset=DATASET),
-                )
-                results_per_fold.append(out)
-
-            results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-            results["true"] = np.hstack([r["true"] for r in results_per_fold])
-            results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
-            results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
-            results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
-        elif model == "CLSTM":
-            train_ds_folds, test_ds_folds = preprocessing.downsample_data(
-                aug_train,
-                aug_test,
-                summary,
-            )
-            results_per_fold = []
-            for k in range(N_FOLDS):
-                train_ds, test_ds = train_ds_folds[k], test_ds_folds[k]
-                out = models.long_short_term_memory(
-                    train_ds,
-                    test_ds,
-                    clstm_par,
-                    clstm_train_opt,
-                    dict(mw=mw, fold=k + 1, dataset=DATASET),
-                )
-                results_per_fold.append(out)
-
-            results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-            results["true"] = np.hstack([r["true"] for r in results_per_fold])
-            results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
-            results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
-            results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
-        elif model == "SVM":
-            results = models.support_vector_machine(
-                aug_train,
-                aug_test,
-                summary,
-                svm_par["n_stat_mom"],
-                svm_train_opt,
+        (
+            train_mcs_folds,
+            test_mcs_folds,
+        ) = preprocessing.apply_multichannel_spectogram(
+            aug_train[j],
+            aug_test,
+            summary,
+            mw,
+            cnn_par["time_window"],
+            cnn_par["time_overlap"],
+            hamming=cnn_train_opt["hamming"],
+        )
+        results_per_fold = []
+        maxs = np.stack(
+            [
+                ein.rearrange(
+                    train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
+                ).max(axis=0)
+                for idx in range(N_FOLDS)
+            ]
+        ).max(axis=0)
+        mins = np.stack(
+            [
+                ein.rearrange(
+                    train_mcs_folds[idx]["data"], "a b c d -> (a b c) d"
+                ).min(axis=0)
+                for idx in range(N_FOLDS)
+            ]
+        ).min(axis=0)
+        # Here
+        for k in range(N_FOLDS):
+            train_mcs, test_mcs = train_mcs_folds[k], test_mcs_folds[k]
+            out = models.convolutional_neural_network(
+                train_mcs,
+                test_mcs,
+                cnn_par,
+                cnn_train_opt,
+                dict(mw=mw, fold=k + 1, dataset=DATASET, mins=mins, maxs=maxs),
                 random_state=RANDOM_STATE,
             )
+            results_per_fold.append(out)
 
-        # Store channels settings
+        results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
+        results["true"] = np.hstack([r["true"] for r in results_per_fold])
+        results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
+        results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
+        results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
+        results["repr"] = np.vstack([r["repr"] for r in results_per_fold])
+
         results["channels"] = columns
 
         # Store terrain labels
@@ -317,3 +255,4 @@ for mw in MOVING_WINDOWS:
         results["terrains"] = terrains
 
         np.save(result_path, results)
+

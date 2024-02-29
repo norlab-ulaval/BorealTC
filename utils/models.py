@@ -1085,17 +1085,16 @@ def convolutional_neural_network(
         ],
     )
     # train
-    # trainer.fit(model, datamodule)
-    # loss = trainer.validate(model, datamodule)
+    trainer.fit(model, datamodule)
+    loss = trainer.validate(model, datamodule)
 
     if test:
-        # trainer.test(model, datamodule)
-        import timeit
-        print(timeit.timeit(lambda: trainer.test(model, datamodule), number=10))
+        trainer.test(model, datamodule)
+        out = model.test_classification
     else:
         out = model.val_classification
 
-    # out["loss"] = loss
+    out["loss"] = loss
     return out
 
 
