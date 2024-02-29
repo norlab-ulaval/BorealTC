@@ -276,7 +276,7 @@ def objective_mamba(trial: optuna.Trial):
     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
     results["true"] = np.hstack([r["true"] for r in results_per_fold])
 
-    val_acc = (results["pred"] == results["true"]).mean().item()**10
+    val_acc = (results["pred"] == results["true"]).mean().item()**4
     num_params = out["num_params"]
 
     return val_acc, num_params
