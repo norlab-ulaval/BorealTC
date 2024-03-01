@@ -139,39 +139,36 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
-    "d_model_imu": 56,
-    "d_model_pro": 56,
-    "norm_epsilon": 5e-3
+    "d_model_imu": 8,
+    "d_model_pro": 8,
+    "norm_epsilon": 4.5e-2
 }
 
-d_conv = 3
-expand = 4
-
 ssm_cfg_imu = {
-    "d_state": 56,
-    "d_conv": d_conv,
-    "expand": expand,
+    "d_state": 64,
+    "d_conv": 4,
+    "expand": 14,
 }
 
 ssm_cfg_pro = {
-    "d_state": 56,
-    "d_conv": d_conv,
-    "expand": expand,
+    "d_state": 16,
+    "d_conv": 2,
+    "expand": 2,
 }
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 5e-3,
+    "init_learn_rate": 4.5e-3,
     "learn_drop_factor": 0.33,
     "max_epochs": 60,
-    "minibatch_size": 64,
-    "valid_patience": 8,
-    "reduce_lr_patience": 4,
+    "minibatch_size": 32,
+    "valid_patience": 12,
+    "reduce_lr_patience": 6,
     "valid_frequency": None,
-    "gradient_treshold": 2,  # None to disable
+    "gradient_treshold": 10,  # None to disable
     "focal_loss": True,
     "focal_loss_alpha": 0.75,
-    "focal_loss_gamma": 2,
+    "focal_loss_gamma": 4,
     "num_classes": len(terrains),
     "out_method": "last_state" # "max_pool", "last_state"
 }
@@ -209,7 +206,6 @@ for mw in MOVING_WINDOWS:
     print(f"Training models for a sampling window of {mw} seconds")
     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-    results_per_fold = []
     for k in range(N_FOLDS):
         if DATASET == "combined":
             aug_train_fold = {}
@@ -245,7 +241,9 @@ for mw in MOVING_WINDOWS:
         aug_test_folds["husky"][k] = aug_test_fold["husky"]
 
 for mw in MOVING_WINDOWS:
-    for _k in range(N_FOLDS): # subsample sizes
+    for _k in reversed(range(N_FOLDS)): # subsample sizes
+        results_per_fold = []
+
         for k in range(N_FOLDS): # kfolds
             aug_train_fold = dict(
                 vulpi=aug_train_folds["vulpi"][k][_k],
