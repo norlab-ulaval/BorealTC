@@ -82,10 +82,12 @@ plt.fill_between(x, mamba_bars[:, 0], mamba_bars[:, 1], alpha=0.1, color=color_m
 cnn_trend = np.poly1d(np.polyfit(np.log2(x), cnn_acc, 1))
 mamba_trend = np.poly1d(np.polyfit(np.log2(x), mamba_acc, 1))
 
-x = np.array(list(x) + [6, 7, 8])
+x = np.array(list(x) + [6])
 
 plt.plot(x, cnn_trend(np.log2(x)), linestyle='--', color=color_cnn)
 plt.plot(x, mamba_trend(np.log2(x)), linestyle='--', color=color_mamba)
+
+plt.yticks(np.arange(0.60, 1.05, 0.05))
 
 plt.xscale('log')
 
