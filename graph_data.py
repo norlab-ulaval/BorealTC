@@ -33,7 +33,7 @@ inv_terrains = {t: i for i, t in enumerate(terrains)}
 cnn_acc_per_split = []
 mamba_acc_per_split = []
 dim_splits = []
-for res in res_cnn:
+for res in res_cnn[::-1]:
     ypred = convert_to_int(res["pred"])
     ytest = convert_to_int(res["true"])
     fold_size = len(ypred) // 5
@@ -61,8 +61,9 @@ for res in res_mamba[::-1]:
 print(f'{cnn_acc_per_split=}')
 print(f'{mamba_acc_per_split=}')
 
-x = dim_splits
-print(x)
+x = np.arange(1, 6)
+# x = dim_splits
+# print(x)
 
 cnn_acc = np.mean(cnn_acc_per_split, axis=1)
 mamba_acc = np.mean(mamba_acc_per_split, axis=1)
@@ -86,10 +87,11 @@ plt.plot(x, mamba_acc, label='mamba', marker='o')
 plt.fill_between(x, cnn_bars[:, 0], cnn_bars[:, 1], alpha=0.1)
 plt.fill_between(x, mamba_bars[:, 0], mamba_bars[:, 1], alpha=0.1)
 
-plt.xscale('log')
+# plt.xscale('log')
 # plt.yscale('log')
 
 # plt.errorbar(x, cnn_acc, yerr=cnn_bars, fmt='-o', label='cnn')
 # plt.errorbar(x, mamba_acc, yerr=mamba_bars, fmt='-o', label='mamba')
 
+plt.legend(loc='best')
 plt.show()
