@@ -1,7 +1,6 @@
 import pathlib
 
 import matplotlib.pyplot as plt
-from matplotlib import colormaps
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
@@ -95,4 +94,4 @@ plt.xlabel('Size of train dataset')
 plt.ylabel('Test accuracy')
 
 plt.legend(loc='best')
-plt.show()
+plt.savefig('graph_data.pdf')
