@@ -80,7 +80,7 @@ cnn_par = {
     "time_window": 0.4,
     "time_overlap": 0.2,
     "filter_size": [3, 3],
-    "num_filters": 16,
+    "num_filters": 16 * 2,
 }
 
 cnn_train_opt = {
@@ -99,7 +99,7 @@ cnn_train_opt = {
     "focal_loss_alpha": 0.25,
     "focal_loss_gamma": 2,
     "verbose": True,
-    "dropout": 0.1,
+    "dropout": 0.0,
     "checkpoint_path": None,
     "overwrite_final_layer_dim": None,
     "use_augmentation": False,
@@ -191,7 +191,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_tsne_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_tsne_full_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -243,10 +243,18 @@ for mw in MOVING_WINDOWS:
 
             results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
             results["true"] = np.hstack([r["true"] for r in results_per_fold])
+            results["true_train"] = np.hstack(
+                [r["true_train"] for r in results_per_fold]
+            )
+            results["true_val"] = np.hstack([r["true_val"] for r in results_per_fold])
             results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
             results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
             results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
             results["repr"] = np.vstack([r["repr"] for r in results_per_fold])
+            results["repr_train"] = np.vstack(
+                [r["repr_train"] for r in results_per_fold]
+            )
+            results["repr_val"] = np.vstack([r["repr_val"] for r in results_per_fold])
 
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(

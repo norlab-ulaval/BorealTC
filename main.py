@@ -26,7 +26,7 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
+DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
     csv_dir = cwd / "norlab-data"
 elif DATASET == "vulpi":
@@ -111,8 +111,7 @@ cnn_train_opt = {
     "focal_loss_gamma": 2,
     "verbose": True,
     "dropout": 0.0,
-    "checkpoint_path": None,
-    "overwrite_final_layer_dim": None,
+    # "checkpoint_path": "checkpoints/terrain_classification_cnn_mw_1.7_fold_5_dataset_husky-epoch=18-val_loss=0.024324.ckpt",
     "use_augmentation": False,
 }
 
@@ -202,7 +201,7 @@ for mw in MOVING_WINDOWS:
     for model in BASE_MODELS:
         print(f"Training {model} model with {mw} seconds...")
         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        result_path = results_dir / f"results_tsne_{model}_mw_{mw}.npy"
+        result_path = results_dir / f"results_tsne_full_{model}_mw_{mw}.npy"
         if result_path.exists():
             print(f"Results for {model} with {mw} seconds already exist. Skipping...")
             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
@@ -254,10 +253,18 @@ for mw in MOVING_WINDOWS:
 
             results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
             results["true"] = np.hstack([r["true"] for r in results_per_fold])
+            results["true_train"] = np.hstack(
+                [r["true_train"] for r in results_per_fold]
+            )
+            results["true_val"] = np.hstack([r["true_val"] for r in results_per_fold])
             results["conf"] = np.vstack([r["conf"] for r in results_per_fold])
             results["ftime"] = np.hstack([r["ftime"] for r in results_per_fold])
             results["ptime"] = np.hstack([r["ptime"] for r in results_per_fold])
             results["repr"] = np.vstack([r["repr"] for r in results_per_fold])
+            results["repr_train"] = np.vstack(
+                [r["repr_train"] for r in results_per_fold]
+            )
+            results["repr_val"] = np.vstack([r["repr_val"] for r in results_per_fold])
 
             # results[model] = {
             #     f"{samp_window * 1000}ms": Conv_NeuralNet(

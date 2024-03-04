@@ -22,7 +22,6 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
-
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -31,13 +30,12 @@ from sklearn.svm import SVC
 from utils.augmentations import (
     NormalizeMCS,
     SpectralCutout,
-    SpectralAxialCutout,
     SpectralNoise,
 )
 from utils.constants import ch_cols
+from utils.constants import imu_dim, pro_dim
 from utils.datamodule import MCSDataModule, TemporalDataModule
-from utils.constants import ch_cols, imu_dim, pro_dim
-from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
+from utils.datamodule import MambaDataModule
 
 try:
     from mamba_ssm.models.mixer_seq_simple import create_block
@@ -356,8 +354,11 @@ class CNNTerrain(L.LightningModule):
             task="multiclass", num_classes=num_classes
         )
 
+        self._train_classifications = [
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
+        ]
         self._val_classifications = [
-            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
         ]
         self._test_classifications = [
             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
@@ -385,6 +386,14 @@ class CNNTerrain(L.LightningModule):
                 scheduler=scheduler,
                 monitor="val_loss",
             ),
+        )
+
+    @property
+    def train_classification(self):
+        return (
+            self._train_classifications[-2]
+            if len(self._train_classifications) > 1
+            else {}
         )
 
     @property
@@ -435,6 +444,9 @@ class CNNTerrain(L.LightningModule):
         self.log("train_loss", loss, prog_bar=True, on_step=True)
         self.log("train_accuracy", acc, on_step=True)
 
+        self._train_classifications[-1]["true"].append(target.detach().cpu().numpy())
+        self._train_classifications[-1]["repr"].append(embed.detach().cpu().numpy())
+
         return loss
 
     def on_train_epoch_end(self):
@@ -445,6 +457,23 @@ class CNNTerrain(L.LightningModule):
             on_epoch=True,
         )
         self._train_accuracy.reset()
+
+        # self._train_classifications[-1]["pred"] = np.hstack(
+        #     self._train_classifications[-1]["pred"]
+        # )
+        self._train_classifications[-1]["true"] = np.hstack(
+            self._train_classifications[-1]["true"]
+        )
+        # self._train_classifications[-1]["conf"] = np.vstack(
+        #     self._train_classifications[-1]["conf"]
+        # )
+        self._train_classifications[-1]["repr"] = np.vstack(
+            self._train_classifications[-1]["repr"]
+        )
+        self._train_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
+        )
+        self._train_classifications = self._train_classifications[-2:]
 
     def validation_step(self, val_batch, batch_idx):
         x, target = val_batch
@@ -462,6 +491,7 @@ class CNNTerrain(L.LightningModule):
         )
         self._val_classifications[-1]["true"].append(target.detach().cpu().numpy())
         self._val_classifications[-1]["conf"].append(y.detach().cpu().numpy())
+        self._val_classifications[-1]["repr"].append(embed.detach().cpu().numpy())
 
         return loss
 
@@ -483,9 +513,13 @@ class CNNTerrain(L.LightningModule):
         self._val_classifications[-1]["conf"] = np.vstack(
             self._val_classifications[-1]["conf"]
         )
-        self._val_classifications.append(
-            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
+        self._val_classifications[-1]["repr"] = np.vstack(
+            self._val_classifications[-1]["repr"]
         )
+        self._val_classifications.append(
+            {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": [], "repr": []}
+        )
+        self._val_classifications = self._val_classifications[-2:]
 
     def test_step(self, test_batch, batch_idx):
         x, target = test_batch
@@ -1036,22 +1070,35 @@ def convolutional_neural_network(
         persistent_workers=persistent_workers,
     )
 
-    model = CNNTerrain(
-        in_size=in_size,
-        num_filters=num_filters,
-        filter_size=filter_size,
-        num_classes=num_classes,
-        n_wind=n_wind,
-        n_freq=n_freq,
-        lr=init_learn_rate,
-        learning_rate_factor=learn_drop_factor,
-        reduce_lr_patience=reduce_lr_patience,
-        focal_loss=focal_loss,
-        focal_loss_alpha=focal_loss_alpha,
-        focal_loss_gamma=focal_loss_gamma,
-        scheduler=scheduler,
-        dropout=dropout,
-    )
+    if checkpoint_path is not None:
+        model = CNNTerrain.load_from_checkpoint(checkpoint_path)
+        model.fc = nn.Linear(num_filters * n_wind * n_freq, num_classes)
+        model._train_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        model._val_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        model._test_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+    else:
+        model = CNNTerrain(
+            in_size=in_size,
+            num_filters=num_filters,
+            filter_size=filter_size,
+            num_classes=num_classes,
+            n_wind=n_wind,
+            n_freq=n_freq,
+            lr=init_learn_rate,
+            learning_rate_factor=learn_drop_factor,
+            reduce_lr_patience=reduce_lr_patience,
+            focal_loss=focal_loss,
+            focal_loss_alpha=focal_loss_alpha,
+            focal_loss_gamma=focal_loss_gamma,
+            scheduler=scheduler,
+            dropout=dropout,
+        )
 
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
@@ -1094,6 +1141,10 @@ def convolutional_neural_network(
         out = model.val_classification
 
     out["loss"] = loss
+    out["repr_train"] = model.train_classification["repr"]
+    out["repr_val"] = model.val_classification["repr"]
+    out["true_train"] = model.train_classification["true"]
+    out["true_val"] = model.val_classification["true"]
     return out
 
 
