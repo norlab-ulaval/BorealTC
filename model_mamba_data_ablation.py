@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
-from utils.preprocessing import downsample_terr_dfs
+# from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
 
@@ -82,9 +82,9 @@ if DATASET == "combined":
     terr_df_husky = preprocessing.get_recordings(csv_dir["husky"], summary["husky"])
     terr_df_vulpi = preprocessing.get_recordings(csv_dir["vulpi"], summary["vulpi"])
     
-    terr_df_husky, terr_df_vulpi = downsample_terr_dfs(
-        terr_df_husky, summary["husky"], terr_df_vulpi, summary["vulpi"]
-    )
+    # terr_df_husky, terr_df_vulpi = downsample_terr_dfs(
+    #     terr_df_husky, summary["husky"], terr_df_vulpi, summary["vulpi"]
+    # )
 
     terr_dfs["husky"] = terr_df_husky
     terr_dfs["vulpi"] = terr_df_vulpi
@@ -139,36 +139,36 @@ HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
 mamba_par = {
-    "d_model_imu": 8,
+    "d_model_imu": 32,
     "d_model_pro": 8,
-    "norm_epsilon": 4.5e-2
+    "norm_epsilon": 6.3e-6
 }
 
 ssm_cfg_imu = {
-    "d_state": 64,
+    "d_state": 16,
     "d_conv": 4,
-    "expand": 14,
+    "expand": 4,
 }
 
 ssm_cfg_pro = {
     "d_state": 16,
-    "d_conv": 2,
-    "expand": 2,
+    "d_conv": 3,
+    "expand": 6,
 }
 
 mamba_train_opt = {
     "valid_perc": 0.1,
-    "init_learn_rate": 4.5e-3,
-    "learn_drop_factor": 0.33,
+    "init_learn_rate": 1.5e-3,
+    "learn_drop_factor": 0.25,
     "max_epochs": 60,
-    "minibatch_size": 32,
-    "valid_patience": 12,
-    "reduce_lr_patience": 6,
+    "minibatch_size": 16,
+    "valid_patience": 8,
+    "reduce_lr_patience": 4,
     "valid_frequency": None,
-    "gradient_treshold": 10,  # None to disable
+    "gradient_treshold": None,  # None to disable
     "focal_loss": True,
     "focal_loss_alpha": 0.75,
-    "focal_loss_gamma": 4,
+    "focal_loss_gamma": 2.25,
     "num_classes": len(terrains),
     "out_method": "last_state" # "max_pool", "last_state"
 }
