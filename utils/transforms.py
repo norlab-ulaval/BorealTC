@@ -269,3 +269,21 @@ def transform_mcs(
         time_overlap,
         hamming,
     )
+
+
+def convert_to_idx(
+    x: np.ndarray,
+    inv_terrains: dict,
+) -> np.ndarray:
+    """Convert all terrain labels to indices
+
+    Args:
+        x (np.ndarray): Array of terrain labels
+        inv_terrains (dict): Dictionary that maps terrain labels to indices
+
+    Returns:
+        np.ndarray: Array of indices
+    """
+    if x.dtype == str:
+        return np.array([inv_terrains[t] for t in x])
+    return x

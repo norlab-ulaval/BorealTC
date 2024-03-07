@@ -8,15 +8,15 @@ pro_dim = 4
 
 
 PLOTCOLORS = {
+    "concrete": "#4248ad",
+    "dirt road": "xkcd:goldenrod",
+    "ploughed": "xkcd:grass green",
+    "unploughed": "xkcd:strawberry",
     "asphalt": "xkcd:dark grey",
-    "flooring": "xkcd:bright lilac",
+    "flooring": "xkcd:lilac",
     "ice": "#067d77",
     "sandy loam": "xkcd:dark orange",
     "snow": "xkcd:cerulean",
-    "concrete": "#4248ad",
-    "dirt road": "xkcd:coral",
-    "ploughed": "xkcd:grass green",
-    "unploughed": "xkcd:strawberry",
 }
 # PLOTCOLORS = {
 #     "asphalt": "xkcd:dark grey",
