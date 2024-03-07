@@ -5,7 +5,7 @@ import einops as ein
 import numpy as np
 import pandas as pd
 
-from utils import models, preprocessing
+from utils import models, preprocessing, exports
 from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
@@ -61,6 +61,11 @@ MOVING_WINDOWS = [1.7]  # seconds
 train, test = preprocessing.partition_data(
     terr_dfs, summary, PART_WINDOW, N_FOLDS, random_state=RANDOM_STATE, ablation=True
 )
+
+num_splits = len(train[0])
+train_sizes = [train[0][i]["pro"].shape[0] for i in range(num_splits)]
+with exports.JSONExporter("analysis/train-sizes.json") as data:
+    data["train_sizes"] = train_sizes
 
 merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
