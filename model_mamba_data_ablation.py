@@ -231,28 +231,35 @@ for mw in MOVING_WINDOWS:
 
                 aug_test_fold["vulpi"]["labels"] = np.full_like(aug_test_fold["vulpi"]["labels"], 0)
                 aug_test_fold["husky"]["labels"] = np.full_like(aug_test_fold["husky"]["labels"], 1)
+            
+            aug_train_folds["vulpi"][k] = aug_train_fold["vulpi"]
+            aug_train_folds["husky"][k] = aug_train_fold["husky"]
+            aug_test_folds["vulpi"][k] = aug_test_fold["vulpi"]
+            aug_test_folds["husky"][k] = aug_test_fold["husky"]
         else:
             aug_train_fold, aug_test_fold = preprocessing.cleanup_data_ablation(aug_train_folds[k], aug_test_folds[k])
             aug_train_fold, aug_test_fold = preprocessing.normalize_data_ablation(aug_train_fold, aug_test_fold)
     
-        aug_train_folds["vulpi"][k] = aug_train_fold["vulpi"]
-        aug_train_folds["husky"][k] = aug_train_fold["husky"]
-        aug_test_folds["vulpi"][k] = aug_test_fold["vulpi"]
-        aug_test_folds["husky"][k] = aug_test_fold["husky"]
+            aug_train_folds[k] = aug_train_fold
+            aug_test_folds[k] = aug_test_fold
 
 for mw in MOVING_WINDOWS:
     for _k in reversed(range(N_FOLDS)): # subsample sizes
         results_per_fold = []
 
         for k in range(N_FOLDS): # kfolds
-            aug_train_fold = dict(
-                vulpi=aug_train_folds["vulpi"][k][_k],
-                husky=aug_train_folds["husky"][k][_k]
-            )
-            aug_test_fold = dict(
-                vulpi=aug_test_folds["vulpi"][k],
-                husky=aug_test_folds["husky"][k]
-            )
+            if DATASET == "combined":
+                aug_train_fold = dict(
+                    vulpi=aug_train_folds["vulpi"][k][_k],
+                    husky=aug_train_folds["husky"][k][_k]
+                )
+                aug_test_fold = dict(
+                    vulpi=aug_test_folds["vulpi"][k],
+                    husky=aug_test_folds["husky"][k]
+                )
+            else:
+                aug_train_fold = aug_train_folds[k][_k]
+                aug_test_fold = aug_test_folds[k]
 
             out = models.mamba_network(
                 aug_train_fold,
