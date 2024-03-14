@@ -10,7 +10,7 @@ from utils import frequency
 from utils.constants import HuskyConstants, ch_cols
 
 if TYPE_CHECKING:
-    from typing import Literal, Sequence, Tuple
+    from typing import Literal, Sequence, Tuple, Any
 
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
     FrequencyData = dict[str, np.ndarray]
@@ -269,6 +269,15 @@ def transform_mcs(
         time_overlap,
         hamming,
     )
+
+
+def check_none(*args) -> bool:
+    """Check None in values
+
+    Returns:
+        bool: There is a None in the arguments
+    """
+    return any(elem is None for elem in args)
 
 
 def convert_to_idx(

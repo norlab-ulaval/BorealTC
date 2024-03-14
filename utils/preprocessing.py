@@ -20,8 +20,8 @@ from utils.constants import ch_cols
 
 
 def get_recordings(
-        data_dir: Path,
-        summary: pd.DataFrame,
+    data_dir: Path,
+    summary: pd.DataFrame,
 ) -> ExperimentData:
     """Extract data from CSVs in data_dir and filter out the columns with `channels`
 
@@ -188,11 +188,11 @@ def merge_terr_dfs(husky_terr_dfs, husky_summary, vulpi_terr_dfs, vulpi_summary)
 
 
 def partition_data(
-        data: ExperimentData,
-        summary: pd.DataFrame,
-        partition_duration: float,
-        n_splits: int | None = 5,
-        random_state: int | None = None,
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    partition_duration: float,
+    n_splits: int | None = 5,
+    random_state: int | None = None,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
 
@@ -312,8 +312,8 @@ def partition_data(
 
 
 def prepare_data_ordering(
-        train_data: ExperimentData,
-        test_data: ExperimentData,
+    train_data: ExperimentData,
+    test_data: ExperimentData,
 ) -> Tuple[Dict[ExperimentData]]:
     train_labels = train_data["imu"][:, 0, ch_cols["terr_idx"]]
     test_labels = test_data["imu"][:, 0, ch_cols["terr_idx"]]
@@ -350,12 +350,12 @@ def prepare_data_ordering(
 
 
 def augment_data(
-        train_dat,
-        test_dat,
-        summary,
-        moving_window: float,
-        stride: float,
-        homogeneous: bool,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary,
+    moving_window: float,
+    stride: float,
+    homogeneous: bool,
 ) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
@@ -462,7 +462,7 @@ def augment_data(
                 lf_time = lf_terr[0, :, ch_cols["time"]]
                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
                 lf_sli = [
-                    lf_terr[:, lf_sli_idx: (lf_sli_idx + lf_win), :]
+                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
                     for lf_sli_idx in indices
                 ]
                 lf_sli = np.vstack(lf_sli)
@@ -482,13 +482,13 @@ def augment_data(
 
 
 def apply_multichannel_spectogram(
-        train_dat: List[ExperimentData],
-        test_dat: List[ExperimentData],
-        summary: pd.DataFrame,
-        moving_window: float,
-        time_window: float,
-        time_overlap: float,
-        hamming: bool = False,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
+    moving_window: float,
+    time_window: float,
+    time_overlap: float,
+    hamming: bool = False,
 ) -> Tuple[List[ExperimentData]]:
     tw = time_window
     to = time_overlap
@@ -521,9 +521,9 @@ def apply_multichannel_spectogram(
 
 
 def downsample_data(
-        train_dat: List[ExperimentData],
-        test_dat: List[ExperimentData],
-        summary: pd.DataFrame,
+    train_dat: List[ExperimentData],
+    test_dat: List[ExperimentData],
+    summary: pd.DataFrame,
 ) -> Tuple[List[ExperimentData]]:
     # Highest sampling frequency
     lf_sensor = summary["sampling_freq"].idxmin()
@@ -561,9 +561,9 @@ def downsample_data(
 
 
 def merge_upsample(
-        data: ExperimentData,
-        summary: pd.DataFrame,
-        mode: Literal["interpolation", "last"] = "interpolation",
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    mode: Literal["interpolation", "last"] = "interpolation",
 ) -> pd.DataFrame:
     """Upsample and merge low frequency sensors
 
@@ -603,11 +603,11 @@ def merge_upsample(
 
 
 def kfold_splits(
-        unified: Tuple[List[ExperimentData]] | ExperimentData,
-        labels: np.ndarray,
-        n_splits: int | None = 5,
-        random_state: int | None = None,
-        ablation: bool = False
+    unified: Tuple[List[ExperimentData]] | ExperimentData,
+    labels: np.ndarray,
+    n_splits: int | None = 5,
+    random_state: int | None = None,
+    ablation: bool = False,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     if n_splits is None:
         return unified
@@ -632,7 +632,9 @@ def kfold_splits(
             for k in range(n_splits - 1):
                 _unified = train_data_subsamples[-1]
                 _labels = _unified["imu"][:, 0, 0]
-                fold_train_idx, fold_test_idx = next(sss.split(np.zeros(len(_labels)), _labels))
+                fold_train_idx, fold_test_idx = next(
+                    sss.split(np.zeros(len(_labels)), _labels)
+                )
                 train_data_subsamples.append(
                     {
                         sens: sens_data[fold_train_idx, :, :]
@@ -659,12 +661,12 @@ def kfold_splits(
 
 
 def partition_data(
-        data: ExperimentData,
-        summary: pd.DataFrame,
-        partition_duration: float,
-        n_splits: int | None = 5,
-        random_state: int | None = None,
-        ablation: bool = False
+    data: ExperimentData,
+    summary: pd.DataFrame,
+    partition_duration: float,
+    n_splits: int | None = 5,
+    random_state: int | None = None,
+    ablation: bool = False,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
     Args:
@@ -745,12 +747,12 @@ def partition_data(
 
 
 def augment_data_ablation(
-        train_dat,
-        test_dat,
-        summary,
-        moving_window: float,
-        stride: float,
-        homogeneous: bool,
+    train_dat,
+    test_dat,
+    summary,
+    moving_window: float,
+    stride: float,
+    homogeneous: bool,
 ) -> Tuple[List[ExperimentData]]:
     # Find the channel "c" providing data at higher frequency "sf" to be used
     # as a reference for windowing operation
@@ -834,7 +836,7 @@ def augment_data_ablation(
                 lf_time = lf_terr[0, :, ch_cols["time"]]
                 indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
                 lf_sli = [
-                    lf_terr[:, lf_sli_idx: (lf_sli_idx + lf_win), :]
+                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
                     for lf_sli_idx in indices
                 ]
                 lf_sli = np.vstack(lf_sli)
