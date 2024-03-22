@@ -64,7 +64,7 @@ train, test = preprocessing.partition_data(
 
 num_splits = len(train[0])
 train_sizes = [train[0][i]["pro"].shape[0] for i in range(num_splits)]
-with exports.JSONExporter("analysis/train-sizes.json") as data:
+with exports.JSONExporter("analysis/figs/train-sizes.json") as data:
     data["train_sizes"] = train_sizes
 
 merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
