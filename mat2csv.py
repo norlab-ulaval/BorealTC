@@ -6,7 +6,7 @@ import pandas as pd
 import scipy.io as scio
 
 mat_dir = Path("datasets")
-csv_dir = Path("data")
+csv_dir = Path("vulpi-data")
 
 cols = {
     "imu": [

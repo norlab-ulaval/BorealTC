@@ -9,10 +9,9 @@ from utils import models, preprocessing, exports
 from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
-husky_csv_dir = cwd / "norlab-data"
-vulpi_csv_dir = cwd / "data"
+husky_csv_dir = cwd / "borealtc-data"
+vulpi_csv_dir = cwd / "vulpi-data"
 
-mat_dir = cwd / "datasets"
 results_dir = cwd / "results" / "split"
 results_dir.mkdir(parents=True, exist_ok=True)
 

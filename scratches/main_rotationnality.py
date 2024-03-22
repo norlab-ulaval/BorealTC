@@ -10,11 +10,10 @@ from utils import models, preprocessing, transforms
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
-    csv_dir = cwd / "norlab-data"
+    csv_dir = cwd / "borealtc-data"
 elif DATASET == "vulpi":
-    csv_dir = cwd / "data"
+    csv_dir = cwd / "vulpi-data"
 
-mat_dir = cwd / "datasets"
 results_dir = cwd / "results" / DATASET
 results_dir.mkdir(parents=True, exist_ok=True)
 

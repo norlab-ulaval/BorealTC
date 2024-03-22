@@ -17,11 +17,10 @@ except ImportError:
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
 if DATASET == "husky":
-    csv_dir = cwd / "norlab-data"
+    csv_dir = cwd / "borealtc-data"
 elif DATASET == "vulpi":
-    csv_dir = cwd / "data"
+    csv_dir = cwd / "vulpi-data"
 
-mat_dir = cwd / "datasets"
 
 RANDOM_STATE = 21
 
@@ -103,7 +102,9 @@ def objective_cnn(trial: optuna.Trial):
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "dropout": trial.suggest_float("dropout", 0.0, 0.5),
-        "use_augmentation": trial.suggest_categorical("use_augmentation", [True, False])
+        "use_augmentation": trial.suggest_categorical(
+            "use_augmentation", [True, False]
+        ),
     }
 
     (
@@ -128,7 +129,7 @@ def objective_cnn(trial: optuna.Trial):
         dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
         random_state=RANDOM_STATE,
-        test=False
+        test=False,
     )
     return (out["pred"] == out["true"]).mean().item()
 
@@ -136,7 +137,7 @@ def objective_cnn(trial: optuna.Trial):
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
         "num_branches": trial.suggest_int("num_branches", 1, 16),
-        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True)
+        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True),
     }
 
     ssm_cfg = {
@@ -150,7 +151,7 @@ def objective_mamba(trial: optuna.Trial):
         n_layer=trial.suggest_int("num_layers", 1, 16),
         rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
         fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
-        ssm_cfg=ssm_cfg
+        ssm_cfg=ssm_cfg,
     )
 
     mamba_train_opt = {
@@ -162,19 +163,25 @@ def objective_mamba(trial: optuna.Trial):
         "valid_patience": trial.suggest_int("valid_patience", 5, 15),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
         "valid_frequency": None,
-        "gradient_treshold": trial.suggest_categorical("gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]),
+        "gradient_treshold": trial.suggest_categorical(
+            "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
+        ),
         "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,
-        "out_method": trial.suggest_categorical("out_method", ["flatten", "max_pool", "last_state"])
+        "out_method": trial.suggest_categorical(
+            "out_method", ["flatten", "max_pool", "last_state"]
+        ),
     }
 
     results = {}
     results_per_fold = []
 
     for k in range(3):
-        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
+        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(
+            aug_train_folds[k], aug_test_folds[k]
+        )
 
         out = models.mamba_network(
             aug_train_fold,
@@ -182,10 +189,10 @@ def objective_mamba(trial: optuna.Trial):
             mamba_par,
             mamba_train_opt,
             mamba_cfg,
-            dict(mw=MOVING_WINDOW, fold=k+1)
+            dict(mw=MOVING_WINDOW, fold=k + 1),
         )
         results_per_fold.append(out)
-    
+
     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
     results["true"] = np.hstack([r["true"] for r in results_per_fold])
 
@@ -232,7 +239,7 @@ def objective_lstm(trial: optuna.Trial):
         lstm_train_opt,
         dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
         custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_loss")],
-        test=False
+        test=False,
     )
     return (out["pred"] == out["true"]).mean().item()
 
