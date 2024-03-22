@@ -1,3 +1,10 @@
+"""
+Proprioception Is All You Need: Terrain Classification for Boreal Forests
+Damien LaRocque*, William Guimont-Martin, David-Alexandre Duclos, Philippe Giguère, Francois Pomerleau
+---
+This script was inspired by the MAIN.m script in the T_DEEP repository from Ph0bi0 : https://github.com/Ph0bi0/T_DEEP
+"""
+
 import os
 from pathlib import Path
 

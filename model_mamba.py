@@ -1,19 +1,8 @@
 """
-AUTHOR INFORMATION AND SCRIPT OVERVIEW, V1.0, 12/2020
-Author:________________________________________Fabio Vulpi (Github: Ph0bi0)
-
-                                 PhD student at Polytechnic of Bari (Italy)
-                     Researcher at National Research Council of Italy (CNR)
-
-This is the main script to train and test deep terrain classification
-models:
-- Convolutional Neural Network (CNN)
-- Long Short-Term Memory recurrent neural network (LSTM)
-- Convolutional Long Short-Term Memory recurrent neural network (CLSTM)
-
-The script also uses a state of the art Support Vector Machine (SVM) as
-benchmark
--------------------------------------------------------------------------
+Proprioception Is All You Need: Terrain Classification for Boreal Forests
+Damien LaRocque*, William Guimont-Martin, David-Alexandre Duclos, Philippe Giguère, Francois Pomerleau
+---
+This script was inspired by the MAIN.m script in the T_DEEP repository from Ph0bi0 : https://github.com/Ph0bi0/T_DEEP
 """
 
 from mamba_ssm.models.config_mamba import MambaConfig
@@ -77,10 +66,7 @@ STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
 
 # Mamba parameters
-mamba_par = {
-    "num_branches": 4,
-    "norm_epsilon": 1e-5
-}
+mamba_par = {"num_branches": 4, "norm_epsilon": 1e-5}
 
 ssm_cfg = {
     "d_state": 16,
@@ -106,7 +92,7 @@ mamba_train_opt = {
     "gradient_treshold": 6,  # None to disable
     "focal_loss": True,
     "num_classes": len(terrains),
-    "out_method": "last_state" # "flatten", "max_pool", "last_state"
+    "out_method": "last_state",  # "flatten", "max_pool", "last_state"
 }
 
 # Model settings
@@ -128,7 +114,9 @@ for mw in MOVING_WINDOWS:
 
     results_per_fold = []
     for k in range(N_FOLDS):
-        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(aug_train_folds[k], aug_test_folds[k])
+        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(
+            aug_train_folds[k], aug_test_folds[k]
+        )
 
         out = models.mamba_network(
             aug_train_fold,
@@ -136,7 +124,7 @@ for mw in MOVING_WINDOWS:
             mamba_par,
             mamba_train_opt,
             mamba_cfg,
-            dict(mw=mw, fold=k+1)
+            dict(mw=mw, fold=k + 1),
         )
         results_per_fold.append(out)
 

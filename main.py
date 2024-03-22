@@ -1,19 +1,8 @@
 """
-AUTHOR INFORMATION AND SCRIPT OVERVIEW, V1.0, 12/2020
-Author:________________________________________Fabio Vulpi (Github: Ph0bi0)
-
-                                 PhD student at Polytechnic of Bari (Italy)
-                     Researcher at National Research Council of Italy (CNR)
-
-This is the main script to train and test deep terrain classification
-models:
-- Convolutional Neural Network (CNN)
-- Long Short-Term Memory recurrent neural network (LSTM)
-- Convolutional Long Short-Term Memory recurrent neural network (CLSTM)
-
-The script also uses a state of the art Support Vector Machine (SVM) as
-benchmark
--------------------------------------------------------------------------
+Proprioception Is All You Need: Terrain Classification for Boreal Forests
+Damien LaRocque*, William Guimont-Martin, David-Alexandre Duclos, Philippe Giguère, Francois Pomerleau
+---
+This script was inspired by the MAIN.m script in the T_DEEP repository from Ph0bi0 : https://github.com/Ph0bi0/T_DEEP
 """
 
 import os
