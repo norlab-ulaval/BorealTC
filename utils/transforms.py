@@ -280,6 +280,24 @@ def check_none(*args) -> bool:
     return any(elem is None for elem in args)
 
 
+def expand(vals: np.ndarray, mult: int = 10) -> np.ndarray:
+    """Expand number of values in a array
+
+    Args:
+        vals (np.ndarray): Values
+        mult (int, optional): Multiplier. Defaults to 10.
+
+    Returns:
+        np.ndarray: Expanded values
+    """
+    return np.linspace(
+        vals.min(),
+        vals.max(),
+        mult * (vals.size - 1) + 1,
+        endpoint=True,
+    )
+
+
 def convert_to_idx(
     x: np.ndarray,
     inv_terrains: dict,
