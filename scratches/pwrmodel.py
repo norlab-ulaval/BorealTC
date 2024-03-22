@@ -17,9 +17,9 @@ from utils.transforms import motion_power
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
 if DATASET == "husky":
-    csv_dir = cwd / "borealtc-data"
+    csv_dir = cwd / "data" / "borealtc"
 elif DATASET == "vulpi":
-    csv_dir = cwd / "vulpi-data"
+    csv_dir = cwd / "data" / "vulpi"
 
 RANDOM_STATE = 21
 HAS_PWR = True

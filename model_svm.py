@@ -13,9 +13,9 @@ import pandas as pd
 from utils import models, preprocessing
 
 cwd = Path.cwd()
-csv_dir = cwd / "vulpi-data"
+csv_dir = cwd / "data" / "vulpi"
 results_dir = cwd / "results"
-csv_dir = cwd / "borealtc-data"
+csv_dir = cwd / "data" / "borealtc"
 
 RANDOM_STATE = 21
 

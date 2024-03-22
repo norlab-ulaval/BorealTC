@@ -7,7 +7,7 @@ import pandas as pd
 from utils import mixed
 
 cwd = Path.cwd()
-csv_dir = cwd / "borealtc-data" / "MIXED"
+csv_dir = cwd / "data" / "borealtc" / "MIXED"
 
 RANDOM_STATE = 21
 

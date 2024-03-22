@@ -17,9 +17,9 @@ from utils import models, preprocessing
 cwd = Path.cwd()
 DATASET = os.environ.get("DATASET", "husky")  # 'husky' or 'vulpi'
 if DATASET == "husky":
-    csv_dir = cwd / "borealtc-data"
+    csv_dir = cwd / "data" / "borealtc"
 elif DATASET == "vulpi":
-    csv_dir = cwd / "vulpi-data"
+    csv_dir = cwd / "data" / "vulpi"
 
 results_dir = cwd / "results" / DATASET
 results_dir.mkdir(parents=True, exist_ok=True)

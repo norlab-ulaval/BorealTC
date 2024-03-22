@@ -6,8 +6,8 @@ import pandas as pd
 from utils import preprocessing, transforms
 from scipy import stats
 
-husky_data = Path("borealtc-data")
-vulpi_data = Path("vulpi-data")
+husky_data = Path("data/borealtc")
+vulpi_data = Path("data/vulpi")
 
 # %%
 # Define channels
