@@ -884,6 +884,7 @@ def mamba_network(
             test_data,
             train_transform=None,
             test_transform=None,
+            train_data_augmentation=None,
             valid_percent=valid_perc,
             batch_size=minibatch_size,
             num_workers=num_workers,
@@ -931,7 +932,7 @@ def mamba_network(
         *custom_callbacks,
     ]
     if logging:
-        checkpoint_folder_path = pathlib.Path("checkpoints")
+        checkpoint_folder_path = Path("checkpoints")
 
         callbacks += [
             DeviceStatsMonitor(),

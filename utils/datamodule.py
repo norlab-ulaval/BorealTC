@@ -81,9 +81,12 @@ class CustomDataModule(L.LightningDataModule):
         self.train_dataset, self.val_dataset = _split(
             train_dataset, valid_percent=valid_percent
         )
-        self.train_dataset.dataset.transform = pp.Compose(
-            [copy.deepcopy(train_transform), train_data_augmentation]
-        )
+        if train_transform is not None:
+            self.train_dataset.dataset.transform = pp.Compose(
+                [copy.deepcopy(train_transform), train_data_augmentation]
+            )
+        else:
+            self.train_dataset.dataset.transform = pp.Compose([train_data_augmentation])
         self.test_dataset = dataset_type(test_temporal, test_transform)
 
         self.batch_size = batch_size
@@ -185,6 +188,7 @@ class MambaDataModule(CustomDataModule):
         test_temporal,
         train_transform: Optional[Callable] = None,
         test_transform: Optional[Callable] = None,
+        train_data_augmentation: Optional[Callable] = None,
         valid_percent: float = 0.1,
         batch_size: int = 32,
         num_workers: int = 8,
@@ -196,6 +200,7 @@ class MambaDataModule(CustomDataModule):
             test_temporal,
             train_transform,
             test_transform,
+            train_data_augmentation,
             valid_percent,
             batch_size,
             num_workers,
