@@ -187,12 +187,79 @@ def merge_terr_dfs(husky_terr_dfs, husky_summary, vulpi_terr_dfs, vulpi_summary)
     return terr_dfs, husky_summary
 
 
+def kfold_splits(
+    unified: Tuple[List[ExperimentData]] | ExperimentData,
+    labels: np.ndarray,
+    n_splits: int | None = 5,
+    random_state: int | None = None,
+    ablation: bool = False,
+) -> Tuple[List[ExperimentData]] | ExperimentData:
+    if n_splits is None:
+        return unified
+
+    rng = np.random.RandomState(random_state)
+    skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
+
+    train_data, test_data = [], []
+
+    if ablation:
+        sss = StratifiedShuffleSplit(n_splits=1, train_size=0.5, random_state=rng)
+
+        for fold_train_idx, fold_test_idx in skf.split(np.zeros(len(labels)), labels):
+            train_data_subsamples = [
+                {
+                    sens: sens_data[fold_train_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            ]
+            test_data.append(
+                {
+                    sens: sens_data[fold_test_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            )
+
+            for k in range(n_splits - 1):
+                _unified = train_data_subsamples[-1]
+                _labels = _unified["imu"][:, 0, 0]
+
+                fold_train_idx, fold_test_idx = next(
+                    sss.split(np.zeros(len(_labels)), _labels)
+                )
+
+                train_data_subsamples.append(
+                    {
+                        sens: sens_data[fold_train_idx, :, :]
+                        for sens, sens_data in _unified.items()
+                    }
+                )
+
+            train_data.append(train_data_subsamples)
+    else:
+        for fold_train_idx, fold_test_idx in skf.split(np.zeros(len(labels)), labels):
+            train_data.append(
+                {
+                    sens: sens_data[fold_train_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            )
+            test_data.append(
+                {
+                    sens: sens_data[fold_test_idx, :, :]
+                    for sens, sens_data in unified.items()
+                }
+            )
+
+    return train_data, test_data
+
+
 def partition_data(
     data: ExperimentData,
     summary: pd.DataFrame,
     partition_duration: float,
     n_splits: int | None = 5,
     random_state: int | None = None,
+    ablation: bool = False,
 ) -> Tuple[List[ExperimentData]] | ExperimentData:
     """Partition data in 'partition duration' seconds long windows
 
@@ -283,35 +350,71 @@ def partition_data(
     # for sens, sens_data in unified.items():
     #     print(sens, sens_data.shape, (sens_data[:, 0, :][:, 0] == labels).all())
 
-    if n_splits is None:
-        return unified
+    return kfold_splits(unified, labels, n_splits, random_state, ablation)
 
-    # TODO: split elsewhere ?
 
-    # Split data with K folds
-    rng = np.random.RandomState(random_state)
-    skf = StratifiedKFold(n_splits=n_splits, random_state=rng, shuffle=True)
+def normalize_data(
+    train_data: ExperimentData, test_data: ExperimentData
+) -> Tuple[Dict[ExperimentData]]:
+    """
+    Normalizes with train data mean and std to avoid data leakage
+    """
+    train_imu_mean = np.mean(train_data["imu"], axis=(0, 1))
+    train_imu_std = np.std(train_data["imu"], axis=(0, 1))
 
-    train_data, test_data = [], []
+    train_pro_mean = np.mean(train_data["pro"], axis=(0, 1))
+    train_pro_std = np.std(train_data["pro"], axis=(0, 1))
 
-    for fold_train_idx, fold_test_idx in skf.split(np.zeros(len(labels)), labels):
-        train_data.append(
-            {
-                sens: sens_data[fold_train_idx, :, :]
-                for sens, sens_data in unified.items()
-            }
+    train_imu_normalized = (train_data["imu"] - train_imu_mean) / train_imu_std
+    train_pro_normalized = (train_data["pro"] - train_pro_mean) / train_pro_std
+
+    test_imu_normalized = (test_data["imu"] - train_imu_mean) / train_imu_std
+    test_pro_normalized = (test_data["pro"] - train_pro_mean) / train_pro_std
+
+    return dict(
+        imu=train_imu_normalized, pro=train_pro_normalized, labels=train_data["labels"]
+    ), dict(
+        imu=test_imu_normalized, pro=test_pro_normalized, labels=test_data["labels"]
+    )
+
+
+def normalize_data_ablation(
+    train_data: ExperimentData, test_data: ExperimentData
+) -> Tuple[Dict[ExperimentData]]:
+    """
+    Normalizes with train data mean and std to avoid data leakage
+    """
+    train_imu_mean = np.mean(train_data[0]["imu"], axis=(0, 1))
+    train_imu_std = np.std(train_data[0]["imu"], axis=(0, 1))
+
+    train_pro_mean = np.mean(train_data[0]["pro"], axis=(0, 1))
+    train_pro_std = np.std(train_data[0]["pro"], axis=(0, 1))
+
+    normalized_train_data = []
+
+    for k in range(len(train_data)):
+        train_imu_normalized = (train_data[k]["imu"] - train_imu_mean) / train_imu_std
+        train_pro_normalized = (train_data[k]["pro"] - train_pro_mean) / train_pro_std
+
+        normalized_train_data.append(
+            dict(
+                imu=train_imu_normalized,
+                pro=train_pro_normalized,
+                labels=train_data[k]["labels"],
+            )
         )
-        test_data.append(
-            {
-                sens: sens_data[fold_test_idx, :, :]
-                for sens, sens_data in unified.items()
-            }
-        )
 
-    return train_data, test_data
+    test_imu_normalized = (test_data["imu"] - train_imu_mean) / train_imu_std
+    test_pro_normalized = (test_data["pro"] - train_pro_mean) / train_pro_std
+
+    normalized_test_data = dict(
+        imu=test_imu_normalized, pro=test_pro_normalized, labels=test_data["labels"]
+    )
+
+    return normalized_train_data, normalized_test_data
 
 
-def prepare_data_ordering(
+def cleanup_data(
     train_data: ExperimentData,
     test_data: ExperimentData,
 ) -> Tuple[Dict[ExperimentData]]:
@@ -319,34 +422,43 @@ def prepare_data_ordering(
     test_labels = test_data["imu"][:, 0, ch_cols["terr_idx"]]
 
     def _cleanup_data(data):
-        return data[:, :, 4:].astype(np.float32)
+        return data[:, :, 5:].astype(np.float32)
 
-    train_data["imu"] = _cleanup_data(train_data["imu"])
-    train_data["pro"] = _cleanup_data(train_data["pro"])
-    test_data["imu"] = _cleanup_data(test_data["imu"])
-    test_data["pro"] = _cleanup_data(test_data["pro"])
+    train_data_imu = _cleanup_data(train_data["imu"])
+    train_data_pro = _cleanup_data(train_data["pro"])
+    test_data_imu = _cleanup_data(test_data["imu"])
+    test_data_pro = _cleanup_data(test_data["pro"])
 
-    def _order_data(data):
-        imu_time = data["imu"][:, :, 0]
-        pro_time = data["pro"][:, :, 0]
-        imu_pro_ordering = np.hstack([imu_time, pro_time])
-
-        return imu_pro_ordering.argsort(axis=1)
-
-    train_order = _order_data(train_data)
-    test_order = _order_data(test_data)
-
-    return dict(
-        imu=train_data["imu"][:, :, 1:],
-        pro=train_data["pro"][:, :, 1:],
-        labels=train_labels,
-        order=train_order,
-    ), dict(
-        imu=test_data["imu"][:, :, 1:],
-        pro=test_data["pro"][:, :, 1:],
-        labels=test_labels,
-        order=test_order,
+    return dict(imu=train_data_imu, pro=train_data_pro, labels=train_labels), dict(
+        imu=test_data_imu, pro=test_data_pro, labels=test_labels
     )
+
+
+def cleanup_data_ablation(
+    train_data: ExperimentData,
+    test_data: ExperimentData,
+) -> Tuple[Dict[ExperimentData]]:
+    def _cleanup_data(data):
+        return data[:, :, 5:].astype(np.float32)
+
+    cleaned_train_data = []
+
+    for k in range(len(train_data)):
+        train_data_imu = _cleanup_data(train_data[k]["imu"])
+        train_data_pro = _cleanup_data(train_data[k]["pro"])
+        train_labels = train_data[k]["imu"][:, 0, ch_cols["terr_idx"]]
+
+        cleaned_train_data.append(
+            dict(imu=train_data_imu, pro=train_data_pro, labels=train_labels)
+        )
+
+    test_data_imu = _cleanup_data(test_data["imu"])
+    test_data_pro = _cleanup_data(test_data["pro"])
+    test_labels = test_data["imu"][:, 0, ch_cols["terr_idx"]]
+
+    cleaned_test_data = dict(imu=test_data_imu, pro=test_data_pro, labels=test_labels)
+
+    return cleaned_train_data, cleaned_test_data
 
 
 def augment_data(
@@ -476,6 +588,143 @@ def augment_data(
     # For every fold
     for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
         aug_train.append(data_augmentation(K_train))
+        aug_test.append(data_augmentation(K_test))
+
+    return aug_train, aug_test
+
+
+def augment_data_ablation(
+    train_dat,
+    test_dat,
+    summary,
+    moving_window: float,
+    stride: float,
+    homogeneous: bool,
+) -> Tuple[List[ExperimentData]]:
+    # Find the channel "c" providing data at higher frequency "sf" to be used
+    # as a reference for windowing operation
+
+    # Highest sampling frequency
+    hf_sensor = summary["sampling_freq"].idxmax()
+    hf = summary["sampling_freq"].max()
+    # Other sensors are low frequency
+    lf_sensors = tuple(sens for sens in summary.index.values if sens != hf_sensor)
+
+    # Time (s) / window * Sampling freq = samples / window
+    MW_len = int(moving_window * hf)
+    ST_len = int(stride * hf)
+    PW_len = train_dat[0][0][hf_sensor].shape[1]
+
+    # Number of folds
+    num_folds = len(train_dat)
+    all_labels = np.hstack(
+        [
+            train_dat[0][0][hf_sensor][:, 0, 0],
+            test_dat[0][hf_sensor][:, 0, 0],
+        ]
+    )
+    terrains = np.sort(np.unique(all_labels))
+    num_terrains = terrains.shape[0]
+
+    # How many samples are generated for one partition window
+    n_strides_part = (PW_len - MW_len) // ST_len
+
+    if homogeneous:
+        # Get number of windows per terrain
+        terr_counts = pd.Series(all_labels).value_counts(sort=False).sort_index()
+        min_count = terr_counts.min()
+
+        # Maximum amount of samples / slides for the class with less partitions
+        # strides_min = n_strides/part * n_partitions(small class)
+        strides_min = n_strides_part * min_count
+
+        # Number of slides for each terrain so that all terrains have strides_min slides
+        n_slides_terr = (strides_min / terr_counts).astype(int)
+
+        # Length of slide for each terrain to respect the number of slides/terr
+        aug_strides_all = (PW_len - MW_len) // (n_slides_terr)
+        aug_windows = aug_strides_all.to_numpy()
+
+    else:
+        # Use ST for all terrains
+        aug_windows = np.full_like(terrains, int(stride * hf))
+        # Number of slides is given by the number of strides per partition
+        n_slides_terr = np.full_like(terrains, n_strides_part)
+
+    aug_train, aug_test = [], []
+
+    def data_augmentation(data: ExperimentData) -> ExperimentData:
+        # Augment the data using the appropriate sliding window for different
+        # terrains or the same for every terrain depending on homogeneous
+
+        # For every terrain
+        Kterr = {}
+
+        hf_data = data[hf_sensor]
+
+        for terr_idx, terr in enumerate(terrains):
+            # Get partitions for label terrain
+            terr_mask = hf_data[:, 0, ch_cols["terrain"]] == terr
+            hf_terr = hf_data[terr_mask]
+
+            # Sliding window for the terrain class
+            sli_len = aug_windows[terr_idx]
+            n_slides = n_slides_terr[terr]
+
+            # Slice the array based on the slide length
+            starts = sli_len * np.arange(n_slides)
+            # starts = np.arange(0, PW_len - MW_len, sli_len)
+            # starts = starts[(starts + MW_len) < PW_len]
+            limits = np.vstack([starts, starts + MW_len]).T
+            # TODO: Check number of strides per partition
+            # if K_idx == 4:
+            #     print(K_idx, terr_idx, n_slides, n_slides * hf_terr_train.shape[0])
+            # print(strides_min, n_slides, limits.shape[0])
+
+            # Get slices for each limit
+            hf_sli = [hf_terr[:, slice(*lim), :] for lim in limits]
+
+            # Get time values
+            hf_tlim = hf_terr[0, limits, ch_cols["time"]]
+
+            # Stack all slices together
+            hf_sli = np.vstack(hf_sli)
+
+            Kterr.setdefault(hf_sensor, []).append(hf_sli)
+
+            for lf_sens in lf_sensors:
+                lf_data = data[lf_sens]
+
+                # Sampling frequency
+                sf = summary.sampling_freq.loc[lf_sens]
+                lf_win = int(moving_window * sf)
+
+                # Select partitions based on terrain
+                terr_mask = lf_data[:, 0, ch_cols["terrain"]] == terr
+                lf_terr = lf_data[terr_mask]
+
+                lf_time = lf_terr[0, :, ch_cols["time"]]
+                indices = np.abs(lf_time - hf_tlim[:, [0]]).argmin(axis=1)
+                lf_sli = [
+                    lf_terr[:, lf_sli_idx : (lf_sli_idx + lf_win), :]
+                    for lf_sli_idx in indices
+                ]
+                lf_sli = np.vstack(lf_sli)
+
+                Kterr.setdefault(lf_sens, []).append(lf_sli)
+
+        K_sli = {sens: np.vstack(sens_data) for sens, sens_data in Kterr.items()}
+
+        return K_sli
+
+    # For every fold
+    for K_idx, (K_train, K_test) in enumerate(zip(train_dat, test_dat)):
+        _aug_train = []
+
+        for subsample_idx in range(num_folds):
+            _aug_train.append(data_augmentation(K_train[subsample_idx]))
+
+        aug_train.append(_aug_train)
         aug_test.append(data_augmentation(K_test))
 
     return aug_train, aug_test

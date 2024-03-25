@@ -117,8 +117,7 @@ class MambaDataset(Dataset):
         sample = (
             dict(
                 imu=self.data["imu"][idx],
-                pro=self.data["pro"][idx],
-                order=self.data["order"][idx],
+                pro=self.data["pro"][idx]
             ),
             self.data["labels"][idx],
         )

@@ -1,5 +1,10 @@
 import optuna
-from optuna.visualization import plot_optimization_history, plot_intermediate_values
+from optuna.visualization import (
+    plot_optimization_history,
+    plot_intermediate_values,
+    plot_param_importances,
+    plot_slice,
+)
 
 if __name__ == "__main__":
     model = "SVM"
@@ -29,6 +34,14 @@ if __name__ == "__main__":
     plot_optimization_history(study).show()
     plot_intermediate_values(study).show()
 
-    fig = optuna.visualization.plot_param_importances(study)
+    fig = plot_param_importances(study)
     fig.layout.title = name
     fig.show()
+
+    fig = plot_slice(study)
+    fig.layout.title = name
+    fig.show()
+
+    study_df = study.trials_dataframe()
+    study_df = study_df[(study_df["value"] > 0.99)]
+    print(study_df.to_dict())

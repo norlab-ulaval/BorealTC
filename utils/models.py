@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import pathlib
 import time
 from typing import TYPE_CHECKING
 
@@ -22,6 +21,9 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
 )
 from lightning.pytorch.loggers import TensorBoardLogger
+
+from pathlib import Path
+
 from sklearn.multiclass import OutputCodeClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -33,17 +35,16 @@ from utils.augmentations import (
     SpectralNoise,
 )
 from utils.constants import ch_cols, imu_dim, pro_dim
-from utils.datamodule import MCSDataModule, TemporalDataModule, MambaDataModule
+from utils.datamodule import (
+    MCSDataModule,
+    TemporalDataModule,
+    MambaDataModule,
+    MambaDataModuleCombined,
+)
 
-try:
-    from mamba_ssm.models.mixer_seq_simple import create_block
-    from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
-except ImportError:
-    RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
+from mamba_ssm.models.mixer_seq_simple import create_block
 
 if TYPE_CHECKING:
-    from mamba_ssm.models.config_mamba import MambaConfig
-
     ExperimentData = dict[str, pd.DataFrame | np.ndarray]
 
 
@@ -296,7 +297,7 @@ class CNNTerrain(L.LightningModule):
         self,
         in_size: int,
         num_filters: int,
-        filter_size: int | (int, int),
+        filter_size: int | tuple[int, int],
         num_classes: int,
         n_wind: int,
         n_freq: int,
@@ -532,12 +533,11 @@ class CNNTerrain(L.LightningModule):
 class MambaTerrain(L.LightningModule):
     def __init__(
         self,
-        mamba_cfg: MambaConfig,
-        num_branches: int,
+        d_model_imu: int,
+        d_model_pro: int,
         norm_epsilon: float,
-        fused_add_norm: bool,
-        residual_in_fp32: bool,
-        in_size: int,
+        ssm_cfg_imu: dict,
+        ssm_cfg_pro: dict,
         out_method: str,
         num_classes: int,
         lr: float,
@@ -551,8 +551,6 @@ class MambaTerrain(L.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.num_branches = num_branches
-        self.num_layers = mamba_cfg.n_layer
         self.out_method = out_method
         self.num_classes = num_classes
         self.lr = lr
@@ -563,49 +561,21 @@ class MambaTerrain(L.LightningModule):
         self.focal_loss_alpha = focal_loss_alpha
         self.focal_loss_gamma = focal_loss_gamma
 
-        self.fused_add_norm = fused_add_norm
-        self.residual_in_fp32 = residual_in_fp32
+        self.d_model_imu = d_model_imu
+        self.d_model_pro = d_model_pro
 
-        if self.fused_add_norm:
-            if layer_norm_fn is None or rms_norm_fn is None:
-                raise ImportError("Failed to import Triton LayerNorm / RMSNorm kernels")
+        self.imu_in_layer = nn.Linear(imu_dim, d_model_imu)
+        self.pro_in_layer = nn.Linear(pro_dim, d_model_pro)
 
-        self.imu_in_layer = nn.Linear(imu_dim, mamba_cfg.d_model)
-        self.pro_in_layer = nn.Linear(pro_dim, mamba_cfg.d_model)
-
-        self.mamba_blocks = nn.ModuleList(
-            [
-                create_block(
-                    d_model=mamba_cfg.d_model,
-                    ssm_cfg=mamba_cfg.ssm_cfg,
-                    norm_epsilon=norm_epsilon,
-                    rms_norm=mamba_cfg.rms_norm,
-                    residual_in_fp32=mamba_cfg.residual_in_fp32,
-                    fused_add_norm=mamba_cfg.fused_add_norm,
-                    layer_idx=idx,
-                )
-                for idx in range(mamba_cfg.n_layer * num_branches)
-            ]
+        self.mamba_block_imu = create_block(
+            d_model=d_model_imu, ssm_cfg=ssm_cfg_imu, norm_epsilon=norm_epsilon
         )
 
-        self.norm_f = (nn.LayerNorm if not mamba_cfg.rms_norm else RMSNorm)(
-            mamba_cfg.d_model,
-            eps=norm_epsilon,
+        self.mamba_block_pro = create_block(
+            d_model=d_model_pro, ssm_cfg=ssm_cfg_pro, norm_epsilon=norm_epsilon
         )
 
-        if out_method == "flatten":
-            self.flatten = nn.Flatten()
-            self.fc = nn.Linear(in_size * mamba_cfg.d_model * num_branches, num_classes)
-            self.out_layer = self._out_layer_flatten
-
-        elif out_method == "max_pool":
-            self.max_pool = nn.MaxPool1d(kernel_size=in_size)
-            self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
-            self.out_layer = self._out_layer_max_pool
-
-        elif out_method == "last_state":
-            self.fc = nn.Linear(mamba_cfg.d_model * num_branches, num_classes)
-            self.out_layer = self._out_layer_last_state
+        self.out_layer = nn.Linear(d_model_imu + d_model_pro, num_classes)
 
         self.softmax = nn.Softmax(dim=1)
 
@@ -637,12 +607,13 @@ class MambaTerrain(L.LightningModule):
             patience=self.reduce_lr_patience,
             factor=self.learning_rate_factor,
             verbose=True,
+            mode="max",
         )
         return dict(
             optimizer=optimizer,
             lr_scheduler=dict(
                 scheduler=scheduler,
-                monitor="val_loss",
+                monitor="val_accuracy_epoch",
             ),
         )
 
@@ -660,78 +631,67 @@ class MambaTerrain(L.LightningModule):
             else {}
         )
 
-    def in_layer(self, x):
-        ordered_x = []
+    def load_from_checkpoint_transfer_learning(checkpoint_path, num_classes, **kwargs):
+        self = MambaTerrain.load_from_checkpoint(checkpoint_path, **kwargs)
 
-        for idx in range(len(x["imu"])):
-            _ordered_x = []
+        # for param in self.parameters():
+        #     param.requires_grad = False
 
-            _x_imu = self.imu_in_layer(x["imu"][idx])
-            _x_pro = self.pro_in_layer(x["pro"][idx])
+        self.out_layer = nn.Linear(self.d_model_imu + self.d_model_pro, num_classes)
+        self.num_classes = num_classes
 
-            for _idx in x["order"][idx]:
-                if _idx < len(_x_imu):
-                    _ordered_x.append(_x_imu[_idx])
-                else:
-                    _idx -= len(_x_imu)
-                    _ordered_x.append(_x_pro[_idx])
+        self._train_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        self._val_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
+        self._test_accuracy = torchmetrics.classification.Accuracy(
+            task="multiclass", num_classes=num_classes
+        )
 
-            ordered_x.append(torch.stack(_ordered_x))
+        return self
 
-        return torch.stack(ordered_x)
+    def _forward_imu(self, x_imu):
+        x_imu = self.imu_in_layer(x_imu)
+        x_imu, _ = self.mamba_block_imu(x_imu, None)
+        return x_imu
 
-    def _out_layer_flatten(self, x):
-        x = self.flatten(x)
-        x = self.fc(x)
+    def _forward_pro(self, x_pro):
+        x_pro = self.pro_in_layer(x_pro)
+        x_pro, _ = self.mamba_block_pro(x_pro, None)
+        return x_pro
+
+    def _out_layer_max_pool(self, x_imu, x_pro):
+        x_imu = x_imu.transpose(1, 2)
+        x_pro = x_pro.transpose(1, 2)
+
+        x_imu = F.max_pool1d(x_imu, kernel_size=x_imu.shape[2])
+        x_pro = F.max_pool1d(x_pro, kernel_size=x_pro.shape[2])
+
+        x_imu = x_imu.squeeze(dim=2)
+        x_pro = x_pro.squeeze(dim=2)
+
+        x = torch.cat([x_imu, x_pro], dim=1)
+        x = self.out_layer(x)
+
         return x
 
-    def _out_layer_max_pool(self, x):
-        x = x.transpose(1, 2)
-        x = self.max_pool(x)
-        x = x.squeeze(dim=2)
-        x = self.fc(x)
-        return x
-
-    def _out_layer_last_state(self, x):
-        x = x[:, -1]
-        x = self.fc(x)
+    def _out_layer_last_state(self, x_imu, x_pro):
+        x_imu = x_imu[:, -1]
+        x_pro = x_pro[:, -1]
+        x = torch.cat([x_imu, x_pro], dim=1)
+        x = self.out_layer(x)
         return x
 
     def forward(self, x):
-        x = self.in_layer(x)
+        x_imu = self._forward_imu(x["imu"])
+        x_pro = self._forward_pro(x["pro"])
 
-        x_branches = []
-
-        for branch_idx in range(self.num_branches):
-            x_branch, r_branch = x.clone(), None
-
-            for layer_idx in range(self.num_layers):
-                x_branch, r_branch = self.mamba_blocks[
-                    branch_idx * self.num_layers + layer_idx
-                ](x_branch, r_branch)
-
-            if not self.fused_add_norm:
-                r_branch = (x_branch + r_branch) if r_branch is not None else x_branch
-                x_branch = self.norm_f(r_branch.to(dtype=self.norm_f.weight.dtype))
-            else:
-                # Set prenorm=False here since we don't need the residual
-                fused_add_norm_fn = (
-                    rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
-                )
-                x_branch = fused_add_norm_fn(
-                    x_branch,
-                    self.norm_f.weight,
-                    self.norm_f.bias,
-                    eps=self.norm_f.eps,
-                    residual=r_branch,
-                    prenorm=False,
-                    residual_in_fp32=self.residual_in_fp32,
-                )
-
-            x_branches.append(x_branch)
-
-        x = torch.cat(x_branches, dim=2)
-        x = self.out_layer(x)
+        if self.out_method == "max_pool":
+            x = self._out_layer_max_pool(x_imu, x_pro)
+        elif self.out_method == "last_state":
+            x = self._out_layer_last_state(x_imu, x_pro)
 
         return x
 
@@ -746,14 +706,24 @@ class MambaTerrain(L.LightningModule):
             )
         return self.ce_loss(y, target)
 
+    def _combined_batch_step(self, batch):
+        pred = torch.cat([self(_batch[0]) for _batch in batch])
+        target = torch.cat([_batch[1] for _batch in batch])
+
+        return pred, target
+
     def training_step(self, batch, batch_idx):
-        x, target = batch
-        pred = self(x)
+        if isinstance(batch[0], list):
+            pred, target = self._combined_batch_step(batch)
+        else:
+            x, target = batch
+            pred = self(x)
+
         loss = self.loss(pred, target)
         acc = self._train_accuracy(pred, target)
 
-        self.log("train_loss", loss, prog_bar=True, on_step=True)
-        self.log("train_accuracy", acc, on_step=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, batch_size=len(pred))
+        self.log("train_accuracy", acc, on_step=True, batch_size=len(pred))
 
         return loss
 
@@ -766,15 +736,16 @@ class MambaTerrain(L.LightningModule):
         )
         self._train_accuracy.reset()
 
-    def validation_step(self, val_batch, batch_idx):
+    def validation_step(self, val_batch, batch_idx, dataloader_idx=0):
         x, target = val_batch
         pred = self(x)
+
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._val_accuracy(pred, target)
 
-        self.log("val_loss", loss, on_step=True)
-        self.log("val_accuracy", acc, on_step=True)
+        self.log("val_loss", loss, on_step=True, batch_size=len(pred))
+        self.log("val_accuracy", acc, on_step=True, batch_size=len(pred))
 
         pred_classes = torch.argmax(y, dim=1)
         self._val_classifications[-1]["pred"].append(
@@ -807,15 +778,16 @@ class MambaTerrain(L.LightningModule):
             {"pred": [], "true": [], "ftime": [], "ptime": [], "conf": []}
         )
 
-    def test_step(self, test_batch, batch_idx):
+    def test_step(self, test_batch, batch_idx, dataloader_idx=0):
         x, target = test_batch
         pred = self(x)
+
         y = self.softmax(pred)
         loss = self.loss(pred, target)
         acc = self._test_accuracy(pred, target)
 
-        self.log("test_loss", loss, on_step=True)
-        self.log("test_accuracy", acc, on_step=True)
+        self.log("test_loss", loss, on_step=True, batch_size=len(pred))
+        self.log("test_accuracy", acc, on_step=True, batch_size=len(pred))
 
         pred_classes = torch.argmax(y, dim=1)
         self._test_classifications[-1]["pred"].append(
@@ -854,17 +826,27 @@ def mamba_network(
     test_data: list[ExperimentData],
     mamba_par: dict,
     mamba_train_opt: dict,
-    mamba_cfg: MambaConfig,
+    ssm_cfg_imu: dict,
+    ssm_cfg_pro: dict,
     description: dict,
+    custom_callbacks=None,
+    random_state: int | None = None,
+    test: bool = True,
+    checkpoint: Path | None = None,
+    logging: bool = True,
 ) -> dict:
+    # Seed
+    L.seed_everything(random_state)
+
     # Mamba parameters
-    in_size = len(train_data["order"][0])
+    if custom_callbacks is None:
+        custom_callbacks = []
+    d_model_imu = mamba_par["d_model_imu"]
+    d_model_pro = mamba_par["d_model_pro"]
+    norm_epsilon = mamba_par["norm_epsilon"]
     out_method = mamba_train_opt["out_method"]
     num_classes = mamba_train_opt["num_classes"]
-    num_branches = mamba_par["num_branches"]
-    norm_epsilon = mamba_par["norm_epsilon"]
-    fused_add_norm = mamba_cfg.fused_add_norm
-    residual_in_fp32 = mamba_cfg.residual_in_fp32
+    dataset = description["dataset"]
 
     # Training parameters
     valid_perc = mamba_train_opt["valid_perc"]
@@ -877,40 +859,93 @@ def mamba_network(
     valid_frequency = mamba_train_opt["valid_frequency"]
     gradient_treshold = mamba_train_opt["gradient_treshold"]
     focal_loss = mamba_train_opt["focal_loss"]
+    focal_loss_alpha = mamba_train_opt["focal_loss_alpha"]
+    focal_loss_gamma = mamba_train_opt["focal_loss_gamma"]
 
     num_workers = 8
     persistent_workers = True
 
-    datamodule = MambaDataModule(
-        train_data,
-        test_data,
-        train_transform=None,
-        test_transform=None,
-        valid_percent=valid_perc,
-        batch_size=minibatch_size,
-        num_workers=num_workers,
-        persistent_workers=persistent_workers,
-    )
+    if "vulpi" in train_data and "husky" in train_data:
+        datamodule = MambaDataModuleCombined(
+            train_temporal_vulpi=train_data["vulpi"],
+            test_temporal_vulpi=test_data["vulpi"],
+            train_temporal_husky=train_data["husky"],
+            test_temporal_husky=test_data["husky"],
+            train_transform=None,
+            test_transform=None,
+            valid_percent=valid_perc,
+            batch_size=minibatch_size,
+            num_workers=num_workers,
+            persistent_workers=persistent_workers,
+        )
+    else:
+        datamodule = MambaDataModule(
+            train_data,
+            test_data,
+            train_transform=None,
+            test_transform=None,
+            valid_percent=valid_perc,
+            batch_size=minibatch_size,
+            num_workers=num_workers,
+            persistent_workers=persistent_workers,
+        )
 
-    model = MambaTerrain(
-        mamba_cfg=mamba_cfg,
-        num_branches=num_branches,
-        norm_epsilon=norm_epsilon,
-        fused_add_norm=fused_add_norm,
-        residual_in_fp32=residual_in_fp32,
-        in_size=in_size,
-        out_method=out_method,
-        num_classes=num_classes,
-        lr=init_learn_rate,
-        learning_rate_factor=learn_drop_factor,
-        reduce_lr_patience=reduce_lr_patience,
-        focal_loss=focal_loss,
-    )
+    if checkpoint is not None:
+        model = MambaTerrain.load_from_checkpoint_transfer_learning(
+            checkpoint_path=checkpoint,
+            num_classes=num_classes,
+            norm_epsilon=norm_epsilon,
+            lr=init_learn_rate,
+            learning_rate_factor=learn_drop_factor,
+            reduce_lr_patience=reduce_lr_patience,
+            class_weights=None,
+            focal_loss=focal_loss,
+            focal_loss_alpha=focal_loss_alpha,
+            focal_loss_gamma=focal_loss_gamma,
+        )
+    else:
+        model = MambaTerrain(
+            d_model_imu=d_model_imu,
+            d_model_pro=d_model_pro,
+            norm_epsilon=norm_epsilon,
+            ssm_cfg_imu=ssm_cfg_imu,
+            ssm_cfg_pro=ssm_cfg_pro,
+            out_method=out_method,
+            num_classes=num_classes,
+            lr=init_learn_rate,
+            learning_rate_factor=learn_drop_factor,
+            reduce_lr_patience=reduce_lr_patience,
+            class_weights=None,
+            focal_loss=focal_loss,
+            focal_loss_alpha=focal_loss_alpha,
+            focal_loss_gamma=focal_loss_gamma,
+        )
 
-    exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}'
-    logger = TensorBoardLogger("tb_logs", name=exp_name)
+    exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
 
-    checkpoint_folder_path = pathlib.Path("checkpoints")
+    logger = TensorBoardLogger("tb_logs", name=exp_name) if logging else False
+    callbacks = [
+        EarlyStopping(
+            monitor="val_accuracy_epoch", patience=valid_patience, mode="max"
+        ),
+        *custom_callbacks,
+    ]
+    if logging:
+        checkpoint_folder_path = pathlib.Path("checkpoints")
+
+        callbacks += [
+            DeviceStatsMonitor(),
+            LearningRateMonitor(),
+            ModelCheckpoint(
+                monitor="val_accuracy_epoch",
+                dirpath=str(checkpoint_folder_path),
+                filename=f"{exp_name}-" + "{epoch:02d}-{val_loss:.6f}",
+                save_top_k=1,
+                save_last=True,
+                mode="max",
+            ),
+        ]
+
     trainer = L.Trainer(
         accelerator="gpu",
         precision=32,
@@ -920,26 +955,23 @@ def mamba_network(
         max_epochs=max_epochs,
         gradient_clip_val=gradient_treshold,
         val_check_interval=valid_frequency,
-        callbacks=[
-            EarlyStopping(monitor="val_loss", patience=valid_patience, mode="min"),
-            DeviceStatsMonitor(),
-            LearningRateMonitor(),
-            ModelCheckpoint(
-                monitor="val_loss",
-                dirpath=str(checkpoint_folder_path),
-                filename=f"{exp_name}-" + "{epoch:02d}-{val_loss:.6f}",
-                save_top_k=1,
-                save_last=True,
-                mode="min",
-            ),
-        ],
+        callbacks=callbacks,
+        enable_checkpointing=logging,
     )
-    # train
-    trainer.fit(model, datamodule)
-    trainer.validate(model, datamodule)
-    trainer.test(model, datamodule)
 
-    return model.test_classification
+    trainer.fit(model, datamodule)
+    loss = trainer.validate(model, datamodule)
+
+    if test:
+        trainer.test(model, datamodule)
+        out = model.test_classification
+    else:
+        out = model.val_classification
+
+    out["loss"] = loss
+    out["num_params"] = sum(param.numel() for param in model.parameters())
+
+    return out
 
 
 def convolutional_neural_network(
@@ -1057,7 +1089,7 @@ def convolutional_neural_network(
     exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
-    checkpoint_folder_path = pathlib.Path("checkpoints")
+    checkpoint_folder_path = Path("checkpoints")
     trainer = L.Trainer(
         enable_progress_bar=verbose,
         enable_model_summary=verbose,
@@ -1186,7 +1218,7 @@ def long_short_term_memory(
     exp_name = f'terrain_classification_{"c" if convolutional else ""}lstm_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
-    checkpoint_folder_path = pathlib.Path("checkpoints")
+    checkpoint_folder_path = Path("checkpoints")
     trainer = L.Trainer(
         enable_progress_bar=verbose,
         enable_model_summary=verbose,

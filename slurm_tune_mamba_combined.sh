@@ -2,13 +2,13 @@
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=14-00:00
-#SBATCH --job-name=TuneMambaHusky
+#SBATCH --job-name=TuneMambaCombined
 #SBATCH --output=%x-%j.out
 
 cd ~/Vulpi2021-terrain-deep-learning
 docker build -t terrain-gpu -f DockerfileGPU .
 container_id=$(
-  docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES -e DATASET='husky' -e MODEL='Mamba' --rm --ipc host \
+  docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES -e DATASET='combined' -e MODEL='Mamba' --rm --ipc host \
     --mount type=bind,source=.,target=/code/ \
     --mount type=bind,source=/dev/shm,target=/dev/shm \
     terrain-gpu python3 optuna_tuning.py

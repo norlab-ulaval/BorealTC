@@ -5,22 +5,24 @@ from pathlib import Path
 import numpy as np
 import optuna
 import pandas as pd
+import torch
+
 from optuna.integration import PyTorchLightningPruningCallback
 
 from utils import models, preprocessing
-
-try:
-    from mamba_ssm.models.config_mamba import MambaConfig
-except ImportError:
-    MambaConfig = None
+from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
-DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi'
+
+DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi' or 'combined'
+COMBINED_PRED = os.environ.get("COMBINED_PRED_TYPE", "class")  # 'class' or 'dataset'
+
 if DATASET == "husky":
     csv_dir = cwd / "data" / "borealtc"
 elif DATASET == "vulpi":
     csv_dir = cwd / "data" / "vulpi"
-
+elif DATASET == "combined":
+    csv_dir = dict(vulpi=cwd / "data" / "vulpi", husky=cwd / "data" / "borealtc")
 
 RANDOM_STATE = 21
 
@@ -41,39 +43,48 @@ columns = {
         "curR": True,
     },
 }
-summary = pd.DataFrame({"columns": pd.Series(columns)})
+if DATASET == "combined":
+    summary = {}
+
+    for key in csv_dir.keys():
+        summary[key] = pd.DataFrame({"columns": pd.Series(columns)})
+else:
+    summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+if DATASET == "combined":
+    terr_dfs = {}
+    terrains = []
+
+    terr_df_husky = preprocessing.get_recordings(csv_dir["husky"], summary["husky"])
+    terr_df_vulpi = preprocessing.get_recordings(csv_dir["vulpi"], summary["vulpi"])
+
+    terr_df_husky, terr_df_vulpi = downsample_terr_dfs(
+        terr_df_husky, summary["husky"], terr_df_vulpi, summary["vulpi"]
+    )
+
+    terr_dfs["husky"] = terr_df_husky
+    terr_dfs["vulpi"] = terr_df_vulpi
+
+    if COMBINED_PRED == "class":
+        for key in csv_dir.keys():
+            terrains += sorted(terr_dfs[key]["imu"].terrain.unique())
+    elif COMBINED_PRED == "dataset":
+        terrains = list(csv_dir.keys())
+else:
+    terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+    terrains = sorted(terr_dfs["imu"].terrain.unique())
 
 # Set data partition parameters
-NUM_CLASSES = len(np.unique(terr_dfs["imu"].terrain))
+NUM_CLASSES = len(terrains)
 N_FOLDS = 5
 PART_WINDOW = 5  # seconds
-MOVING_WINDOW = 1.5
-
-# Data partition and sample extraction
-train_folds, test_folds = preprocessing.partition_data(
-    terr_dfs,
-    summary,
-    PART_WINDOW,
-    N_FOLDS,
-    random_state=RANDOM_STATE,
-)
+MOVING_WINDOW = 1.7
 
 # merged = preprocessing.merge_upsample(terr_dfs, summary, mode="last")
 
 STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
-
-aug_train_folds, aug_test_folds = preprocessing.augment_data(
-    train_folds,
-    test_folds,
-    summary,
-    moving_window=MOVING_WINDOW,
-    stride=STRIDE,
-    homogeneous=HOMOGENEOUS_AUGMENTATION,
-)
 
 
 def objective_cnn(trial: optuna.Trial):
@@ -136,67 +147,160 @@ def objective_cnn(trial: optuna.Trial):
 
 def objective_mamba(trial: optuna.Trial):
     mamba_par = {
-        "num_branches": trial.suggest_int("num_branches", 1, 16),
+        "d_model_imu": trial.suggest_int("d_model_imu", 8, 64, step=8),
+        "d_model_pro": trial.suggest_int("d_model_pro", 8, 64, step=8),
         "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True),
     }
 
-    ssm_cfg = {
-        "d_state": trial.suggest_int("d_state", 4, 128, step=4),
-        "d_conv": trial.suggest_int("d_conv", 2, 32, step=2),
-        "expand": trial.suggest_int("expand", 2, 16, step=2),
+    ssm_cfg_imu = {
+        "d_state": trial.suggest_int("d_state_imu", 8, 64, step=8),
+        "d_conv": trial.suggest_int("d_conv_imu", 2, 4),
+        "expand": trial.suggest_int("expand_imu", 2, 16),
     }
 
-    mamba_cfg = MambaConfig(
-        d_model=trial.suggest_int("d_model", 4, 128, step=4),
-        n_layer=trial.suggest_int("num_layers", 1, 16),
-        rms_norm=trial.suggest_categorical("rms_norm", [True, False]),
-        fused_add_norm=trial.suggest_categorical("fused_add_norm", [True, False]),
-        ssm_cfg=ssm_cfg,
-    )
+    ssm_cfg_pro = {
+        "d_state": trial.suggest_int("d_state_pro", 8, 64, step=8),
+        "d_conv": trial.suggest_int("d_conv_pro", 2, 4),
+        "expand": trial.suggest_int("expand_pro", 2, 16, step=2),
+    }
 
     mamba_train_opt = {
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
-        "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 1.0),
-        "max_epochs": 150,
-        "minibatch_size": trial.suggest_int("minibatch_size", 5, 64),
-        "valid_patience": trial.suggest_int("valid_patience", 5, 15),
-        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 10),
+        "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
+        "max_epochs": trial.suggest_int("max_epochs", 10, 60, step=10),
+        "minibatch_size": trial.suggest_int("minibatch_size", 16, 128, step=16),
+        "valid_patience": trial.suggest_int("valid_patience", 4, 16, step=4),
+        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 8, step=2),
         "valid_frequency": None,
         "gradient_treshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
         ),
-        "focal_loss": trial.suggest_categorical("focal_loss", [True, False]),
+        "focal_loss": True,
         "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
         "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
         "num_classes": NUM_CLASSES,
-        "out_method": trial.suggest_categorical(
-            "out_method", ["flatten", "max_pool", "last_state"]
-        ),
+        "out_method": "last_state",  # trial.suggest_categorical("out_method", ["max_pool", "last_state"])
     }
+
+    # Data partition and sample extraction
+    if DATASET == "combined":
+        train_folds = {}
+        test_folds = {}
+
+        for key in csv_dir.keys():
+            _train_folds, _test_folds = preprocessing.partition_data(
+                terr_dfs[key],
+                summary[key],
+                PART_WINDOW,
+                N_FOLDS,
+                random_state=RANDOM_STATE,
+            )
+            train_folds[key] = _train_folds
+            test_folds[key] = _test_folds
+    else:
+        train_folds, test_folds = preprocessing.partition_data(
+            terr_dfs,
+            summary,
+            PART_WINDOW,
+            N_FOLDS,
+            random_state=RANDOM_STATE,
+        )
+
+    if DATASET == "combined":
+        aug_train_folds = {}
+        aug_test_folds = {}
+
+        for key in csv_dir.keys():
+            _aug_train_folds, _aug_test_folds = preprocessing.augment_data(
+                train_folds[key],
+                test_folds[key],
+                summary[key],
+                moving_window=MOVING_WINDOW,
+                stride=STRIDE,
+                homogeneous=HOMOGENEOUS_AUGMENTATION,
+            )
+            aug_train_folds[key] = _aug_train_folds
+            aug_test_folds[key] = _aug_test_folds
+    else:
+        aug_train_folds, aug_test_folds = preprocessing.augment_data(
+            train_folds,
+            test_folds,
+            summary,
+            moving_window=MOVING_WINDOW,
+            stride=STRIDE,
+            homogeneous=HOMOGENEOUS_AUGMENTATION,
+        )
+
+    k = 0
+    if DATASET == "combined":
+        aug_train_fold = {}
+        aug_test_fold = {}
+
+        for key in csv_dir.keys():
+            _aug_train_fold, _aug_test_fold = preprocessing.cleanup_data(
+                aug_train_folds[key][k], aug_test_folds[key][k]
+            )
+            _aug_train_fold, _aug_test_fold = preprocessing.normalize_data(
+                _aug_train_fold, _aug_test_fold
+            )
+
+            aug_train_fold[key] = _aug_train_fold
+            aug_test_fold[key] = _aug_test_fold
+
+        if COMBINED_PRED == "class":
+            num_classes_vulpi = len(np.unique(aug_train_fold["vulpi"]["labels"]))
+            aug_train_fold["husky"]["labels"] += num_classes_vulpi
+            aug_test_fold["husky"]["labels"] += num_classes_vulpi
+        elif COMBINED_PRED == "dataset":
+            aug_train_fold["vulpi"]["labels"] = np.full_like(
+                aug_train_fold["vulpi"]["labels"], 0
+            )
+            aug_test_fold["vulpi"]["labels"] = np.full_like(
+                aug_test_fold["vulpi"]["labels"], 0
+            )
+            aug_train_fold["husky"]["labels"] = np.full_like(
+                aug_train_fold["husky"]["labels"], 1
+            )
+            aug_test_fold["husky"]["labels"] = np.full_like(
+                aug_test_fold["husky"]["labels"], 1
+            )
+    else:
+        aug_train_fold, aug_test_fold = preprocessing.cleanup_data(
+            aug_train_folds[k], aug_test_folds[k]
+        )
+        aug_train_fold, aug_test_fold = preprocessing.normalize_data(
+            aug_train_fold, aug_test_fold
+        )
 
     results = {}
     results_per_fold = []
 
-    for k in range(3):
-        aug_train_fold, aug_test_fold = preprocessing.prepare_data_ordering(
-            aug_train_folds[k], aug_test_folds[k]
-        )
-
+    for k in range(N_FOLDS):
         out = models.mamba_network(
             aug_train_fold,
             aug_test_fold,
             mamba_par,
             mamba_train_opt,
-            mamba_cfg,
-            dict(mw=MOVING_WINDOW, fold=k + 1),
+            ssm_cfg_imu,
+            ssm_cfg_pro,
+            dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
+            # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
+            random_state=RANDOM_STATE,
+            test=False,
+            logging=False,
         )
         results_per_fold.append(out)
+
+        torch.cuda.empty_cache()
 
     results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
     results["true"] = np.hstack([r["true"] for r in results_per_fold])
 
-    return (results["pred"] == results["true"]).mean().item()
+    val_acc = (results["pred"] == results["true"]).mean().item() ** 4
+    num_params = out["num_params"]
+
+    return val_acc, num_params
 
 
 def objective_lstm(trial: optuna.Trial):
@@ -307,12 +411,13 @@ if IMP_ANALYSIS:
 else:
     pruner = optuna.pruners.HyperbandPruner()
     study = optuna.create_study(
+        directions=["maximize", "minimize"],
         study_name=study_name,
         storage=storage_name,
         load_if_exists=True,
         pruner=pruner,
     )
-    study.optimize(OBJECTIVE, n_trials=500, catch=(RuntimeError,))
+    study.optimize(OBJECTIVE, n_trials=None, catch=(RuntimeError,), n_jobs=4)
 
     print("Number of finished trials: {}".format(len(study.trials)))
 
