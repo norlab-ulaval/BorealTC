@@ -14,7 +14,7 @@ Most functions are available in the [`utils`](utils/) directory :
 
 * [`utils/preprocessing.py`](utils/preprocessing.py) contains the preprocessing pipeline
 * [`utils/models.py`](utils/models.py) contains the code for the trained models
-* [`utils/preprocessing.py`](utils/frequency.py) contains the functions for the multi-channel spectrogram
+* [`utils/frequency.py`](utils/frequency.py) contains the functions for the multi-channel spectrogram
 
 ### Installation
 
