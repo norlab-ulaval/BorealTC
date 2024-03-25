@@ -1,28 +1,21 @@
-import os
-import pathlib
-from pathlib import Path
-
 import numpy as np
 import optuna
+import os
 import pandas as pd
-import torch
 
 from optuna.integration import PyTorchLightningPruningCallback
-
+from pathlib import Path
 from utils import models, preprocessing
 from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
 
 DATASET = os.environ.get("DATASET", "vulpi")  # 'husky' or 'vulpi' or 'combined'
-COMBINED_PRED = os.environ.get("COMBINED_PRED_TYPE", "class")  # 'class' or 'dataset'
 
 if DATASET == "husky":
     csv_dir = cwd / "data" / "borealtc"
 elif DATASET == "vulpi":
     csv_dir = cwd / "data" / "vulpi"
-elif DATASET == "combined":
-    csv_dir = dict(vulpi=cwd / "data" / "vulpi", husky=cwd / "data" / "borealtc")
 
 RANDOM_STATE = 21
 
@@ -43,37 +36,12 @@ columns = {
         "curR": True,
     },
 }
-if DATASET == "combined":
-    summary = {}
 
-    for key in csv_dir.keys():
-        summary[key] = pd.DataFrame({"columns": pd.Series(columns)})
-else:
-    summary = pd.DataFrame({"columns": pd.Series(columns)})
+summary = pd.DataFrame({"columns": pd.Series(columns)})
 
 # Get recordings
-if DATASET == "combined":
-    terr_dfs = {}
-    terrains = []
-
-    terr_df_husky = preprocessing.get_recordings(csv_dir["husky"], summary["husky"])
-    terr_df_vulpi = preprocessing.get_recordings(csv_dir["vulpi"], summary["vulpi"])
-
-    terr_df_husky, terr_df_vulpi = downsample_terr_dfs(
-        terr_df_husky, summary["husky"], terr_df_vulpi, summary["vulpi"]
-    )
-
-    terr_dfs["husky"] = terr_df_husky
-    terr_dfs["vulpi"] = terr_df_vulpi
-
-    if COMBINED_PRED == "class":
-        for key in csv_dir.keys():
-            terrains += sorted(terr_dfs[key]["imu"].terrain.unique())
-    elif COMBINED_PRED == "dataset":
-        terrains = list(csv_dir.keys())
-else:
-    terr_dfs = preprocessing.get_recordings(csv_dir, summary)
-    terrains = sorted(terr_dfs["imu"].terrain.unique())
+terr_dfs = preprocessing.get_recordings(csv_dir, summary)
+terrains = sorted(terr_dfs["imu"].terrain.unique())
 
 # Set data partition parameters
 NUM_CLASSES = len(terrains)
@@ -85,6 +53,25 @@ MOVING_WINDOW = 1.7
 
 STRIDE = 0.1  # seconds
 HOMOGENEOUS_AUGMENTATION = True
+
+# Data partition and sample extraction
+train_folds, test_folds = preprocessing.partition_data(
+    terr_dfs,
+    summary,
+    PART_WINDOW,
+    N_FOLDS,
+    random_state=RANDOM_STATE,
+)
+
+# Data augmentation
+aug_train_folds, aug_test_folds = preprocessing.augment_data(
+    train_folds,
+    test_folds,
+    summary,
+    moving_window=MOVING_WINDOW,
+    stride=STRIDE,
+    homogeneous=HOMOGENEOUS_AUGMENTATION,
+)
 
 
 def objective_cnn(trial: optuna.Trial):
@@ -143,164 +130,6 @@ def objective_cnn(trial: optuna.Trial):
         test=False,
     )
     return (out["pred"] == out["true"]).mean().item()
-
-
-def objective_mamba(trial: optuna.Trial):
-    mamba_par = {
-        "d_model_imu": trial.suggest_int("d_model_imu", 8, 64, step=8),
-        "d_model_pro": trial.suggest_int("d_model_pro", 8, 64, step=8),
-        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True),
-    }
-
-    ssm_cfg_imu = {
-        "d_state": trial.suggest_int("d_state_imu", 8, 64, step=8),
-        "d_conv": trial.suggest_int("d_conv_imu", 2, 4),
-        "expand": trial.suggest_int("expand_imu", 2, 16),
-    }
-
-    ssm_cfg_pro = {
-        "d_state": trial.suggest_int("d_state_pro", 8, 64, step=8),
-        "d_conv": trial.suggest_int("d_conv_pro", 2, 4),
-        "expand": trial.suggest_int("expand_pro", 2, 16, step=2),
-    }
-
-    mamba_train_opt = {
-        "valid_perc": 0.1,
-        "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
-        "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
-        "max_epochs": trial.suggest_int("max_epochs", 10, 60, step=10),
-        "minibatch_size": trial.suggest_int("minibatch_size", 16, 128, step=16),
-        "valid_patience": trial.suggest_int("valid_patience", 4, 16, step=4),
-        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 8, step=2),
-        "valid_frequency": None,
-        "gradient_treshold": trial.suggest_categorical(
-            "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
-        ),
-        "focal_loss": True,
-        "focal_loss_alpha": trial.suggest_float("focal_loss_alpha", 0.0, 1.0),
-        "focal_loss_gamma": trial.suggest_float("focal_loss_gamma", 0.0, 5.0),
-        "num_classes": NUM_CLASSES,
-        "out_method": "last_state",  # trial.suggest_categorical("out_method", ["max_pool", "last_state"])
-    }
-
-    # Data partition and sample extraction
-    if DATASET == "combined":
-        train_folds = {}
-        test_folds = {}
-
-        for key in csv_dir.keys():
-            _train_folds, _test_folds = preprocessing.partition_data(
-                terr_dfs[key],
-                summary[key],
-                PART_WINDOW,
-                N_FOLDS,
-                random_state=RANDOM_STATE,
-            )
-            train_folds[key] = _train_folds
-            test_folds[key] = _test_folds
-    else:
-        train_folds, test_folds = preprocessing.partition_data(
-            terr_dfs,
-            summary,
-            PART_WINDOW,
-            N_FOLDS,
-            random_state=RANDOM_STATE,
-        )
-
-    if DATASET == "combined":
-        aug_train_folds = {}
-        aug_test_folds = {}
-
-        for key in csv_dir.keys():
-            _aug_train_folds, _aug_test_folds = preprocessing.augment_data(
-                train_folds[key],
-                test_folds[key],
-                summary[key],
-                moving_window=MOVING_WINDOW,
-                stride=STRIDE,
-                homogeneous=HOMOGENEOUS_AUGMENTATION,
-            )
-            aug_train_folds[key] = _aug_train_folds
-            aug_test_folds[key] = _aug_test_folds
-    else:
-        aug_train_folds, aug_test_folds = preprocessing.augment_data(
-            train_folds,
-            test_folds,
-            summary,
-            moving_window=MOVING_WINDOW,
-            stride=STRIDE,
-            homogeneous=HOMOGENEOUS_AUGMENTATION,
-        )
-
-    k = 0
-    if DATASET == "combined":
-        aug_train_fold = {}
-        aug_test_fold = {}
-
-        for key in csv_dir.keys():
-            _aug_train_fold, _aug_test_fold = preprocessing.cleanup_data(
-                aug_train_folds[key][k], aug_test_folds[key][k]
-            )
-            _aug_train_fold, _aug_test_fold = preprocessing.normalize_data(
-                _aug_train_fold, _aug_test_fold
-            )
-
-            aug_train_fold[key] = _aug_train_fold
-            aug_test_fold[key] = _aug_test_fold
-
-        if COMBINED_PRED == "class":
-            num_classes_vulpi = len(np.unique(aug_train_fold["vulpi"]["labels"]))
-            aug_train_fold["husky"]["labels"] += num_classes_vulpi
-            aug_test_fold["husky"]["labels"] += num_classes_vulpi
-        elif COMBINED_PRED == "dataset":
-            aug_train_fold["vulpi"]["labels"] = np.full_like(
-                aug_train_fold["vulpi"]["labels"], 0
-            )
-            aug_test_fold["vulpi"]["labels"] = np.full_like(
-                aug_test_fold["vulpi"]["labels"], 0
-            )
-            aug_train_fold["husky"]["labels"] = np.full_like(
-                aug_train_fold["husky"]["labels"], 1
-            )
-            aug_test_fold["husky"]["labels"] = np.full_like(
-                aug_test_fold["husky"]["labels"], 1
-            )
-    else:
-        aug_train_fold, aug_test_fold = preprocessing.cleanup_data(
-            aug_train_folds[k], aug_test_folds[k]
-        )
-        aug_train_fold, aug_test_fold = preprocessing.normalize_data(
-            aug_train_fold, aug_test_fold
-        )
-
-    results = {}
-    results_per_fold = []
-
-    for k in range(N_FOLDS):
-        out = models.mamba_network(
-            aug_train_fold,
-            aug_test_fold,
-            mamba_par,
-            mamba_train_opt,
-            ssm_cfg_imu,
-            ssm_cfg_pro,
-            dict(mw=MOVING_WINDOW, fold=k + 1, dataset=DATASET),
-            # custom_callbacks=[PyTorchLightningPruningCallback(trial, monitor="val_acc")],
-            random_state=RANDOM_STATE,
-            test=False,
-            logging=False,
-        )
-        results_per_fold.append(out)
-
-        torch.cuda.empty_cache()
-
-    results["pred"] = np.hstack([r["pred"] for r in results_per_fold])
-    results["true"] = np.hstack([r["true"] for r in results_per_fold])
-
-    val_acc = (results["pred"] == results["true"]).mean().item() ** 4
-    num_params = out["num_params"]
-
-    return val_acc, num_params
 
 
 def objective_lstm(trial: optuna.Trial):
@@ -373,23 +202,20 @@ def objective_svm(trial: optuna.Trial):
     return acc.mean()
 
 
-model = os.environ.get("MODEL", "CNN")  # 'SVM', 'CNN', 'LSTM', 'Mamba'
+model = os.environ.get("MODEL", "CNN")  # 'SVM', 'CNN', 'LSTM'
 IMP_ANALYSIS = os.environ.get("IMP_ANALYSIS", False)
 study_name = f"{model}_{DATASET}"
-optuna_path = pathlib.Path(f"results/{DATASET}/optuna")
+optuna_path = Path(f"results/{DATASET}/optuna")
 optuna_path.mkdir(parents=True, exist_ok=True)
 storage_name = f"sqlite:///{optuna_path}/{study_name}.db"
 print(f"Using database {storage_name}")
 
-OBJECTIVE = None
 if model == "CNN":
     OBJECTIVE = objective_cnn
 elif model == "LSTM":
     OBJECTIVE = objective_lstm
 elif model == "SVM":
     OBJECTIVE = objective_svm
-elif model == "Mamba":
-    OBJECTIVE = objective_mamba
 else:
     raise ValueError(f"Model {model} not recognized")
 
@@ -411,7 +237,7 @@ if IMP_ANALYSIS:
 else:
     pruner = optuna.pruners.HyperbandPruner()
     study = optuna.create_study(
-        directions=["maximize", "minimize"],
+        direction="maximize",
         study_name=study_name,
         storage=storage_name,
         load_if_exists=True,
