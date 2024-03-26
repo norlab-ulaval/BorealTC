@@ -123,17 +123,9 @@ HOMOGENEOUS_AUGMENTATION = True
 # Mamba parameters
 mamba_par = {"d_model_imu": 32, "d_model_pro": 8, "norm_epsilon": 6.3e-6}
 
-ssm_cfg_imu = {
-    "d_state": 16,
-    "d_conv": 4,
-    "expand": 4,
-}
+ssm_cfg_imu = {"d_state": 16, "d_conv": 4, "expand": 4}
 
-ssm_cfg_pro = {
-    "d_state": 16,
-    "d_conv": 3,
-    "expand": 6,
-}
+ssm_cfg_pro = {"d_state": 16, "d_conv": 3, "expand": 6}
 
 mamba_train_opt = {
     "valid_perc": 0.1,
