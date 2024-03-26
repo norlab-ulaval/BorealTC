@@ -157,3 +157,6 @@ tb_logs/
 
 # Slurm
 *.out
+
+# Scratches
+scratches/
