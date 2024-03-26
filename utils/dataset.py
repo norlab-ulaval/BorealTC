@@ -115,10 +115,7 @@ class MambaDataset(Dataset):
 
     def __getitem__(self, idx):
         sample = (
-            dict(
-                imu=self.data["imu"][idx],
-                pro=self.data["pro"][idx]
-            ),
+            dict(imu=self.data["imu"][idx], pro=self.data["pro"][idx]),
             self.data["labels"][idx],
         )
 
