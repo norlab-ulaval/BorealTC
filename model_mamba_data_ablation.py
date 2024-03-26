@@ -120,14 +120,14 @@ STRIDE = 0.1  # seconds
 # If False, imbalance the classes while augmenting
 HOMOGENEOUS_AUGMENTATION = True
 
-# Mamba parameters
-mamba_par = {"d_model_imu": 32, "d_model_pro": 8, "norm_epsilon": 6.3e-6}
-
+# Parameters
 ssm_cfg_imu = {"d_state": 16, "d_conv": 4, "expand": 4}
-
 ssm_cfg_pro = {"d_state": 16, "d_conv": 3, "expand": 6}
 
 mamba_train_opt = {
+    "d_model_imu": 32,
+    "d_model_pro": 8,
+    "norm_epsilon": 6.3e-6,
     "valid_perc": 0.1,
     "init_learn_rate": 1.5e-3,
     "learn_drop_factor": 0.25,
@@ -250,7 +250,6 @@ for mw in MOVING_WINDOWS:
             out = models.mamba_network(
                 aug_train_fold,
                 aug_test_fold,
-                mamba_par,
                 mamba_train_opt,
                 ssm_cfg_imu,
                 ssm_cfg_pro,

@@ -183,18 +183,11 @@ else:
 
 
 def objective_mamba(trial: optuna.Trial):
-    mamba_par = {
-        "d_model_imu": trial.suggest_int("d_model_imu", 8, 64, step=8),
-        "d_model_pro": trial.suggest_int("d_model_pro", 8, 64, step=8),
-        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True),
-    }
-
     ssm_cfg_imu = {
         "d_state": trial.suggest_int("d_state_imu", 8, 64, step=8),
         "d_conv": trial.suggest_int("d_conv_imu", 2, 4),
         "expand": trial.suggest_int("expand_imu", 2, 16),
     }
-
     ssm_cfg_pro = {
         "d_state": trial.suggest_int("d_state_pro", 8, 64, step=8),
         "d_conv": trial.suggest_int("d_conv_pro", 2, 4),
@@ -202,6 +195,9 @@ def objective_mamba(trial: optuna.Trial):
     }
 
     mamba_train_opt = {
+        "d_model_imu": trial.suggest_int("d_model_imu", 8, 64, step=8),
+        "d_model_pro": trial.suggest_int("d_model_pro", 8, 64, step=8),
+        "norm_epsilon": trial.suggest_float("norm_epsilon", 1e-8, 1e-1, log=True),
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
         "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
@@ -227,7 +223,6 @@ def objective_mamba(trial: optuna.Trial):
         out = models.mamba_network(
             aug_train_folds[k],
             aug_test_folds[k],
-            mamba_par,
             mamba_train_opt,
             ssm_cfg_imu,
             ssm_cfg_pro,

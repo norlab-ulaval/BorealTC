@@ -824,7 +824,6 @@ class MambaTerrain(L.LightningModule):
 def mamba_network(
     train_data: list[ExperimentData],
     test_data: list[ExperimentData],
-    mamba_par: dict,
     mamba_train_opt: dict,
     ssm_cfg_imu: dict,
     ssm_cfg_pro: dict,
@@ -838,17 +837,14 @@ def mamba_network(
     # Seed
     L.seed_everything(random_state)
 
-    # Mamba parameters
+    # Parameters
     if custom_callbacks is None:
         custom_callbacks = []
-    d_model_imu = mamba_par["d_model_imu"]
-    d_model_pro = mamba_par["d_model_pro"]
-    norm_epsilon = mamba_par["norm_epsilon"]
-    out_method = mamba_train_opt["out_method"]
-    num_classes = mamba_train_opt["num_classes"]
     dataset = description["dataset"]
 
-    # Training parameters
+    d_model_imu = mamba_train_opt["d_model_imu"]
+    d_model_pro = mamba_train_opt["d_model_pro"]
+    norm_epsilon = mamba_train_opt["norm_epsilon"]
     valid_perc = mamba_train_opt["valid_perc"]
     init_learn_rate = mamba_train_opt["init_learn_rate"]
     learn_drop_factor = mamba_train_opt["learn_drop_factor"]
@@ -861,6 +857,8 @@ def mamba_network(
     focal_loss = mamba_train_opt["focal_loss"]
     focal_loss_alpha = mamba_train_opt["focal_loss_alpha"]
     focal_loss_gamma = mamba_train_opt["focal_loss_gamma"]
+    num_classes = mamba_train_opt["num_classes"]
+    out_method = mamba_train_opt["out_method"]
 
     num_workers = 8
     persistent_workers = True
