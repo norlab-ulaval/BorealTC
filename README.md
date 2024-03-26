@@ -4,7 +4,7 @@
 
 > **Proprioception Is All You Need: Terrain Classification for Boreal Forests**\
 > Damien LaRocque, William Guimont-Martin, David-Alexandre Duclos, Philippe Giguère, Francois Pomerleau\
-> Paper: [TODO]
+> Paper: https://arxiv.org/abs/2403.16877
 
 This repo contains the source code and the datasets used in our paper _Proprioception Is All You Need: Terrain Classification for Boreal Forests_ that was submitted to the 2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS 2024).
 
@@ -81,5 +81,13 @@ This repo started as a fork of [Ph0bi0/T_DEEP](https://github.com/Ph0bi0/T_DEEP)
 If you use the code or data in an academic context, please cite the following work:
 
 ```bibtex
-TODO: Preprint citation
+@article{LaRocque2024BorealTC,
+    title={Proprioception Is All You Need: Terrain Classification for Boreal Forests},
+    author={Damien LaRocque and William Guimont-Martin and David-Alexandre Duclos and Philippe Giguère and François Pomerleau},
+    journal={arXiv preprint arXiv:2403.16877},
+    year={2024},
+    eprint={2403.16877},
+    archivePrefix={arXiv},
+    primaryClass={cs.RO}
+}
 ```
