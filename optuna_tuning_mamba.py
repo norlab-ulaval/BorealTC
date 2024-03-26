@@ -206,7 +206,7 @@ def objective_mamba(trial: optuna.Trial):
         "valid_patience": trial.suggest_int("valid_patience", 4, 16, step=4),
         "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 8, step=2),
         "valid_frequency": None,
-        "gradient_treshold": trial.suggest_categorical(
+        "gradient_threshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
         ),
         "focal_loss": True,

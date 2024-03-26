@@ -853,7 +853,7 @@ def mamba_network(
     valid_patience = mamba_train_opt["valid_patience"]
     reduce_lr_patience = mamba_train_opt["reduce_lr_patience"]
     valid_frequency = mamba_train_opt["valid_frequency"]
-    gradient_treshold = mamba_train_opt["gradient_treshold"]
+    gradient_threshold = mamba_train_opt["gradient_threshold"]
     focal_loss = mamba_train_opt["focal_loss"]
     focal_loss_alpha = mamba_train_opt["focal_loss_alpha"]
     focal_loss_gamma = mamba_train_opt["focal_loss_gamma"]
@@ -952,7 +952,7 @@ def mamba_network(
         log_every_n_steps=1,
         min_epochs=0,
         max_epochs=max_epochs,
-        gradient_clip_val=gradient_treshold,
+        gradient_clip_val=gradient_threshold,
         val_check_interval=valid_frequency,
         callbacks=callbacks,
         enable_checkpointing=logging,

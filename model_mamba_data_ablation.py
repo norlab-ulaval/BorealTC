@@ -136,7 +136,7 @@ mamba_train_opt = {
     "valid_patience": 8,
     "reduce_lr_patience": 4,
     "valid_frequency": None,
-    "gradient_treshold": None,  # None to disable
+    "gradient_threshold": None,  # None to disable
     "focal_loss": True,
     "focal_loss_alpha": 0.75,
     "focal_loss_gamma": 2.25,
