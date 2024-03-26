@@ -71,7 +71,7 @@ class SpectralAxialCutout:
         )
         idx = [slice(None)] * len(spec.shape)
         idx[int(self.dim_to_cut)] = channel_cut
-        spec[*idx] = 0
+        spec[idx] = 0
         return spec
 
 
