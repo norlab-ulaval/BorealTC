@@ -5,7 +5,6 @@ Damien LaRocque*, William Guimont-Martin, David-Alexandre Duclos, Philippe Gigu√
 This script was inspired by the MAIN.m script in the T_DEEP repository from Ph0bi0 : https://github.com/Ph0bi0/T_DEEP
 """
 
-from mamba_ssm.models.config_mamba import MambaConfig
 from pathlib import Path
 
 import os
@@ -69,10 +68,6 @@ if DATASET == "combined":
 
     terr_df_husky = preprocessing.get_recordings(csv_dir["husky"], summary["husky"])
     terr_df_vulpi = preprocessing.get_recordings(csv_dir["vulpi"], summary["vulpi"])
-
-    # terr_df_husky, terr_df_vulpi = downsample_terr_dfs(
-    #     terr_df_husky, summary["husky"], terr_df_vulpi, summary["vulpi"]
-    # )
 
     terr_dfs["husky"] = terr_df_husky
     terr_dfs["vulpi"] = terr_df_vulpi

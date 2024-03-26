@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 
 from utils import models, preprocessing
-# from utils.preprocessing import downsample_terr_dfs
 
 cwd = Path.cwd()
 
@@ -23,14 +22,14 @@ COMBINED_PRED_TYPE = os.environ.get(
 CHECKPOINT = os.environ.get("CHECKPOINT", None)
 
 if DATASET == "husky":
-    csv_dir = cwd / "norlab-data"
+    csv_dir = cwd / "data" / "borealtc"
 elif DATASET == "vulpi":
-    csv_dir = cwd / "data"
+    csv_dir = cwd / "data" / "vulpi"
 elif DATASET == "combined":
-    csv_dir = dict(vulpi=cwd / "data", husky=cwd / "norlab-data")
+    csv_dir = dict(vulpi=cwd / "data" / "vulpi", husky=cwd / "data" / "borealtc")
 
 results_dir = cwd / "results"
-mat_dir = cwd / "datasets"
+mat_dir = cwd / "data"
 
 if CHECKPOINT is not None:
     CHECKPOINT = cwd / "checkpoints" / CHECKPOINT
