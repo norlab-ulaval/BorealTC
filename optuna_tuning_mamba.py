@@ -201,10 +201,10 @@ def objective_mamba(trial: optuna.Trial):
         "valid_perc": 0.1,
         "init_learn_rate": trial.suggest_float("init_learn_rate", 1e-5, 1e-1, log=True),
         "learn_drop_factor": trial.suggest_float("learn_drop_factor", 0.1, 0.5),
+        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 8, step=2),
         "max_epochs": trial.suggest_int("max_epochs", 10, 60, step=10),
         "minibatch_size": trial.suggest_int("minibatch_size", 16, 128, step=16),
         "valid_patience": trial.suggest_int("valid_patience", 4, 16, step=4),
-        "reduce_lr_patience": trial.suggest_int("reduce_lr_patience", 2, 8, step=2),
         "valid_frequency": None,
         "gradient_threshold": trial.suggest_categorical(
             "gradient_threshold", [0, 0.1, 1, 2, 6, 10, None]
