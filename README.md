@@ -81,7 +81,7 @@ data
 | `BorealTC` | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_borealtc.ckpt](checkpoints/mamba_borealtc.ckpt) |
 | Combined | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_combined.ckpt](checkpoints/mamba_combined.ckpt) |
 
-In the above table, `d_state`, `d_conv`, `expand` and `d_model` are parameters specific to Mamba. During optimization, each data type branch could have separate parameters.
+In the above table, `d_state`, `d_conv`, `expand` and `d_model` are parameters specific to Mamba. During optimization, each data type branch can have separate parameters.
 
 ## Acknowledgments
 
