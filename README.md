@@ -12,7 +12,7 @@ This repo contains the source code and the datasets used in our paper _Proprioce
 
 Most functions are available in the [`utils`](utils/) directory :
 
-* [`utils/preprocessing.py`](utils/preprocessing.py) contains the preprocessing pipeline
+* [`utils/preprocessing.py`](utils/preprocessing.py) contains the functions for the preprocessing pipeline
 * [`utils/models.py`](utils/models.py) contains the code for the trained models
 * [`utils/frequency.py`](utils/frequency.py) contains the functions for the multi-channel spectrogram
 
@@ -70,6 +70,18 @@ data
         ├── pro_2.csv
         └── ...
 ```
+
+## Model hyperparameters and checkpoints
+
+### Mamba
+
+| Dataset | Data Type | `d_state` | `d_conv` | `expand` | `d_model` | Norm epsilon | Initial LR | LR&nbsp;drop factor | Reduce&nbsp;LR patience | Max epochs | Minibatch size | Valid patience | Gradient threshold | Focal&nbsp;loss alpha | Focal&nbsp;loss gamma | Checkpoint |
+| :-: | :-: | - | - | - | - | - | - | - | - | - | - | - | - | - | - | :-: |
+| `Vulpi` | IMU <br/> Wheel&nbsp;service | 56 <br/> 56 | 3 <br/> 3 | 4 <br/> 4 | 56 <br/> 56 | 5e-3 | 5e-3 | 0.33 | 4 | 60 | 64 | 8 | 2 | 0.75 | 2 | [mamba_vulpi.ckpt](checkpoints/mamba_vulpi.ckpt) |
+| `BorealTC` | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_borealtc.ckpt](checkpoints/mamba_borealtc.ckpt) |
+| Combined | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_combined.ckpt](checkpoints/mamba_combined.ckpt) |
+
+In the above table, `d_state`, `d_conv`, `expand` and `d_model` are parameters specific to Mamba. During optimization, each data type branch could have separate parameters.
 
 ## Acknowledgments
 
