@@ -27,6 +27,19 @@ python3.10 -m venv .venv
 pip install -r requirements.txt
 ```
 
+We also provide a `Dockerfile` and a `DockerfileGPU` to build a Docker image with all the dependencies.
+
+```sh
+# Build the Docker image
+docker build -t borealtc-gpu -f DockerfileGPU .
+
+# Run the Docker image
+docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
+	  --mount type=bind,source=.,target=/code/ \
+	  --mount type=bind,source=/dev/shm,target=/dev/shm \
+	  borealtc-gpu python3 main.py
+```
+
 ## Dataset
 
 The `data` directory contains two different datasets:
@@ -82,6 +95,24 @@ data
 | Combined | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_combined.ckpt](checkpoints/mamba_combined.ckpt) |
 
 In the above table, `d_state`, `d_conv`, `expand` and `d_model` are parameters specific to Mamba. During optimization, each data type branch can have separate parameters.
+
+### CNN
+
+The CNN model used the same hyperparameters for both datasets and their combination.
+Here are the hyperparameters used for the CNN model:
+
+|        Parameter        | Value             |
+|:-----------------------:|-------------------|
+|  Using Hamming Window   | True              |
+|  Initial Learning Rate  | 5e-3              |
+| Learning Rate Scheduler | ReduceLROnPlateau |
+|   Scheduler LR Factor   | 0.1               |
+|   Scheduler Patience    | 4                 |
+|    Max Epochs           | 150               |
+| Early Stopping Patience | 8                 |
+| Gradient Clipping Value | 6                 |
+
+
 
 ## Acknowledgments
 

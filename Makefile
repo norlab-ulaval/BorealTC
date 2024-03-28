@@ -1,11 +1,11 @@
 build:
-	docker build -t terrain .
+	docker build -t borealtc .
 
 run: build
 	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
 	  --mount type=bind,source=.,target=/code/ \
 	  --mount type=bind,source=/dev/shm,target=/dev/shm \
-	  terrain python3 main.py
+	  borealtc python3 main.py
 
 build-gpu:
 	docker build -t terrain-gpu -f DockerfileGPU .
@@ -14,7 +14,7 @@ run-gpu: build-gpu
 	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
 	  --mount type=bind,source=.,target=/code/ \
 	  --mount type=bind,source=/dev/shm,target=/dev/shm \
-	  terrain-gpu python3 main.py
+	  borealtc-gpu python3 main.py
 
 log:
 	xdg-open http://localhost:6006 && tensorboard --logdir tb_logs

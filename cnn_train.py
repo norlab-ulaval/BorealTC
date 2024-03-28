@@ -88,7 +88,7 @@ cnn_train_opt = {
     "init_learn_rate": 0.005,
     "learn_drop_factor": 0.1,
     "max_epochs": 150,
-    "minibatch_size": 1,
+    "minibatch_size": 10,
     "valid_patience": 8,
     "scheduler": "plateau",  # "plateau" or "reduce_lr_on_plateau
     "reduce_lr_patience": 4,
@@ -101,7 +101,7 @@ cnn_train_opt = {
     "dropout": 0.0,
     # "checkpoint_path": 'checkpoints/terrain_classification_cnn_mw_1.7_fold_3_dataset_husky-epoch=23-val_loss=0.022643.ckpt',
     # "overwrite_final_layer_dim": 4,
-    "use_augmentation": True,
+    "use_augmentation": False,
 }
 
 # LSTM parameters
