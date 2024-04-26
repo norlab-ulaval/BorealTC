@@ -88,11 +88,11 @@ data
 
 ### Mamba
 
-| Dataset | Data Type | `d_state` | `d_conv` | `expand` | `d_model` | Norm epsilon | Initial LR | LR&nbsp;drop factor | Reduce&nbsp;LR patience | Max epochs | Minibatch size | Valid patience | Gradient threshold | Focal&nbsp;loss alpha | Focal&nbsp;loss gamma | Checkpoint |
-| :-: | :-: | - | - | - | - | - | - | - | - | - | - | - | - | - | - | :-: |
-| `Vulpi` | IMU <br/> Wheel&nbsp;service | 56 <br/> 56 | 3 <br/> 3 | 4 <br/> 4 | 56 <br/> 56 | 5e-3 | 5e-3 | 0.33 | 4 | 60 | 64 | 8 | 2 | 0.75 | 2 | [mamba_vulpi.ckpt](checkpoints/mamba_vulpi.ckpt) |
-| `BorealTC` | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_borealtc.ckpt](checkpoints/mamba_borealtc.ckpt) |
-| Combined | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8 | 6.3e-6 | 1.5e-3 | 0.25 | 4 | 60 | 16 | 8 | None | 0.75 | 2.25 | [mamba_combined.ckpt](checkpoints/mamba_combined.ckpt) |
+|  Dataset   |          Data Type           | `d_state`   | `d_conv`  | `expand`  | `d_model`   | Norm epsilon | Initial LR | LR&nbsp;drop factor | Reduce&nbsp;LR patience | Max epochs | Minibatch size | Valid patience | Gradient threshold | Focal&nbsp;loss alpha | Focal&nbsp;loss gamma |                       Checkpoint                       |
+| :--------: | :--------------------------: | ----------- | --------- | --------- | ----------- | ------------ | ---------- | ------------------- | ----------------------- | ---------- | -------------- | -------------- | ------------------ | --------------------- | --------------------- | :----------------------------------------------------: |
+|  `Vulpi`   | IMU <br/> Wheel&nbsp;service | 56 <br/> 56 | 3 <br/> 3 | 4 <br/> 4 | 56 <br/> 56 | 5e-3         | 5e-3       | 0.33                | 4                       | 60         | 64             | 8              | 2                  | 0.75                  | 2                     |    [mamba_vulpi.ckpt](checkpoints/mamba_vulpi.ckpt)    |
+| `BorealTC` | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8  | 6.3e-6       | 1.5e-3     | 0.25                | 4                       | 60         | 16             | 8              | None               | 0.75                  | 2.25                  | [mamba_borealtc.ckpt](checkpoints/mamba_borealtc.ckpt) |
+|  Combined  | IMU <br/> Wheel&nbsp;service | 16 <br/> 16 | 4 <br/> 3 | 4 <br/> 6 | 32 <br/> 8  | 6.3e-6       | 1.5e-3     | 0.25                | 4                       | 60         | 16             | 8              | None               | 0.75                  | 2.25                  | [mamba_combined.ckpt](checkpoints/mamba_combined.ckpt) |
 
 In the above table, `d_state`, `d_conv`, `expand` and `d_model` are parameters specific to Mamba. During optimization, each data type branch can have separate parameters.
 
@@ -102,13 +102,13 @@ The CNN model used the same hyperparameters for both datasets and their combinat
 Here are the hyperparameters used for the CNN model:
 
 |        Parameter        | Value             |
-|:-----------------------:|-------------------|
+| :---------------------: | ----------------- |
 |  Using Hamming Window   | True              |
 |  Initial Learning Rate  | 5e-3              |
 | Learning Rate Scheduler | ReduceLROnPlateau |
 |   Scheduler LR Factor   | 0.1               |
 |   Scheduler Patience    | 4                 |
-|    Max Epochs           | 150               |
+|       Max Epochs        | 150               |
 | Early Stopping Patience | 8                 |
 | Gradient Clipping Value | 6                 |
 
@@ -134,3 +134,7 @@ If you use the code or data in an academic context, please cite the following wo
     primaryClass={cs.RO}
 }
 ```
+
+## License
+
+This project is licensed under a [MIT](LICENSE) license.
