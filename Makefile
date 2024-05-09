@@ -8,7 +8,7 @@ run: build
 	  borealtc python3 main.py
 
 build-gpu:
-	docker build -t terrain-gpu -f DockerfileGPU .
+	docker build -t borealtc-gpu -f DockerfileGPU .
 
 run-gpu: build-gpu
 	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
