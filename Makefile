@@ -1,5 +1,10 @@
+.PHONY: build podbuild
+
 build:
 	docker build -t borealtc .
+
+podbuild:
+	buildah build -t borealtc .
 
 run: build
 	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
@@ -7,11 +12,26 @@ run: build
 	  --mount type=bind,source=/dev/shm,target=/dev/shm \
 	  borealtc python3 main.py
 
+podrun: podbuild
+	podman run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
+	  --mount type=bind,source=.,target=/code/ \
+	  --mount type=bind,source=/dev/shm,target=/dev/shm \
+	  borealtc python3 main.py
+
 build-gpu:
 	docker build -t borealtc-gpu -f DockerfileGPU .
 
+podbuild-gpu:
+	buildah build -t borealtc-gpu -f DockerfileGPU .
+
 run-gpu: build-gpu
 	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
+	  --mount type=bind,source=.,target=/code/ \
+	  --mount type=bind,source=/dev/shm,target=/dev/shm \
+	  borealtc-gpu python3 main.py
+
+podrun-gpu: podbuild-gpu
+	podman run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
 	  --mount type=bind,source=.,target=/code/ \
 	  --mount type=bind,source=/dev/shm,target=/dev/shm \
 	  borealtc-gpu python3 main.py
