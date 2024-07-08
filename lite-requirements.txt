@@ -1,0 +1,20 @@
+# Accelerate install and build
+wheel
+
+# Science
+numpy
+pandas
+pyarrow
+ipython
+jupyterlab
+matplotlib>=3.7.0
+scipy
+scikit-learn
+plotly
+
+# Dev
+black
+pylint
+ipykernel
+ipympl
+pre-commit
