@@ -5,6 +5,9 @@ ENV TZ=America/Toronto \
     FORCE_CUDA="1" \
     TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0 7.5 8.0 8.6+PTX" \
     TORCH_NVCC_FLAGS="-Xfatbin -compress-all"
+    # CAUSAL_CONV1D_FORCE_BUILD=TRUE \
+    # CAUSAL_CONV1D_SKIP_CUDA_BUILD=TRUE \
+    # CAUSAL_CONV1D_FORCE_CXX11_ABI=TRUE
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Install python and dependencies
@@ -24,10 +27,11 @@ RUN pip install --upgrade pip
 WORKDIR /code
 
 # Mamba compilation
-RUN pip3 install packaging torch torchvision
+RUN pip3 install packaging torch torchvision wheel
 
-COPY requirements.txt ./requirements.txt
+COPY requirements-lock.txt ./requirements.txt
 RUN pip3 install -r requirements.txt
+RUN pip3 install mamba-ssm==1.2.0
 ENV PYTHONPATH=/code:$PYTHONPATH
 
 CMD ["bash"]

@@ -4,7 +4,7 @@ build:
 	docker build -t borealtc .
 
 podbuild:
-	buildah build -t borealtc .
+	buildah build --layers -t borealtc .
 
 run: build
 	docker run --gpus all -e CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES --rm --ipc host \
