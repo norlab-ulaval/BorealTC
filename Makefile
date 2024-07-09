@@ -22,7 +22,7 @@ podsh: podbuild
 	podman run --device nvidia.com/gpu=all -it --rm --ipc host \
 	  --mount type=bind,source=.,target=/code/ \
 	  --mount type=bind,source=/dev/shm,target=/dev/shm \
-	  borealtc
+	  borealtc bash
 
 log:
 	xdg-open http://localhost:6006 && tensorboard --logdir tb_logs

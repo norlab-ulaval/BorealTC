@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --gres=gpu:a6000
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --time=4-00:00
 #SBATCH --job-name=TerrainMambaHusky
