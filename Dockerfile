@@ -31,7 +31,6 @@ RUN pip3 install packaging torch torchvision wheel
 
 COPY requirements-lock.txt ./requirements.txt
 RUN pip3 install -r requirements.txt
-RUN pip3 install mamba-ssm==1.2.0
 ENV PYTHONPATH=/code:$PYTHONPATH
 
 CMD ["bash"]
