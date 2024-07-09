@@ -30,7 +30,10 @@ log:
 watch-results:
 	watch "(ls results/husky/ && ls results/vulpi/) | wc"
 
-jupyter: build
+jupyter: podbuild
 	@echo "Running jupyter-server"
-	podman run -v .:/code -p 8887:8888 --rm borealtc \
-	jupyter server --ip 0.0.0.0 --no-browser --NotebookApp.token='iros-2024' --NotebookApp.password='' --NotebookApp.allow_origin='*' --NotebookApp.ip='0.0.0.0' --allow-root --ServerApp.notebook_dir=/code --ServerApp.root_dir=/code
+	podman run \
+		-v .:/code \
+		-p 8887:8888 \
+		--rm borealtc \
+		jupyter server --ip 0.0.0.0 --no-browser --NotebookApp.token='iros-2024' --NotebookApp.password='' --NotebookApp.allow_origin='*' --NotebookApp.ip='0.0.0.0' --allow-root --ServerApp.notebook_dir=/code --ServerApp.root_dir=/code
