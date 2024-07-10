@@ -13,7 +13,7 @@ container_id=$(
     -e DATASET='husky' --rm --ipc host \
     --mount type=bind,source=.,target=/code/ \
     --mount type=bind,source=/dev/shm,target=/dev/shm \
-    borealtc python3 cnn_train.py
+    -d borealtc python3 cnn_train.py
 )
 
 stop_container() {
