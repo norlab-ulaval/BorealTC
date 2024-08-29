@@ -41,6 +41,7 @@
     <link rel="icon" type="image/x-icon" href="static/images/favicon.ico" />
     <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet" />
 
+    <link rel="stylesheet" href="static/css/table.css" />
     <link rel="stylesheet" href="static/css/bulma.min.css" />
     <link rel="stylesheet" href="static/css/bulma-carousel.min.css" />
     <link rel="stylesheet" href="static/css/bulma-slider.min.css" />
@@ -69,20 +70,23 @@
                         <div class="is-size-5 publication-authors">
                             <!-- Paper authors -->
                             <span class="author-block">
-                                <a href="FIRST AUTHOR PERSONAL LINK" target="_blank">Damien
+                                <a href="https://norlab.ulaval.ca/people/d_larocque" target="_blank">Damien
                                     LaRocque</a><sup>*</sup>,</span>
                             <span class="author-block">
-                                <a href="SECOND AUTHOR PERSONAL LINK" target="_blank">William
+                                <a href="https://willguimont.github.io" target="_blank">William
                                     Guimont-Martin</a><sup>*</sup>,</span>
                             <span class="author-block">
-                                <a href="SECOND AUTHOR PERSONAL LINK" target="_blank">David-Alexandre
-                                    Duclos</a><sup>*</sup>,</span>
+                                David-Alexandre Duclos<sup>*</sup>,</span>
+                            <!-- <a href="SECOND AUTHOR PERSONAL LINK" target="_blank">David-Alexandre
+                                    Duclos</a><sup>*</sup>,</span> -->
                             <br />
                             <span class="author-block">
-                                <a href="THIRD AUTHOR PERSONAL LINK" target="_blank">Philippe Giguère</a>,
+                                <a href="https://www.fsg.ulaval.ca/corps-professoral/philippe-giguere"
+                                    target="_blank">Philippe Giguère</a>,
                             </span>
                             <span class="author-block">
-                                <a href="THIRD AUTHOR PERSONAL LINK" target="_blank">François Pomerleau</a>
+                                <a href="https://www.fsg.ulaval.ca/corps-professoral/francois-pomerleau"
+                                    target="_blank">François Pomerleau</a>
                             </span>
                         </div>
 
@@ -182,19 +186,21 @@
                             types of terrains. Boreal forests, in particular, are home to many mobility-impeding
                             terrains that should be considered for off-road autonomous navigation. Also, being one of
                             the largest land biomes on Earth, boreal forests are an area where autonomous vehicles are
-                            expected to become increasingly common. In this paper, we address this issue by introducing
-                            BorealTC, a publicly available dataset for proprioceptive-based terrain classification (TC).
-                            Recorded with a Husky A200, our dataset contains 116 min of Inertial Measurement Unit (IMU),
-                            motor current, and wheel odometry data, focusing on typical boreal forest terrains, notably
-                            snow, ice, and silty loam. Combining our dataset with another dataset from the
-                            state-of-the-art, we evaluate both a Convolutional Neural Network (CNN) and the novel state
-                            space model (SSM)-based Mamba architecture on a TC task. Interestingly, we show that while
-                            CNN outperforms Mamba on each separate dataset, Mamba achieves greater accuracy when trained
-                            on a combination of both. In addition, we demonstrate that Mamba's learning capacity is
-                            greater than a CNN for increasing amounts of data. We show that the combination of two TC
-                            datasets yields a latent space that can be interpreted with the properties of the terrains.
-                            We also discuss the implications of merging datasets on classification. Our source code and
-                            dataset are publicly available online.
+                            expected to become increasingly common. In this paper, we address the issue of classifying
+                            boreal terrains by introducing BorealTC, a publicly available dataset for
+                            proprioceptive-based terrain classification (TC). Recorded with a Husky A200, our dataset
+                            contains 116 min of Inertial Measurement Unit (IMU), motor current, and wheel odometry data,
+                            focusing on typical boreal forest terrains, notably snow, ice, and silty loam. Combining our
+                            dataset with another dataset from the literature, we evaluate both a Convolutional Neural
+                            Network (CNN) and the novel state space model (SSM)-based Mamba architecture on
+                            a TC task. We show that while CNN outperforms Mamba on each separate dataset, Mamba achieves
+                            greater accuracy when trained on a combination of both. In addition, we demonstrate that
+                            Mamba's learning capacity is greater than a CNN for increasing amounts of data. We show that
+                            the combination of two TC datasets yields a latent space that can be interpreted with the
+                            properties of the terrains. We also discuss the implications of merging datasets on
+                            classification. Our source code and dataset are <a
+                                href="https://github.com/norlab-ulaval/BorealTC"><a><u>publicly available
+                                        online</u></a>.
                         </p>
                     </div>
                 </div>
@@ -207,7 +213,7 @@
     <section class="hero is-small">
         <div class="hero-body">
             <div class="container">
-                <h2 class="title is-3">Types of terrains considered in our dataset.</h2>
+                <h2 class="title is-3">Types of terrains considered in our dataset</h2>
                 <div id="results-carousel" class="carousel results-carousel">
                     <div class="item has-text-centered">
                         <!-- Your image here -->
@@ -304,11 +310,174 @@
                 </h2>
                 <div class="content has-text-justified">
                     <p>
-                        TODO: Legend
+                        We performed an ablation study to examine the impact of train dataset size on test error. To
+                        have a larger dataset to work with, we combined our dataset with the <tt>Vulpi</tt> dataset
+                        published by <a href="https://doi.org/10.1016/j.jterra.2020.12.002"><em>Vulpi et al.
+                                (2021)</em></a>.
                     </p>
                 </div>
                 <div class="has-text-centered">
                     <img src="static/images/train-sizes.png" width="75%" alt="Train Sizes" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="hero is-light" id="t-SNE">
+        <div class="hero-body">
+            <div class="container">
+                <h2 class="title">
+                    Models performance
+                </h2>
+                <div class="content has-text-centered">
+                    <div style="max-width: fit-content; margin-left: auto; margin-right: auto;" class="tabres-wrap">
+                        <!-- Vulpi -->
+                        <h3>
+                            Results on the <tt>Vulpi</tt> dataset
+                        </h3>
+                        <table class="tabres">
+                            <thead>
+                                <tr>
+                                    <th>Terrain </th>
+                                    <th>Precision (%)</th>
+                                    <th>Recall (%)</th>
+                                    <th>F1 score (%)</th>
+                                    <th>Accuracy (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="tabres-model" colspan="5">CNN</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Concrete</td>
+                                    <td class="tabres-val">99.21</td>
+                                    <td class="tabres-val">95.27 </td>
+                                    <td class="tabres-val">97.20</td>
+                                    <td class="tabres-val" rowspan="4">94.12</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Dirt Road</td>
+                                    <td class="tabres-val">92.40</td>
+                                    <td class="tabres-val">92.05</td>
+                                    <td class="tabres-val">92.22</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Ploughed</td>
+                                    <td class="tabres-val">96.94</td>
+                                    <td class="tabres-val">98.96</td>
+                                    <td class="tabres-val">97.94</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Unploughed</td>
+                                    <td class="tabres-val">88.20</td>
+                                    <td class="tabres-val">90.48</td>
+                                    <td class="tabres-val">89.32</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-model" colspan="5">Mamba</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Concrete</td>
+                                    <td class="tabres-val">87.13</td>
+                                    <td class="tabres-val">83.33</td>
+                                    <td class="tabres-val">85.19</td>
+                                    <td class="tabres-val" rowspan="4">86.76</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Dirt Road</td>
+                                    <td class="tabres-val">91.34</td>
+                                    <td class="tabres-val">83.90</td>
+                                    <td class="tabres-val">87.46</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Ploughed</td>
+                                    <td class="tabres-val">93.93</td>
+                                    <td class="tabres-val">96.67</td>
+                                    <td class="tabres-val">95.28</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Unploughed</td>
+                                    <td class="tabres-val">76.08</td>
+                                    <td class="tabres-val">83.93</td>
+                                    <td class="tabres-val">79.81</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- BorealTC -->
+                        <h3>
+                            Results on the <tt>BorealTC</tt> dataset
+                        </h3>
+                        <table class="tabres">
+                            <thead>
+                                <tr>
+                                    <th class="tabres-val" rowspan="2">Terrain</th>
+                                    <th class="tabres-model" colspan="4">CNN</th>
+                                    <th class="tabres-model" colspan="4">Mamba</th>
+                                </tr>
+                                <tr>
+                                    <th class="tabres-val">Precision (%)</th>
+                                    <th class="tabres-val">Recall (%)</th>
+                                    <th class="tabres-val">F1 score (%)</th>
+                                    <th class="tabres-val">Accuracy (%)</th>
+                                    <th class="tabres-val">Precision (%)</th>
+                                    <th class="tabres-val">Recall (%)</th>
+                                    <th class="tabres-val">F1 score (%)</th>
+                                    <th class="tabres-val">Accuracy (%)</th>
+                                </tr>
+                            </thead>
+                            <tr>
+                                <!-- style="border-right: 0.5px solid black;" -->
+                                <td class="tabres-val">Asphalt</td>
+                                <td class="tabres-val">92.98</td>
+                                <td class="tabres-val">83.89</td>
+                                <td class="tabres-val">88.20</td>
+                                <td class="tabres-val" rowspan="5">93.96</td>
+                                <td class="tabres-val">91.90</td>
+                                <td class="tabres-val">85.50</td>
+                                <td class="tabres-val">88.59</td>
+                                <td class="tabres-val" rowspan="5">93.68</td>
+                            </tr>
+                            <tr>
+                                <td class="tabres-val">Flooring</td>
+                                <td class="tabres-val">97.29</td>
+                                <td class="tabres-val">98.70</td>
+                                <td class="tabres-val">97.99</td>
+                                <td class="tabres-val">95.46</td>
+                                <td class="tabres-val">98.17</td>
+                                <td class="tabres-val">96.79</td>
+                            </tr>
+                            <tr>
+                                <td class="tabres-val">Ice</td>
+                                <td class="tabres-val">97.25</td>
+                                <td class="tabres-val">98.11</td>
+                                <td class="tabres-val">97.68</td>
+                                <td class="tabres-val">97.12</td>
+                                <td class="tabres-val">97.36</td>
+                                <td class="tabres-val">97.24</td>
+                            </tr>
+                            <tr>
+                                <td class="tabres-val">Silty Loam</td>
+                                <td class="tabres-val">96.00</td>
+                                <td class="tabres-val">97.24</td>
+                                <td class="tabres-val">96.61</td>
+                                <td class="tabres-val">95.39</td>
+                                <td class="tabres-val">96.20</td>
+                                <td class="tabres-val">95.79</td>
+                            </tr>
+                            <tr>
+                                <td class="tabres-val">Snow</td>
+                                <td class="tabres-val">86.84</td>
+                                <td class="tabres-val">92.31</td>
+                                <td class="tabres-val">89.49</td>
+                                <td class="tabres-val">88.68</td>
+                                <td class="tabres-val">91.57</td>
+                                <td class="tabres-val">90.10</td>
+                            </tr>
+                        </table>
+
+                    </div>
                 </div>
             </div>
         </div>
@@ -362,8 +531,8 @@
             <div class="container">
                 <h2 class="title">Poster</h2>
 
-                <iframe src="static/pdfs/reparti-poster.pdf" width="100%" height="550">
-                </iframe>
+                <!-- <iframe src="static/pdfs/reparti-poster.pdf" width="100%" height="550">
+                </iframe> -->
             </div>
         </div>
     </section>
