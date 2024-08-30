@@ -3,40 +3,40 @@
 
 <head>
     <meta charset="utf-8" />
-    <!-- Meta tags for social media banners, these should be filled in appropriatly as they are your "business card" -->
+    <!-- Meta tags for social media banners, these should be filled in appropriately as they are your "business card" -->
     <!-- Replace the content tag with appropriate information -->
-    <meta name="description" content="DESCRIPTION META TAG" />
-    <meta property="og:title" content="SOCIAL MEDIA TITLE TAG" />
-    <meta property="og:description" content="SOCIAL MEDIA DESCRIPTION TAG TAG" />
-    <meta property="og:url" content="URL OF THE WEBSITE" />
-    <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X630-->
-    <meta property="og:image" content="static/image/your_banner_image.png" />
-    <meta property="og:image:width" content="1200" />
+    <meta name="description" content="Proprioceptive-Based Terrain Classification in Boreal Forests" />
+    <meta property="og:title" content="Proprioception Is All You Need: Terrain Classification for Boreal Forests" />
+    <meta property="og:description" content="terrain classification,robotics,boreal" />
+    <meta property="og:url" content="https://norlab-ulaval.github.io/BorealTC/" />
+    <!-- Path to banner image, should be in the path listed below. Optimal dimensions are 1200X630-->
+    <meta property="og:image" content="static/images/tsne.png" />
+    <meta property="og:image:width" content="826" />
     <meta property="og:image:height" content="630" />
 
-    <meta name="twitter:title" content="TWITTER BANNER TITLE META TAG" />
-    <meta name="twitter:description" content="TWITTER BANNER DESCRIPTION META TAG" />
+    <meta name="twitter:title" content="Proprioception Is All You Need: Terrain Classification for Boreal Forests" />
+    <meta name="twitter:description" content="Proprioceptive-Based Terrain Classification in Boreal Forests" />
     <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X600-->
-    <meta name="twitter:image" content="static/images/your_twitter_banner_image.png" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="static/images/tsne.png" />
+    <meta name="twitter:card" content="Proprioceptive-Based Terrain Classification in Boreal Forests" />
     <!-- Keywords for your paper to be indexed by-->
-    <meta name="keywords" content="KEYWORDS SHOULD BE PLACED HERE" />
+    <meta name="keywords" content="terrain classification,iros,robotics,boreal" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>
         Proprioception Is All You Need: Terrain Classification for Boreal Forests
     </title>
 
+
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-QNNTXCYKNS"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-        gtag("js", new Date());
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
 
-        gtag("config", "G-QNNTXCYKNS");
+        gtag('config', 'G-QNNTXCYKNS');
     </script>
+
 
     <link rel="icon" type="image/x-icon" href="static/images/favicon.ico" />
     <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet" />
@@ -281,7 +281,7 @@
     <!-- End youtube video -->
 
     <!-- Results -->
-    <section class="hero" id="t-SNE">
+    <section class="hero" id="overview">
         <div class="hero-body">
             <div class="container">
                 <h2 class="title">Our approach</h2>
@@ -302,7 +302,165 @@
         </div>
     </section>
 
-    <section class="hero is-light" id="t-SNE">
+    <section class="hero is-light" id="performance">
+        <div class="hero-body">
+            <div class="container">
+                <h2 class="title">
+                    Models performance
+                </h2>
+                <p>
+                    We ealuated both models on our dataset and on the <tt>Vulpi</tt> dataset
+                    published by <a href="https://doi.org/10.1016/j.jterra.2020.12.002"><em>Vulpi et al.
+                            (2021)</em></a>.
+                </p>
+                <br />
+                <div class="content has-text-centered">
+                    <div style="max-width: fit-content; margin-left: auto; margin-right: auto;" class="tabres-wrap">
+                        <!-- BorealTC -->
+                        <h3>
+                            Results on the <tt>BorealTC</tt> dataset
+                        </h3>
+                        <table class="tabres">
+                            <thead>
+                                <tr>
+                                    <th class="tabres-head" rowspan="2">Terrain</th>
+                                    <th class="tabres-model" colspan="4">CNN</th>
+                                    <th class="tabres-model" colspan="4">Mamba</th>
+                                </tr>
+                                <tr>
+                                    <th class="tabres-head">Precision (%)</th>
+                                    <th class="tabres-head">Recall (%)</th>
+                                    <th class="tabres-head">F1 score (%)</th>
+                                    <th class="tabres-head">Accuracy (%)</th>
+                                    <th class="tabres-head">Precision (%)</th>
+                                    <th class="tabres-head">Recall (%)</th>
+                                    <th class="tabres-head">F1 score (%)</th>
+                                    <th class="tabres-head">Accuracy (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <!-- style="border-right: 0.5px solid black;" -->
+                                    <td class="tabres-val">Asphalt</td>
+                                    <td class="tabres-val">92.98</td>
+                                    <td class="tabres-val">83.89</td>
+                                    <td class="tabres-val">88.20</td>
+                                    <td class="tabres-val" rowspan="5">93.96</td>
+                                    <td class="tabres-val">91.90</td>
+                                    <td class="tabres-val">85.50</td>
+                                    <td class="tabres-val">88.59</td>
+                                    <td class="tabres-val" rowspan="5">93.68</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Flooring</td>
+                                    <td class="tabres-val">97.29</td>
+                                    <td class="tabres-val">98.70</td>
+                                    <td class="tabres-val">97.99</td>
+                                    <td class="tabres-val">95.46</td>
+                                    <td class="tabres-val">98.17</td>
+                                    <td class="tabres-val">96.79</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Ice</td>
+                                    <td class="tabres-val">97.25</td>
+                                    <td class="tabres-val">98.11</td>
+                                    <td class="tabres-val">97.68</td>
+                                    <td class="tabres-val">97.12</td>
+                                    <td class="tabres-val">97.36</td>
+                                    <td class="tabres-val">97.24</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Silty Loam</td>
+                                    <td class="tabres-val">96.00</td>
+                                    <td class="tabres-val">97.24</td>
+                                    <td class="tabres-val">96.61</td>
+                                    <td class="tabres-val">95.39</td>
+                                    <td class="tabres-val">96.20</td>
+                                    <td class="tabres-val">95.79</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Snow</td>
+                                    <td class="tabres-val">86.84</td>
+                                    <td class="tabres-val">92.31</td>
+                                    <td class="tabres-val">89.49</td>
+                                    <td class="tabres-val">88.68</td>
+                                    <td class="tabres-val">91.57</td>
+                                    <td class="tabres-val">90.10</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- Vulpi -->
+                        <h3>
+                            Results on the <tt>Vulpi</tt> dataset
+                        </h3>
+                        <table class="tabres">
+                            <thead>
+                                <tr>
+                                    <th class="tabres-head" rowspan="2">Terrain</th>
+                                    <th class="tabres-model" colspan="4">CNN</th>
+                                    <th class="tabres-model" colspan="4">Mamba</th>
+                                </tr>
+                                <tr>
+                                    <th class="tabres-head">Precision (%)</th>
+                                    <th class="tabres-head">Recall (%)</th>
+                                    <th class="tabres-head">F1 score (%)</th>
+                                    <th class="tabres-head">Accuracy (%)</th>
+                                    <th class="tabres-head">Precision (%)</th>
+                                    <th class="tabres-head">Recall (%)</th>
+                                    <th class="tabres-head">F1 score (%)</th>
+                                    <th class="tabres-head">Accuracy (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <!-- style="border-right: 0.5px solid black;" -->
+                                    <td class="tabres-val">Asphalt</td>
+                                    <td class="tabres-val">92.98</td>
+                                    <td class="tabres-val">83.89</td>
+                                    <td class="tabres-val">88.20</td>
+                                    <td class="tabres-val" rowspan="4">94.12</td>
+                                    <td class="tabres-val">91.90</td>
+                                    <td class="tabres-val">85.50</td>
+                                    <td class="tabres-val">88.59</td>
+                                    <td class="tabres-val" rowspan="4">86.76</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Flooring</td>
+                                    <td class="tabres-val">97.29</td>
+                                    <td class="tabres-val">98.70</td>
+                                    <td class="tabres-val">97.99</td>
+                                    <td class="tabres-val">95.46</td>
+                                    <td class="tabres-val">98.17</td>
+                                    <td class="tabres-val">96.79</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Ice</td>
+                                    <td class="tabres-val">97.25</td>
+                                    <td class="tabres-val">98.11</td>
+                                    <td class="tabres-val">97.68</td>
+                                    <td class="tabres-val">97.12</td>
+                                    <td class="tabres-val">97.36</td>
+                                    <td class="tabres-val">97.24</td>
+                                </tr>
+                                <tr>
+                                    <td class="tabres-val">Silty Loam</td>
+                                    <td class="tabres-val">96.00</td>
+                                    <td class="tabres-val">97.24</td>
+                                    <td class="tabres-val">96.61</td>
+                                    <td class="tabres-val">95.39</td>
+                                    <td class="tabres-val">96.20</td>
+                                    <td class="tabres-val">95.79</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="hero" id="ablation">
         <div class="hero-body">
             <div class="container">
                 <h2 class="title">
@@ -311,9 +469,7 @@
                 <div class="content has-text-justified">
                     <p>
                         We performed an ablation study to examine the impact of train dataset size on test error. To
-                        have a larger dataset to work with, we combined our dataset with the <tt>Vulpi</tt> dataset
-                        published by <a href="https://doi.org/10.1016/j.jterra.2020.12.002"><em>Vulpi et al.
-                                (2021)</em></a>.
+                        have a larger dataset to work with, we combined our dataset with the <tt>Vulpi</tt> dataset.
                     </p>
                 </div>
                 <div class="has-text-centered">
@@ -322,167 +478,20 @@
             </div>
         </div>
     </section>
+    <!-- End results -->
 
-    <section class="hero is-light" id="t-SNE">
+    <!-- t-SNE figure -->
+    <section class="hero" id="t-SNE">
         <div class="hero-body">
             <div class="container">
-                <h2 class="title">
-                    Models performance
-                </h2>
-                <div class="content has-text-centered">
-                    <div style="max-width: fit-content; margin-left: auto; margin-right: auto;" class="tabres-wrap">
-                        <!-- Vulpi -->
-                        <h3>
-                            Results on the <tt>Vulpi</tt> dataset
-                        </h3>
-                        <table class="tabres">
-                            <thead>
-                                <tr>
-                                    <th>Terrain </th>
-                                    <th>Precision (%)</th>
-                                    <th>Recall (%)</th>
-                                    <th>F1 score (%)</th>
-                                    <th>Accuracy (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="tabres-model" colspan="5">CNN</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Concrete</td>
-                                    <td class="tabres-val">99.21</td>
-                                    <td class="tabres-val">95.27 </td>
-                                    <td class="tabres-val">97.20</td>
-                                    <td class="tabres-val" rowspan="4">94.12</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Dirt Road</td>
-                                    <td class="tabres-val">92.40</td>
-                                    <td class="tabres-val">92.05</td>
-                                    <td class="tabres-val">92.22</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Ploughed</td>
-                                    <td class="tabres-val">96.94</td>
-                                    <td class="tabres-val">98.96</td>
-                                    <td class="tabres-val">97.94</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Unploughed</td>
-                                    <td class="tabres-val">88.20</td>
-                                    <td class="tabres-val">90.48</td>
-                                    <td class="tabres-val">89.32</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-model" colspan="5">Mamba</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Concrete</td>
-                                    <td class="tabres-val">87.13</td>
-                                    <td class="tabres-val">83.33</td>
-                                    <td class="tabres-val">85.19</td>
-                                    <td class="tabres-val" rowspan="4">86.76</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Dirt Road</td>
-                                    <td class="tabres-val">91.34</td>
-                                    <td class="tabres-val">83.90</td>
-                                    <td class="tabres-val">87.46</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Ploughed</td>
-                                    <td class="tabres-val">93.93</td>
-                                    <td class="tabres-val">96.67</td>
-                                    <td class="tabres-val">95.28</td>
-                                </tr>
-                                <tr>
-                                    <td class="tabres-val">Unploughed</td>
-                                    <td class="tabres-val">76.08</td>
-                                    <td class="tabres-val">83.93</td>
-                                    <td class="tabres-val">79.81</td>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <!-- BorealTC -->
-                        <h3>
-                            Results on the <tt>BorealTC</tt> dataset
-                        </h3>
-                        <table class="tabres">
-                            <thead>
-                                <tr>
-                                    <th class="tabres-val" rowspan="2">Terrain</th>
-                                    <th class="tabres-model" colspan="4">CNN</th>
-                                    <th class="tabres-model" colspan="4">Mamba</th>
-                                </tr>
-                                <tr>
-                                    <th class="tabres-val">Precision (%)</th>
-                                    <th class="tabres-val">Recall (%)</th>
-                                    <th class="tabres-val">F1 score (%)</th>
-                                    <th class="tabres-val">Accuracy (%)</th>
-                                    <th class="tabres-val">Precision (%)</th>
-                                    <th class="tabres-val">Recall (%)</th>
-                                    <th class="tabres-val">F1 score (%)</th>
-                                    <th class="tabres-val">Accuracy (%)</th>
-                                </tr>
-                            </thead>
-                            <tr>
-                                <!-- style="border-right: 0.5px solid black;" -->
-                                <td class="tabres-val">Asphalt</td>
-                                <td class="tabres-val">92.98</td>
-                                <td class="tabres-val">83.89</td>
-                                <td class="tabres-val">88.20</td>
-                                <td class="tabres-val" rowspan="5">93.96</td>
-                                <td class="tabres-val">91.90</td>
-                                <td class="tabres-val">85.50</td>
-                                <td class="tabres-val">88.59</td>
-                                <td class="tabres-val" rowspan="5">93.68</td>
-                            </tr>
-                            <tr>
-                                <td class="tabres-val">Flooring</td>
-                                <td class="tabres-val">97.29</td>
-                                <td class="tabres-val">98.70</td>
-                                <td class="tabres-val">97.99</td>
-                                <td class="tabres-val">95.46</td>
-                                <td class="tabres-val">98.17</td>
-                                <td class="tabres-val">96.79</td>
-                            </tr>
-                            <tr>
-                                <td class="tabres-val">Ice</td>
-                                <td class="tabres-val">97.25</td>
-                                <td class="tabres-val">98.11</td>
-                                <td class="tabres-val">97.68</td>
-                                <td class="tabres-val">97.12</td>
-                                <td class="tabres-val">97.36</td>
-                                <td class="tabres-val">97.24</td>
-                            </tr>
-                            <tr>
-                                <td class="tabres-val">Silty Loam</td>
-                                <td class="tabres-val">96.00</td>
-                                <td class="tabres-val">97.24</td>
-                                <td class="tabres-val">96.61</td>
-                                <td class="tabres-val">95.39</td>
-                                <td class="tabres-val">96.20</td>
-                                <td class="tabres-val">95.79</td>
-                            </tr>
-                            <tr>
-                                <td class="tabres-val">Snow</td>
-                                <td class="tabres-val">86.84</td>
-                                <td class="tabres-val">92.31</td>
-                                <td class="tabres-val">89.49</td>
-                                <td class="tabres-val">88.68</td>
-                                <td class="tabres-val">91.57</td>
-                                <td class="tabres-val">90.10</td>
-                            </tr>
-                        </table>
-
-                    </div>
-                </div>
+                <h2 class="title">t-SNE visualization of the combination of both datasets</h2>
+                <object data="static/embed/tsne-embed.html" width="100%" height="800">
+                    Your browser doesn't support the object tag.
+                </object>
             </div>
         </div>
     </section>
-    <!-- End results -->
+    <!-- End t-SNE figure -->
 
     <!-- Video carousel -->
     <!-- <section class="hero is-small">
@@ -511,28 +520,13 @@
     </section> -->
     <!-- End video carousel -->
 
-    <!-- t-SNE figure -->
-    <!-- TODO: to move -->
-    <section class="hero" id="t-SNE">
-        <div class="hero-body">
-            <div class="container">
-                <h2 class="title">t-SNE</h2>
-                <object data="static/embed/tsne-embed.html" width="100%" height="800">
-                    Your browser doesn't support the object tag.
-                </object>
-            </div>
-        </div>
-    </section>
-    <!-- End t-SNE figure -->
-
     <!-- Paper poster -->
     <section class="hero is-small is-light">
         <div class="hero-body">
             <div class="container">
                 <h2 class="title">Poster</h2>
-
-                <!-- <iframe src="static/pdfs/reparti-poster.pdf" width="100%" height="550">
-                </iframe> -->
+                <iframe src="static/pdfs/reparti-poster.pdf" width="100%" height="550">
+                </iframe>
             </div>
         </div>
     </section>

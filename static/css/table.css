@@ -1,0 +1,35 @@
+.tabres {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.tabres .tabres-model {
+    text-align: center;
+    vertical-align: middle;
+    font-weight: bold;
+}
+
+.tabres .tabres-val {
+    text-align: left;
+    vertical-align: middle
+}
+
+.tabres .tabres-head {
+    text-align: left;
+    vertical-align: bottom
+}
+
+@media screen and (max-width: 767px) {
+    .tabres {
+        width: auto !important;
+    }
+
+    .tabres col {
+        width: auto !important;
+    }
+
+    .tabres-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
