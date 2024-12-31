@@ -1,5 +1,7 @@
 # Proprioception Is All You Need: Terrain Classification for Boreal Forests
 
+[![DOI](https://zenodo.org/badge/DOI/10.1109/IROS58592.2024.10801407.svg)](https://doi.org/10.1109/IROS58592.2024.10801407)
+
 ![Husky](assets/husky-in-context.png "Husky in a Boreal Forest")
 
 > **Proprioception Is All You Need: Terrain Classification for Boreal Forests**\
@@ -124,14 +126,16 @@ This repo started as a fork of [Ph0bi0/T_DEEP](https://github.com/Ph0bi0/T_DEEP)
 If you use the code or data in an academic context, please cite the following work:
 
 ```bibtex
-@article{LaRocque2024BorealTC,
-    title={Proprioception Is All You Need: Terrain Classification for Boreal Forests},
-    author={Damien LaRocque and William Guimont-Martin and David-Alexandre Duclos and Philippe Giguère and François Pomerleau},
-    journal={arXiv preprint arXiv:2403.16877},
-    year={2024},
-    eprint={2403.16877},
-    archivePrefix={arXiv},
-    primaryClass={cs.RO}
+@inproceedings{LaRocque2024,
+  title     = {{Proprioception Is All You Need: Terrain Classification for Boreal Forests}},
+  url       = {http://dx.doi.org/10.1109/IROS58592.2024.10801407},
+  doi       = {10.1109/iros58592.2024.10801407},
+  booktitle = {2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  publisher = {IEEE},
+  author    = {LaRocque,  Damien and Guimont-Martin,  William and Duclos,  David-Alexandre and Giguère,  Philippe and Pomerleau,  Fran\c{c}ois},
+  year      = {2024},
+  month     = oct,
+  pages     = {11686–11693}
 }
 ```
 
