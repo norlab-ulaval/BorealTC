@@ -12,6 +12,28 @@ This repo contains the source code and the datasets used in our paper _Proprioce
 
 ## Source Code
 
+If you want to use the `BorealTC` dataset, you can use the simple PyTorch dataset provided in `borealtc.py`.
+The `BorealTC` class offers direct access to the data sequences and their labels.
+The `SlidingWindowDataset` class can be used to create a dataset with sliding windows of a fixed size, useful for training models.
+Here's a simple example of how to use the `BorealTC` and `SlidingWindowDataset` classes:
+
+```python
+from borealtc import BorealTC, SlidingWindowDataset
+
+# Load the full dataset
+dataset = BorealTC("data/borealtc")
+
+# Create sliding window dataset
+window_dataset = SlidingWindowDataset(dataset, window_size=170, step_size=50)
+
+# Iterate through the sliding window dataset
+for i in range(len(window_dataset)):
+    sample = window_dataset[i]
+    print(
+        f"Window {i}: {sample['window'].shape}, Class: {sample['class_name']}, Run ID: {sample['run_id']}"
+    )
+```
+
 Most functions are available in the [`utils`](utils/) directory :
 
 * [`utils/preprocessing.py`](utils/preprocessing.py) contains the functions for the preprocessing pipeline
