@@ -920,7 +920,7 @@ def mamba_network(
             focal_loss_gamma=focal_loss_gamma,
         )
 
-    exp_name = f'terrain_classification_mamba_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
+    exp_name = f"terrain_classification_mamba_mw_{description['mw']}_fold_{description['fold']}_dataset_{dataset}"
 
     logger = TensorBoardLogger("tb_logs", name=exp_name) if logging else False
     callbacks = [
@@ -1085,7 +1085,7 @@ def convolutional_neural_network(
         if overwrite_final_layer_dim is not None:
             model.fc = nn.Linear(model.fc.in_features, overwrite_final_layer_dim)
 
-    exp_name = f'terrain_classification_cnn_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
+    exp_name = f"terrain_classification_cnn_mw_{description['mw']}_fold_{description['fold']}_dataset_{dataset}"
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = Path("checkpoints")
@@ -1214,7 +1214,7 @@ def long_short_term_memory(
         focal_loss_gamma=focal_loss_gamma,
     )
 
-    exp_name = f'terrain_classification_{"c" if convolutional else ""}lstm_mw_{description["mw"]}_fold_{description["fold"]}_dataset_{dataset}'
+    exp_name = f"terrain_classification_{'c' if convolutional else ''}lstm_mw_{description['mw']}_fold_{description['fold']}_dataset_{dataset}"
     logger = TensorBoardLogger("tb_logs", name=exp_name)
 
     checkpoint_folder_path = Path("checkpoints")
@@ -1335,9 +1335,9 @@ def support_vector_machine(
 
         for i in range(n_stat_mom):
             idx = i * n_channels
-            assert (
-                stat_moms[:, :, i] == X[:, idx : idx + n_channels]
-            ).all(), "Unconsistent number of channels"
+            assert (stat_moms[:, :, i] == X[:, idx : idx + n_channels]).all(), (
+                "Unconsistent number of channels"
+            )
 
         return X, y
 

@@ -272,4 +272,4 @@ for mw in MOVING_WINDOWS:
         # Store terrain labels
         results["terrains"] = terrains
 
-        np.save(results_dir / f"results_split_{_k+1}_{MODEL}_mw_{mw}.npy", results)
+        np.save(results_dir / f"results_split_{_k + 1}_{MODEL}_mw_{mw}.npy", results)
