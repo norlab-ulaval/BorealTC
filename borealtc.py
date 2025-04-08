@@ -111,16 +111,24 @@ def fuse_measures(imu_df, pro_df, cols):
 class SlidingWindowDataset(Dataset):
     """Generates sliding windows from the BorealTC fused dataset."""
 
-    def __init__(self, dataset: BorealTC, window_size: int = 170, step_size: int = 50):
+    def __init__(
+        self,
+        dataset: BorealTC,
+        window_size: int = 170,
+        step_size: int = 50,
+        transform=None,
+    ):
         """
         Args:
             dataset: Sliding windows dataset from BorealTC
             window_size: Number of time steps in each window, default is 170 which corresponds to 1.7 seconds
             step_size: Step size between windows, default is 50 which corresponds to 0.5 seconds
+            transform: Optional transform to be applied on a sample.
         """
         self.dataset = dataset
         self.window_size = window_size
         self.step_size = step_size
+        self.transform = transform
         self.windows = self._generate_windows()
 
     def _generate_windows(self):
@@ -145,12 +153,16 @@ class SlidingWindowDataset(Dataset):
         sample = self.dataset[sample_idx]
         window_df = sample.fused_df.iloc[start:end]
         window_tensor = torch.tensor(window_df.values, dtype=torch.float32)
-
-        return {
+        sample = {
             "window": window_tensor,
             "class_name": sample.class_name,
             "run_id": sample.run_id,
         }
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
 
 
 if __name__ == "__main__":
