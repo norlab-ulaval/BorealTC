@@ -1,5 +1,4 @@
 import pathlib
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
@@ -41,7 +40,6 @@ class BorealTC(Dataset):
         """
         self.root = pathlib.Path(root)
         self.transform = transform
-        self.data_per_class = defaultdict(dict)
         self.columns = [
             "wx",
             "wy",
@@ -61,28 +59,29 @@ class BorealTC(Dataset):
         self.classes = classes if classes else [d.stem.lower() for d in class_paths]
         self.class_to_idx = {k: i for i, k in enumerate(self.classes)}
 
-        self.data_records = []
+        self.samples = []
         for class_path in class_paths:
             class_name = class_path.stem.lower()
-            if self.classes and class_name not in self.classes:
+            if class_name not in self.classes:
                 continue
             for imu_path in sorted(class_path.glob("imu_*.csv")):
                 run_id = imu_path.stem.split("_")[1]
                 pro_path = class_path / f"pro_{run_id}.csv"
-                record = BorealTCRecord(imu_path, pro_path, class_name, run_id)
-                self.data_records.append(record)
+
+                imu_df = pd.read_csv(imu_path).set_index("time")
+                pro_df = pd.read_csv(pro_path).set_index("time")
+                imu_df.index = pd.to_timedelta(imu_df.index, unit="s")
+                pro_df.index = pd.to_timedelta(pro_df.index, unit="s")
+
+                fused = fuse_measures(imu_df, pro_df, self.columns)
+                sample = BorealTCFusedSample(fused, class_name, run_id)
+                self.samples.append(sample)
 
     def __len__(self) -> int:
-        return len(self.data_records)
+        return len(self.samples)
 
     def __getitem__(self, idx) -> BorealTCFusedSample:
-        record = self.data_records[idx]
-        imu_df = pd.read_csv(record.imu_path).set_index("time")
-        pro_df = pd.read_csv(record.pro_path).set_index("time")
-        imu_df.index = pd.to_timedelta(imu_df.index, unit="s")
-        pro_df.index = pd.to_timedelta(pro_df.index, unit="s")
-        fused = fuse_measures(imu_df, pro_df, self.columns)
-        sample = BorealTCFusedSample(fused, record.class_name, record.run_id)
+        sample = self.samples[idx]
         if self.transform:
             sample = self.transform(sample)
         return sample
@@ -170,7 +169,7 @@ if __name__ == "__main__":
     dataset = BorealTC("data/borealtc")
 
     # Create sliding window dataset
-    window_dataset = SlidingWindowDataset(dataset, window_size=170, step_size=50)
+    window_dataset = SlidingWindowDataset(dataset, window_size=170, step_size=10)
 
     # Iterate through the sliding window dataset
     for i in range(len(window_dataset)):
